@@ -9,6 +9,7 @@ import Header from './layouts/Header';
 
 // Page imports
 import Dashboard from './pages/Dashboard';
+import ItemPage from './pages/item';
 
 /**
  * Login Component
@@ -154,8 +155,19 @@ const DashboardLayout = ({ onLogout, user }) => {
     );
   }
 
-  const [activeSection, setActiveSection] = useState('home');
+  const [activeSection, setActiveSection] = useState('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Render the appropriate page based on activeSection
+  const renderPage = () => {
+    switch (activeSection) {
+      case 'items':
+        return <ItemPage />;
+      case 'dashboard':
+      default:
+        return <Dashboard />;
+    }
+  };
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -170,7 +182,7 @@ const DashboardLayout = ({ onLogout, user }) => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-60 lg:ml-72">
         <Header onLogout={onLogout} onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} user={user} />
-        <Dashboard />
+        {renderPage()}
       </div>
     </div>
   );
