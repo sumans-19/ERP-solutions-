@@ -101,12 +101,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Overall Dimensions",
-      tolerance: "±2mm",
-      inspectionImage: "",
-      remarks: ""
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Overall Dimensions",
+        tolerance: "±2mm",
+        inspectionImage: "",
+        remarks: ""
+      }
+    ]
   },
   {
     type: "product",
@@ -182,12 +185,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Desktop flatness",
-      tolerance: "±1mm",
-      inspectionImage: "",
-      remarks: ""
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Desktop flatness",
+        tolerance: "±1mm",
+        inspectionImage: "",
+        remarks: ""
+      }
+    ]
   },
 
   {
@@ -272,12 +278,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Power consumption",
-      tolerance: "28-32W",
-      inspectionImage: "",
-      remarks: ""
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Power consumption",
+        tolerance: "28-32W",
+        inspectionImage: "",
+        remarks: ""
+      }
+    ]
   },
   {
     type: "product",
@@ -334,12 +343,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Wall thickness",
-      tolerance: "2-3mm",
-      inspectionImage: "",
-      remarks: ""
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Wall thickness",
+        tolerance: "2-3mm",
+        inspectionImage: "",
+        remarks: ""
+      }
+    ]
   },
   {
     type: "product",
@@ -416,12 +428,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Frame squareness",
-      tolerance: "±0.5°",
-      inspectionImage: "",
-      remarks: ""
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Frame squareness",
+        tolerance: "±0.5°",
+        inspectionImage: "",
+        remarks: ""
+      }
+    ]
   },
   {
     type: "product",
@@ -508,12 +523,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Overall finish",
-      tolerance: "No defects",
-      inspectionImage: "",
-      remarks: ""
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Overall finish",
+        tolerance: "No defects",
+        inspectionImage: "",
+        remarks: ""
+      }
+    ]
   },
   {
     type: "product",
@@ -598,12 +616,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Seal integrity",
-      tolerance: "100% leak-proof",
-      inspectionImage: "",
-      remarks: ""
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Seal integrity",
+        tolerance: "100% leak-proof",
+        inspectionImage: "",
+        remarks: ""
+      }
+    ]
   },
   {
     type: "product",
@@ -692,12 +713,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Overall stability",
-      tolerance: "No wobbling",
-      inspectionImage: "",
-      remarks: ""
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Overall stability",
+        tolerance: "No wobbling",
+        inspectionImage: "",
+        remarks: ""
+      }
+    ]
   },
   {
     type: "product",
@@ -782,12 +806,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Wire diameter",
-      tolerance: "2.5mm ±0.1mm",
-      inspectionImage: "",
-      remarks: ""
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Wire diameter",
+        tolerance: "2.5mm ±0.1mm",
+        inspectionImage: "",
+        remarks: ""
+      }
+    ]
   },
   {
     type: "product",
@@ -873,12 +900,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Table levelness",
-      tolerance: "±2mm across surface",
-      inspectionImage: "",
-      remarks: ""
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Table levelness",
+        tolerance: "±2mm across surface",
+        inspectionImage: "",
+        remarks: ""
+      }
+    ]
   },
   {
     type: "product",
@@ -973,12 +1003,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Flatness",
-      tolerance: "±0.5mm",
-      inspectionImage: "",
-      remarks: "Box contains 4 tiles"
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Flatness",
+        tolerance: "±0.5mm",
+        inspectionImage: "",
+        remarks: "Box contains 4 tiles"
+      }
+    ]
   },
   {
     type: "product",
@@ -1074,12 +1107,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Stitch quality",
-      tolerance: "No loose threads",
-      inspectionImage: "",
-      remarks: "Fits 15.6 inch laptop"
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Stitch quality",
+        tolerance: "No loose threads",
+        inspectionImage: "",
+        remarks: "Fits 15.6 inch laptop"
+      }
+    ]
   },
   {
     type: "product",
@@ -1173,12 +1209,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Lift height",
-      tolerance: "330-450mm",
-      inspectionImage: "",
-      remarks: "2-ton capacity"
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Lift height",
+        tolerance: "330-450mm",
+        inspectionImage: "",
+        remarks: "2-ton capacity"
+      }
+    ]
   },
   {
     type: "product",
@@ -1284,12 +1323,15 @@ const dummyItems = [
         status: "pending"
       }
     ],
-    finalInspection: {
-      parameter: "Voltage output",
-      tolerance: "18V ±0.5V",
-      inspectionImage: "",
-      remarks: "25-year warranty"
-    }
+    finalInspection: [
+      {
+        id: 1,
+        parameter: "Voltage output",
+        tolerance: "18V ±0.5V",
+        inspectionImage: "",
+        remarks: "25-year warranty"
+      }
+    ]
   }
 ];
 

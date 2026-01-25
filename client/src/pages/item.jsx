@@ -66,12 +66,15 @@ const defaultForm = () => ({
   ],
 
   // Final Inspection
-  finalInspection: {
-    parameter: "",
-    tolerance: "",
-    inspectionImage: "",
-    remarks: "",
-  },
+  finalInspection: [
+    {
+      id: 1,
+      parameter: "",
+      tolerance: "",
+      inspectionImage: "",
+      remarks: "",
+    },
+  ],
 });
 
 export default function ItemPage() {
@@ -2457,123 +2460,197 @@ export default function ItemPage() {
                 {activeTab === "finalInspection" && (
                   <div>
                     <div className="mb-6">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-4">
-                        Final Inspection Details
-                      </h3>
-
-                      {/* Parameter and Tolerance */}
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1.5">
-                            Parameter
-                          </label>
-                          <input
-                            value={form.finalInspection?.parameter || ""}
-                            onChange={(e) =>
-                              updateField("finalInspection", {
-                                ...form.finalInspection,
-                                parameter: e.target.value,
-                              })
-                            }
-                            placeholder="Enter parameter"
-                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1.5">
-                            Tolerance
-                          </label>
-                          <input
-                            value={form.finalInspection?.tolerance || ""}
-                            onChange={(e) =>
-                              updateField("finalInspection", {
-                                ...form.finalInspection,
-                                tolerance: e.target.value,
-                              })
-                            }
-                            placeholder="Enter tolerance"
-                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Inspection Image Upload */}
-                      <div className="mb-4">
-                        <label className="block text-sm text-gray-600 mb-1.5">
-                          Inspection Image
-                        </label>
-                        <div className="flex items-start gap-4">
-                          <div className="flex-1">
-                            <label className="inline-block cursor-pointer">
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    const reader = new FileReader();
-                                    reader.onload = () => {
-                                      updateField("finalInspection", {
-                                        ...form.finalInspection,
-                                        inspectionImage: reader.result,
-                                      });
-                                    };
-                                    reader.readAsDataURL(file);
-                                  }
-                                }}
-                                className="hidden"
-                              />
-                              <span className="inline-block bg-gray-600 hover:bg-gray-700 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors">
-                                Choose File
-                              </span>
-                            </label>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Upload an image of the inspected item (JPG, PNG, etc.)
-                            </p>
-                          </div>
-                          {form.finalInspection?.inspectionImage && (
-                            <div className="relative">
-                              <img
-                                src={form.finalInspection.inspectionImage}
-                                alt="Inspection"
-                                className="w-32 h-32 object-cover rounded border border-gray-300"
-                              />
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  updateField("finalInspection", {
-                                    ...form.finalInspection,
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-gray-700">
+                          Final Inspection Details
+                        </h3>
+                        {canEdit() && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newId = form.finalInspection.length > 0
+                                ? Math.max(...form.finalInspection.map(i => i.id)) + 1
+                                : 1;
+                              setForm({
+                                ...form,
+                                finalInspection: [
+                                  ...form.finalInspection,
+                                  {
+                                    id: newId,
+                                    parameter: "",
+                                    tolerance: "",
                                     inspectionImage: "",
-                                  })
-                                }
-                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                                    remarks: "",
+                                  },
+                                ],
+                              });
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1"
+                          >
+                            <span>+</span>
+                            <span>Add Inspection</span>
+                          </button>
+                        )}
                       </div>
 
-                      {/* Remarks */}
-                      <div className="mb-4">
-                        <label className="block text-sm text-gray-600 mb-1.5">
-                          Remarks
-                        </label>
-                        <textarea
-                          value={form.finalInspection?.remarks || ""}
-                          onChange={(e) =>
-                            updateField("finalInspection", {
-                              ...form.finalInspection,
-                              remarks: e.target.value,
-                            })
-                          }
-                          placeholder="Enter any remarks or notes"
-                          rows="3"
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
+                      {form.finalInspection && form.finalInspection.length > 0 ? (
+                        form.finalInspection.map((inspection, index) => (
+                          <div
+                            key={inspection.id}
+                            className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50"
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-medium text-gray-700">
+                                Inspection #{inspection.id}
+                              </h4>
+                              {canEdit() && form.finalInspection.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setForm({
+                                      ...form,
+                                      finalInspection: form.finalInspection.filter(
+                                        (_, i) => i !== index
+                                      ),
+                                    });
+                                  }}
+                                  className="text-red-600 hover:text-red-700 text-xs font-medium transition-colors"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Parameter and Tolerance */}
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                              <div>
+                                <label className="block text-sm text-gray-600 mb-1.5">
+                                  Parameter
+                                </label>
+                                <input
+                                  value={inspection.parameter || ""}
+                                  onChange={(e) => {
+                                    const updated = [...form.finalInspection];
+                                    updated[index] = {
+                                      ...updated[index],
+                                      parameter: e.target.value,
+                                    };
+                                    updateField("finalInspection", updated);
+                                  }}
+                                  placeholder="Enter parameter"
+                                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm text-gray-600 mb-1.5">
+                                  Tolerance
+                                </label>
+                                <input
+                                  value={inspection.tolerance || ""}
+                                  onChange={(e) => {
+                                    const updated = [...form.finalInspection];
+                                    updated[index] = {
+                                      ...updated[index],
+                                      tolerance: e.target.value,
+                                    };
+                                    updateField("finalInspection", updated);
+                                  }}
+                                  placeholder="Enter tolerance"
+                                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Inspection Image Upload */}
+                            <div className="mb-4">
+                              <label className="block text-sm text-gray-600 mb-1.5">
+                                Inspection Image
+                              </label>
+                              <div className="flex items-start gap-4">
+                                <div className="flex-1">
+                                  <label className="inline-block cursor-pointer">
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          const reader = new FileReader();
+                                          reader.onload = () => {
+                                            const updated = [...form.finalInspection];
+                                            updated[index] = {
+                                              ...updated[index],
+                                              inspectionImage: reader.result,
+                                            };
+                                            updateField("finalInspection", updated);
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }
+                                      }}
+                                      className="hidden"
+                                    />
+                                    <span className="inline-block bg-gray-600 hover:bg-gray-700 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors">
+                                      Choose File
+                                    </span>
+                                  </label>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Upload an image of the inspected item (JPG, PNG, etc.)
+                                  </p>
+                                </div>
+                                {inspection.inspectionImage && (
+                                  <div className="relative">
+                                    <img
+                                      src={inspection.inspectionImage}
+                                      alt="Inspection"
+                                      className="w-32 h-32 object-cover rounded border border-gray-300"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = [...form.finalInspection];
+                                        updated[index] = {
+                                          ...updated[index],
+                                          inspectionImage: "",
+                                        };
+                                        updateField("finalInspection", updated);
+                                      }}
+                                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Remarks */}
+                            <div className="mb-0">
+                              <label className="block text-sm text-gray-600 mb-1.5">
+                                Remarks
+                              </label>
+                              <textarea
+                                value={inspection.remarks || ""}
+                                onChange={(e) => {
+                                  const updated = [...form.finalInspection];
+                                  updated[index] = {
+                                    ...updated[index],
+                                    remarks: e.target.value,
+                                  };
+                                  updateField("finalInspection", updated);
+                                }}
+                                placeholder="Enter any remarks or notes"
+                                rows="3"
+                                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-gray-500 text-sm">
+                          No inspections added yet. Click "+ Add Inspection" to add one.
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

@@ -65,6 +65,10 @@ const inspectionCheckSchema = new mongoose.Schema({
 }, { _id: false });
 
 const finalInspectionSchema = new mongoose.Schema({
+  id: {
+    type: Number,
+    required: true
+  },
   parameter: {
     type: String,
     trim: true,
@@ -232,7 +236,7 @@ const itemSchema = new mongoose.Schema({
   inspectionChecks: [inspectionCheckSchema],
 
   // Final Inspection Section
-  finalInspection: finalInspectionSchema
+  finalInspection: [finalInspectionSchema]
 }, {
   timestamps: true
 });
