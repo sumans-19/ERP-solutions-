@@ -9,6 +9,8 @@ import Header from './layouts/Header';
 
 // Page imports
 import Dashboard from './pages/Dashboard';
+import Employees from './pages/UserManagement/Employees';
+import Parties from './pages/Accounts/Parties';
 
 /**
  * Login Component
@@ -164,13 +166,33 @@ const DashboardLayout = ({ onLogout, user }) => {
         activeSection={activeSection}
         setActiveSection={setActiveSection}
         isMobileOpen={isMobileMenuOpen}
-        setIsMobileOpen={setIsMobileMenuOpen}
-        user={user}        onLogout={onLogout}      />
+        setIsMobileMenuOpen={setIsMobileMenuOpen}
+        user={user} onLogout={onLogout} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-48 lg:ml-56">
         <Header onLogout={onLogout} onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} user={user} />
-        <Dashboard />
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 bg-slate-50">
+          {activeSection === 'home' ||
+            activeSection === 'dashboard' ||
+            activeSection === 'items' ||
+            activeSection === 'process' ||
+            activeSection === 'inventory' ||
+            activeSection === 'reports' ||
+            activeSection === 'admin-view' ||
+            activeSection === 'employee-view' ||
+            activeSection === 'planning-view' ? (
+            <Dashboard />
+          ) : activeSection === 'employees' ? (
+            <Employees />
+          ) : activeSection === 'parties' ? (
+            <Parties />
+          ) : (
+            <div className="flex items-center justify-center h-full text-slate-400">
+              Section "{activeSection}" is under construction
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );

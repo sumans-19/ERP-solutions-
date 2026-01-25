@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const employeeRoutes = require('./routes/employeeRoutes');
 
 dotenv.config();
 
@@ -24,7 +25,7 @@ const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true }, // In real app, hash this!
     companyName: String,
-    role: { type: String, enum: ['admin','planning','development','employee'], default: 'employee' }
+    role: { type: String, enum: ['admin', 'planning', 'development', 'employee'], default: 'employee' }
 });
 const User = mongoose.model('User', userSchema);
 
@@ -66,9 +67,9 @@ app.post('/api/login', async (req, res) => {
     // STRICT: Only development team can login and access dashboard
     if (user.role !== 'development') {
         console.log(`❌ Access denied for non-dev user: ${email} (role: ${user.role})`);
-        return res.status(403).json({ 
-            success: false, 
-            message: "Access denied. Only development team members can access this system." 
+        return res.status(403).json({
+            success: false,
+            message: "Access denied. Only development team members can access this system."
         });
     }
     console.log(`✅ Login success: ${email}`);
@@ -97,6 +98,13 @@ app.get('/api/users', async (req, res) => {
     const users = await User.find({}, '-password');
     res.json(users);
 });
+
+// Use Employee Routes
+app.use('/api/employees', employeeRoutes);
+const orderRoutes = require('./routes/orderRoutes');
+app.use('/api/orders', orderRoutes);
+const partyRoutes = require('./routes/partyRoutes');
+app.use('/api/parties', partyRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

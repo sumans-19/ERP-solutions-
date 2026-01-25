@@ -3,6 +3,7 @@ import { Home, Package, Activity, Archive, Users, BarChart3, LogOut, X, ChevronD
 
 const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMenuOpen, user = {}, onLogout }) => {
   const [isViewsExpanded, setIsViewsExpanded] = useState(false);
+  const [isUsersExpanded, setIsUsersExpanded] = useState(false);
   const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
 
   const navigationItems = [
@@ -10,7 +11,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
     { id: 'items', label: 'Item Manage', icon: Package },
     { id: 'process', label: 'Process Manag', icon: Activity },
     { id: 'inventory', label: 'Inventory Manage', icon: Archive },
-    { id: 'users', label: 'User Manage', icon: Users },
+    { id: 'employees', label: 'User Manage', icon: Users },
     { id: 'reports', label: 'Report Manage', icon: BarChart3 },
   ];
 
@@ -38,7 +39,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
           <span className="font-bold text-sm sm:text-base hidden md:inline truncate">Elints OMS</span>
         </div>
         <button
-          onClick={() => setIsMobileOpen(false)}
+          onClick={() => setIsMobileMenuOpen(false)}
           className="md:hidden text-slate-400 hover:text-white flex-shrink-0"
         >
           <X size={18} />
@@ -65,13 +66,12 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
                 <button
                   onClick={() => {
                     setActiveSection(item.id);
-                    setIsMobileOpen(false);
+                    setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 rounded-lg text-xs sm:text-sm font-medium transition ${
-                    isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
+                  className={`w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 rounded-lg text-xs sm:text-sm font-medium transition ${isActive
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
                 >
                   <IconComponent size={16} className="flex-shrink-0" />
                   <span className="hidden md:inline truncate">{item.label}</span>
@@ -81,6 +81,10 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
             );
           })}
 
+
+
+
+
           {/* Views Section */}
           <li className="mt-4 md:mt-6">
             <button
@@ -89,8 +93,8 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
             >
               <Eye size={16} className="flex-shrink-0" />
               <span className="hidden md:inline truncate">Views</span>
-              <ChevronDown 
-                size={14} 
+              <ChevronDown
+                size={14}
                 className={`ml-auto hidden md:block flex-shrink-0 transition-transform ${isViewsExpanded ? 'rotate-180' : ''}`}
               />
             </button>
@@ -106,13 +110,12 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
                       <button
                         onClick={() => {
                           setActiveSection(item.id);
-                          setIsMobileOpen(false);
+                          setIsMobileMenuOpen(false);
                         }}
-                        className={`w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-lg text-xs sm:text-sm transition ${
-                          isActive
-                            ? 'bg-blue-600 text-white'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
+                        className={`w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-lg text-xs sm:text-sm transition ${isActive
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                          }`}
                       >
                         <IconComponent size={14} className="flex-shrink-0" />
                         <span className="hidden md:inline truncate text-xs">{item.label}</span>
@@ -133,8 +136,8 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
             >
               <Settings size={16} className="flex-shrink-0" />
               <span className="hidden md:inline truncate">Settings</span>
-              <ChevronDown 
-                size={14} 
+              <ChevronDown
+                size={14}
                 className={`ml-auto hidden md:block flex-shrink-0 transition-transform ${isSettingsExpanded ? 'rotate-180' : ''}`}
               />
             </button>
@@ -150,13 +153,12 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
                       <button
                         onClick={() => {
                           setActiveSection(item.id);
-                          setIsMobileOpen(false);
+                          setIsMobileMenuOpen(false);
                         }}
-                        className={`w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-lg text-xs sm:text-sm transition ${
-                          isActive
-                            ? 'bg-blue-600 text-white'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
+                        className={`w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-lg text-xs sm:text-sm transition ${isActive
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                          }`}
                       >
                         <IconComponent size={14} className="flex-shrink-0" />
                         <span className="hidden md:inline truncate text-xs">{item.label}</span>
@@ -182,7 +184,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
             <p className="text-xs text-slate-400 truncate">{user?.email || 'user@email.com'}</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={onLogout}
           className="w-full flex items-center justify-center md:justify-start gap-1.5 sm:gap-2 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-300 hover:text-white hover:bg-slate-800 rounded transition">
           <LogOut size={14} className="flex-shrink-0" />
@@ -204,7 +206,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
         <>
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
-            onClick={() => setIsMobileOpen(false)}
+            onClick={() => setIsMobileMenuOpen(false)}
           />
           <div className="fixed left-0 top-0 w-56 h-screen bg-slate-900 text-white z-40 flex flex-col md:hidden">
             {sidebarContent}
