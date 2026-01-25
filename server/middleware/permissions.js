@@ -1,10 +1,26 @@
 // Permission checking middleware
 
 const permissions = {
-  admin: ['viewItems', 'createItems', 'editItems', 'deleteItems', 'viewReports', 'manageUsers'],
-  development: ['viewItems', 'createItems', 'editItems', 'deleteItems', 'viewReports'],
-  planning: ['viewItems', 'createItems', 'editItems', 'viewReports'],
-  employee: ['viewItems', 'viewReports']
+  admin: [
+    'viewItems', 'createItems', 'editItems', 'deleteItems',
+    'viewOrders', 'createOrders', 'editOrders', 'deleteOrders',
+    'viewReports', 'manageUsers'
+  ],
+  development: [
+    'viewItems', 'createItems', 'editItems', 'deleteItems',
+    'viewOrders', 'createOrders', 'editOrders', 'deleteOrders',
+    'viewReports'
+  ],
+  planning: [
+    'viewItems', 'createItems', 'editItems',
+    'viewOrders', 'createOrders',
+    'viewReports'
+  ],
+  employee: [
+    'viewItems',
+    'viewOrders',
+    'viewReports'
+  ]
 };
 
 const checkPermission = (requiredPermission) => {

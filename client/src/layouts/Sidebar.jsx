@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, Package, Activity, Archive, Users, BarChart3, LogOut, X, ChevronDown, Eye, Settings } from 'lucide-react';
+import { Home, Package, Activity, Archive, Users, BarChart3, LogOut, X, ChevronDown, Eye, Settings, ShoppingCart } from 'lucide-react';
 
 const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMenuOpen, user = {}, onLogout }) => {
   const [isViewsExpanded, setIsViewsExpanded] = useState(false);
@@ -8,6 +8,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'items', label: 'Item Manage', icon: Package },
+    { id: 'orders', label: 'Order Manage', icon: ShoppingCart },
     { id: 'process', label: 'Process Manag', icon: Activity },
     { id: 'inventory', label: 'Inventory Manage', icon: Archive },
     { id: 'users', label: 'User Manage', icon: Users },

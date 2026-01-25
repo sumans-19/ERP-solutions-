@@ -90,3 +90,64 @@ export const getItemTransactions = async (id) => {
     throw error;
   }
 };
+
+// Order API functions
+export const getAllOrders = async () => {
+  try {
+    const response = await axios.get('/api/orders');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    throw error;
+  }
+};
+
+export const getOrderById = async (id) => {
+  try {
+    const response = await axios.get(`/api/orders/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    throw error;
+  }
+};
+
+export const createOrder = async (orderData) => {
+  try {
+    const response = await axios.post('/api/orders', orderData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating order:', error);
+    throw error;
+  }
+};
+
+export const updateOrder = async (id, orderData) => {
+  try {
+    const response = await axios.put(`/api/orders/${id}`, orderData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating order:', error);
+    throw error;
+  }
+};
+
+export const deleteOrder = async (id) => {
+  try {
+    const response = await axios.delete(`/api/orders/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    throw error;
+  }
+};
+
+export const updateOrderStatus = async (id, status) => {
+  try {
+    const response = await axios.patch(`/api/orders/${id}/status`, { status });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    throw error;
+  }
+};
