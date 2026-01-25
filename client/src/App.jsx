@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 
@@ -10,6 +10,7 @@ import Header from './layouts/Header';
 // Page imports
 import Dashboard from './pages/Dashboard';
 import ItemPage from './pages/item';
+// import ProcessManagement from './pages/ProcessManagement';
 
 /**
  * Login Component
@@ -157,6 +158,16 @@ const DashboardLayout = ({ onLogout, user }) => {
 
   const [activeSection, setActiveSection] = useState('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
+
+  // Sync active section with query params
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const section = params.get('section');
+    if (section) {
+      setActiveSection(section);
+    }
+  }, [location.search]);
 
   // Render the appropriate page based on activeSection
   const renderPage = () => {
@@ -222,7 +233,18 @@ function App() {
             )
           }
         />
-        <Route path="*" element={<Navigate to="/login" />} />
+        {/* Support /items routes and redirect to dashboard with query params */}
+        <Route
+          path="/items"
+          element={
+            isAuthenticated ? (
+              <Navigate to={`/dashboard?section=items${window.location.search}`} replace />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
       </Routes>
     </Router>
   );

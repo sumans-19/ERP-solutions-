@@ -246,7 +246,7 @@ export default function ItemPage() {
       } else {
         // For other roles, fetch all items
         const response = await getAllItems();
-        setItems(response.data || []);
+        setItems(Array.isArray(response) ? response : response.data || []);
       }
     } catch (err) {
       console.error("Failed to load items:", err);
@@ -265,7 +265,9 @@ export default function ItemPage() {
       setLoading(true);
       getItemById(id)
         .then((res) => {
-          const data = res.data || {};
+          // res is already the data, not wrapped in { data: ... }
+          const data = res && typeof res === 'object' ? res : {};
+          console.log("Item data loaded:", data);
           // Map backend shape to our form where possible
           setForm((f) => ({
             ...f,
@@ -709,7 +711,7 @@ export default function ItemPage() {
           setShowForm(false);
           setForm(defaultForm());
           setItemNameSearch("");
-          navigate('/items');
+          navigate('/dashboard?section=items');
         }, 1500);
       }
     } catch (err) {
@@ -729,7 +731,7 @@ export default function ItemPage() {
   };
 
   const handleEditItem = (item) => {
-    navigate(`/items?id=${item._id}`);
+    navigate(`/dashboard?section=items&id=${item._id}`);
   };
 
   const handleDeleteItem = async (itemId) => {
@@ -753,7 +755,7 @@ export default function ItemPage() {
     setShowForm(false);
     setForm(defaultForm());
     setItemNameSearch("");
-    navigate('/items');
+    navigate('/dashboard?section=items');
   };
 
   const handleViewProgress = (item) => {
