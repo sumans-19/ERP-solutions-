@@ -35,7 +35,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
           <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0">
             E
           </div>
-          <span className="font-bold text-sm sm:text-base hidden md:inline truncate">Elints OMS</span>
+          <span className="font-bold text-xs sm:text-sm hidden md:inline truncate tracking-wide uppercase">Elints OMS</span>
         </div>
         <button
           onClick={() => setIsMobileOpen(false)}
@@ -46,11 +46,11 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
       </div>
 
       {/* Search */}
-      <div className="p-3 sm:p-4 border-b border-slate-800">
+      <div className="p-2 sm:p-3 border-b border-slate-800">
         <input
           type="text"
           placeholder="Search..."
-          className="w-full bg-slate-800 text-white text-xs sm:text-sm px-2.5 sm:px-3 py-1.5 sm:py-2 rounded border border-slate-700 focus:outline-none focus:border-blue-500 placeholder-slate-500"
+          className="w-full bg-slate-800 text-white text-xs px-2 py-1.5 rounded border border-slate-700 focus:outline-none focus:border-blue-500 placeholder-slate-500"
         />
       </div>
 
@@ -67,7 +67,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
                     setActiveSection(item.id);
                     setIsMobileOpen(false);
                   }}
-                  className={`w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 rounded-lg text-xs sm:text-sm font-medium transition ${
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition tracking-wide ${
                     isActive
                       ? 'bg-blue-600 text-white'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -85,7 +85,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
           <li className="mt-4 md:mt-6">
             <button
               onClick={() => setIsViewsExpanded(!isViewsExpanded)}
-              className="w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 rounded-lg text-xs sm:text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition"
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition"
             >
               <Eye size={16} className="flex-shrink-0" />
               <span className="hidden md:inline truncate">Views</span>
@@ -97,7 +97,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
 
             {/* Views Submenu */}
             {isViewsExpanded && (
-              <ul className="mt-1 ml-2 space-y-0.5 sm:space-y-1 border-l border-slate-700 pl-2 md:pl-3">
+              <ul className="mt-1 ml-2 space-y-0.5 border-l border-slate-700 pl-2">
                 {viewItems.map((item) => {
                   const IconComponent = item.icon;
                   const isActive = activeSection === item.id;
@@ -108,7 +108,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
                           setActiveSection(item.id);
                           setIsMobileOpen(false);
                         }}
-                        className={`w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-lg text-xs sm:text-sm transition ${
+                        className={`w-full flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs transition ${
                           isActive
                             ? 'bg-blue-600 text-white'
                             : 'text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -129,7 +129,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
           <li className="mt-4 md:mt-6">
             <button
               onClick={() => setIsSettingsExpanded(!isSettingsExpanded)}
-              className="w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 rounded-lg text-xs sm:text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition"
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition"
             >
               <Settings size={16} className="flex-shrink-0" />
               <span className="hidden md:inline truncate">Settings</span>
@@ -141,7 +141,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
 
             {/* Settings Submenu */}
             {isSettingsExpanded && (
-              <ul className="mt-1 ml-2 space-y-0.5 sm:space-y-1 border-l border-slate-700 pl-2 md:pl-3">
+              <ul className="mt-1 ml-2 space-y-0.5 border-l border-slate-700 pl-2">
                 {settingsItems.map((item) => {
                   const IconComponent = item.icon;
                   const isActive = activeSection === item.id;
@@ -152,7 +152,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
                           setActiveSection(item.id);
                           setIsMobileOpen(false);
                         }}
-                        className={`w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-lg text-xs sm:text-sm transition ${
+                        className={`w-full flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs transition ${
                           isActive
                             ? 'bg-blue-600 text-white'
                             : 'text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -173,18 +173,18 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
 
       {/* User Section */}
       <div className="p-2.5 sm:p-3 md:p-4 border-t border-slate-800">
-        <div className="flex items-center gap-2 sm:gap-3 p-2 md:p-3 rounded-lg bg-slate-800 mb-2 sm:mb-3">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-500 rounded text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
+        <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-800 mb-2">
+          <div className="w-7 h-7 bg-blue-500 rounded text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
             {(user?.role?.[0] || user?.email?.[0] || 'U').toUpperCase()}
           </div>
           <div className="flex-1 min-w-0 hidden md:block">
-            <p className="text-xs sm:text-sm font-medium truncate">{user?.role || 'User'}</p>
+            <p className="text-xs font-medium truncate">{user?.role || 'User'}</p>
             <p className="text-xs text-slate-400 truncate">{user?.email || 'user@email.com'}</p>
           </div>
         </div>
         <button 
           onClick={onLogout}
-          className="w-full flex items-center justify-center md:justify-start gap-1.5 sm:gap-2 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-300 hover:text-white hover:bg-slate-800 rounded transition">
+          className="w-full flex items-center justify-center md:justify-start gap-1.5 px-2.5 py-1.5 text-xs text-slate-300 hover:text-white hover:bg-slate-800 rounded transition">
           <LogOut size={14} className="flex-shrink-0" />
           <span className="hidden md:inline">Sign Out</span>
         </button>
@@ -195,7 +195,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex w-48 lg:w-56 bg-slate-900 text-white h-screen fixed left-0 top-0 flex-col">
+      <div className="hidden md:flex w-60 lg:w-72 bg-slate-900 text-white h-screen fixed left-0 top-0 flex-col shadow-xl border-r border-slate-800">
         {sidebarContent}
       </div>
 
@@ -206,7 +206,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileMen
             className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
             onClick={() => setIsMobileOpen(false)}
           />
-          <div className="fixed left-0 top-0 w-56 h-screen bg-slate-900 text-white z-40 flex flex-col md:hidden">
+          <div className="fixed left-0 top-0 w-60 h-screen bg-slate-900 text-white z-40 flex flex-col md:hidden shadow-xl border-r border-slate-800">
             {sidebarContent}
           </div>
         </>

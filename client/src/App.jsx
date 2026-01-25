@@ -168,7 +168,7 @@ const DashboardLayout = ({ onLogout, user }) => {
         user={user}        onLogout={onLogout}      />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-48 lg:ml-56">
+      <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-60 lg:ml-72">
         <Header onLogout={onLogout} onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} user={user} />
         <Dashboard />
       </div>

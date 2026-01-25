@@ -38,7 +38,7 @@ const QuickActions = () => {
       </div>
 
       {/* Action Buttons */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         {actions.map((action) => {
           const IconComponent = action.icon;
           return (

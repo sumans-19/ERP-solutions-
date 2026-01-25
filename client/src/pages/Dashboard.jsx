@@ -17,10 +17,10 @@ const Dashboard = () => {
   };
 
   return (
-    <main className="flex-1 overflow-y-auto pt-3 sm:pt-4 pb-6 sm:pb-8 px-3 sm:px-4 lg:px-6 bg-slate-50">
+    <main className="flex-1 overflow-y-auto p-6 bg-slate-50">
       {/* Statistics Grid - Responsive with max-width */}
       <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-5 mb-4 sm:mb-6 lg:mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <StatCard
             title="IN QUEUE (NEW)"
             count={orderStats.queuedOrders}
@@ -38,14 +38,14 @@ const Dashboard = () => {
         </div>
 
         {/* Main Content Grid - Responsive */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 auto-rows-max">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 auto-rows-max">
           {/* Left Column - Full Width on Mobile */}
           <div className="lg:col-span-2">
             <OrderTrendsChart />
           </div>
 
           {/* Right Column - QuickActions only */}
-          <div className="space-y-3 sm:space-y-4 lg:space-y-5">
+          <div className="space-y-6">
             <QuickActions />
           </div>
 
