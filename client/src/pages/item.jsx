@@ -66,27 +66,15 @@ const defaultForm = () => ({
   ],
 
   // Final Inspection
-  finalInspection: {
-    inspectionDate: "",
-    inspectorName: "",
-    overallStatus: "pending",
-    qualityGrade: "",
-    defectCount: "",
-    defectTypes: "",
-    dimensionalAccuracy: "",
-    surfaceFinish: "",
-    functionalTest: "not_tested",
-    functionalTestNotes: "",
-    packagingCondition: "good",
-    labelingComplete: false,
-    certificationsRequired: "",
-    certificationsObtained: "",
-    finalRemarks: "",
-    approvedBy: "",
-    approvalDate: "",
-    rejectionReason: "",
-    inspectionImage: "",
-  },
+  finalInspection: [
+    {
+      id: 1,
+      parameter: "",
+      tolerance: "",
+      inspectionImage: "",
+      remarks: "",
+    },
+  ],
 });
 
 export default function ItemPage() {
@@ -2474,439 +2462,197 @@ export default function ItemPage() {
                 {activeTab === "finalInspection" && (
                   <div>
                     <div className="mb-6">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-4">
-                        Final Inspection Details
-                      </h3>
-
-                      {/* Inspection Info */}
-                      <div className="grid grid-cols-3 gap-4 mb-4">
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1.5">
-                            Inspection Date
-                          </label>
-                          <input
-                            type="date"
-                            value={form.finalInspection?.inspectionDate || ""}
-                            onChange={(e) =>
-                              updateField("finalInspection", {
-                                ...form.finalInspection,
-                                inspectionDate: e.target.value,
-                              })
-                            }
-                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1.5">
-                            Inspector Name
-                          </label>
-                          <input
-                            value={form.finalInspection?.inspectorName || ""}
-                            onChange={(e) =>
-                              updateField("finalInspection", {
-                                ...form.finalInspection,
-                                inspectorName: e.target.value,
-                              })
-                            }
-                            placeholder="Enter inspector name"
-                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1.5">
-                            Overall Status *
-                          </label>
-                          <select
-                            value={form.finalInspection?.overallStatus || "pending"}
-                            onChange={(e) =>
-                              updateField("finalInspection", {
-                                ...form.finalInspection,
-                                overallStatus: e.target.value,
-                              })
-                            }
-                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-                          >
-                            <option value="pending">Pending</option>
-                            <option value="passed">Passed</option>
-                            <option value="failed">Failed</option>
-                            <option value="conditional">Conditional Pass</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Quality Metrics */}
-                      <div className="grid grid-cols-3 gap-4 mb-4">
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1.5">
-                            Quality Grade
-                          </label>
-                          <select
-                            value={form.finalInspection?.qualityGrade || ""}
-                            onChange={(e) =>
-                              updateField("finalInspection", {
-                                ...form.finalInspection,
-                                qualityGrade: e.target.value,
-                              })
-                            }
-                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-                          >
-                            <option value="">Select Grade</option>
-                            <option value="A+">A+ (Excellent)</option>
-                            <option value="A">A (Very Good)</option>
-                            <option value="B">B (Good)</option>
-                            <option value="C">C (Acceptable)</option>
-                            <option value="D">D (Below Standard)</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1.5">
-                            Defect Count
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={form.finalInspection?.defectCount || ""}
-                            onChange={(e) =>
-                              updateField("finalInspection", {
-                                ...form.finalInspection,
-                                defectCount: e.target.value,
-                              })
-                            }
-                            placeholder="Number of defects found"
-                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1.5">
-                            Defect Types
-                          </label>
-                          <input
-                            value={form.finalInspection?.defectTypes || ""}
-                            onChange={(e) =>
-                              updateField("finalInspection", {
-                                ...form.finalInspection,
-                                defectTypes: e.target.value,
-                              })
-                            }
-                            placeholder="e.g., Surface scratch, Misalignment"
-                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Technical Measurements */}
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1.5">
-                            Dimensional Accuracy
-                          </label>
-                          <input
-                            value={form.finalInspection?.dimensionalAccuracy || ""}
-                            onChange={(e) =>
-                              updateField("finalInspection", {
-                                ...form.finalInspection,
-                                dimensionalAccuracy: e.target.value,
-                              })
-                            }
-                            placeholder="e.g., ±0.5mm tolerance, Within specs"
-                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1.5">
-                            Surface Finish
-                          </label>
-                          <select
-                            value={form.finalInspection?.surfaceFinish || ""}
-                            onChange={(e) =>
-                              updateField("finalInspection", {
-                                ...form.finalInspection,
-                                surfaceFinish: e.target.value,
-                              })
-                            }
-                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-                          >
-                            <option value="">Select Finish Quality</option>
-                            <option value="excellent">Excellent</option>
-                            <option value="good">Good</option>
-                            <option value="fair">Fair</option>
-                            <option value="poor">Poor</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Functional Testing */}
-                      <div className="mb-4">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                          Functional Testing
-                        </h4>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1.5">
-                              Test Status
-                            </label>
-                            <select
-                              value={form.finalInspection?.functionalTest || "not_tested"}
-                              onChange={(e) =>
-                                updateField("finalInspection", {
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-gray-700">
+                          Final Inspection Details
+                        </h3>
+                        {canEdit() && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newId = form.finalInspection.length > 0
+                                ? Math.max(...form.finalInspection.map(i => i.id)) + 1
+                                : 1;
+                              setForm({
+                                ...form,
+                                finalInspection: [
                                   ...form.finalInspection,
-                                  functionalTest: e.target.value,
-                                })
-                              }
-                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-                            >
-                              <option value="not_tested">Not Tested</option>
-                              <option value="passed">Passed</option>
-                              <option value="failed">Failed</option>
-                              <option value="partial">Partially Passed</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1.5">
-                              Test Notes
-                            </label>
-                            <input
-                              value={form.finalInspection?.functionalTestNotes || ""}
-                              onChange={(e) =>
-                                updateField("finalInspection", {
-                                  ...form.finalInspection,
-                                  functionalTestNotes: e.target.value,
-                                })
-                              }
-                              placeholder="Details about functional test"
-                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Packaging & Labeling */}
-                      <div className="mb-4">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                          Packaging & Labeling
-                        </h4>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1.5">
-                              Packaging Condition
-                            </label>
-                            <select
-                              value={form.finalInspection?.packagingCondition || "good"}
-                              onChange={(e) =>
-                                updateField("finalInspection", {
-                                  ...form.finalInspection,
-                                  packagingCondition: e.target.value,
-                                })
-                              }
-                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-                            >
-                              <option value="excellent">Excellent</option>
-                              <option value="good">Good</option>
-                              <option value="fair">Fair</option>
-                              <option value="damaged">Damaged</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={form.finalInspection?.labelingComplete || false}
-                                onChange={(e) =>
-                                  updateField("finalInspection", {
-                                    ...form.finalInspection,
-                                    labelingComplete: e.target.checked,
-                                  })
-                                }
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                              />
-                              <span className="text-sm text-gray-700">
-                                Labeling Complete
-                              </span>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Certifications */}
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1.5">
-                            Certifications Required
-                          </label>
-                          <input
-                            value={form.finalInspection?.certificationsRequired || ""}
-                            onChange={(e) =>
-                              updateField("finalInspection", {
-                                ...form.finalInspection,
-                                certificationsRequired: e.target.value,
-                              })
-                            }
-                            placeholder="e.g., ISO 9001, CE, UL"
-                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1.5">
-                            Certifications Obtained
-                          </label>
-                          <input
-                            value={form.finalInspection?.certificationsObtained || ""}
-                            onChange={(e) =>
-                              updateField("finalInspection", {
-                                ...form.finalInspection,
-                                certificationsObtained: e.target.value,
-                              })
-                            }
-                            placeholder="Certifications achieved"
-                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Inspection Image Upload */}
-                      <div className="mb-4">
-                        <label className="block text-sm text-gray-600 mb-1.5">
-                          Inspection Image
-                        </label>
-                        <div className="flex items-start gap-4">
-                          <div className="flex-1">
-                            <label className="inline-block cursor-pointer">
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    const reader = new FileReader();
-                                    reader.onload = () => {
-                                      updateField("finalInspection", {
-                                        ...form.finalInspection,
-                                        inspectionImage: reader.result,
-                                      });
-                                    };
-                                    reader.readAsDataURL(file);
-                                  }
-                                }}
-                                className="hidden"
-                              />
-                              <span className="inline-block bg-gray-500 hover:bg-gray-700 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors">
-                                Choose File
-                              </span>
-                            </label>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Upload an image of the inspected item (JPG, PNG, etc.)
-                            </p>
-                          </div>
-                          {form.finalInspection?.inspectionImage && (
-                            <div className="relative">
-                              <img
-                                src={form.finalInspection.inspectionImage}
-                                alt="Inspection"
-                                className="w-32 h-32 object-cover rounded border border-gray-300"
-                              />
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  updateField("finalInspection", {
-                                    ...form.finalInspection,
+                                  {
+                                    id: newId,
+                                    parameter: "",
+                                    tolerance: "",
                                     inspectionImage: "",
-                                  })
-                                }
-                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
-                              >
-                                ✕
-                              </button>
+                                    remarks: "",
+                                  },
+                                ],
+                              });
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1"
+                          >
+                            <span>+</span>
+                            <span>Add Inspection</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {form.finalInspection && form.finalInspection.length > 0 ? (
+                        form.finalInspection.map((inspection, index) => (
+                          <div
+                            key={inspection.id}
+                            className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50"
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-medium text-gray-700">
+                                Inspection #{inspection.id}
+                              </h4>
+                              {canEdit() && form.finalInspection.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setForm({
+                                      ...form,
+                                      finalInspection: form.finalInspection.filter(
+                                        (_, i) => i !== index
+                                      ),
+                                    });
+                                  }}
+                                  className="text-red-600 hover:text-red-700 text-xs font-medium transition-colors"
+                                >
+                                  Remove
+                                </button>
+                              )}
                             </div>
-                          )}
+
+                            {/* Parameter and Tolerance */}
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                              <div>
+                                <label className="block text-sm text-gray-600 mb-1.5">
+                                  Parameter
+                                </label>
+                                <input
+                                  value={inspection.parameter || ""}
+                                  onChange={(e) => {
+                                    const updated = [...form.finalInspection];
+                                    updated[index] = {
+                                      ...updated[index],
+                                      parameter: e.target.value,
+                                    };
+                                    updateField("finalInspection", updated);
+                                  }}
+                                  placeholder="Enter parameter"
+                                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm text-gray-600 mb-1.5">
+                                  Tolerance
+                                </label>
+                                <input
+                                  value={inspection.tolerance || ""}
+                                  onChange={(e) => {
+                                    const updated = [...form.finalInspection];
+                                    updated[index] = {
+                                      ...updated[index],
+                                      tolerance: e.target.value,
+                                    };
+                                    updateField("finalInspection", updated);
+                                  }}
+                                  placeholder="Enter tolerance"
+                                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Inspection Image Upload */}
+                            <div className="mb-4">
+                              <label className="block text-sm text-gray-600 mb-1.5">
+                                Inspection Image
+                              </label>
+                              <div className="flex items-start gap-4">
+                                <div className="flex-1">
+                                  <label className="inline-block cursor-pointer">
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          const reader = new FileReader();
+                                          reader.onload = () => {
+                                            const updated = [...form.finalInspection];
+                                            updated[index] = {
+                                              ...updated[index],
+                                              inspectionImage: reader.result,
+                                            };
+                                            updateField("finalInspection", updated);
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }
+                                      }}
+                                      className="hidden"
+                                    />
+                                    <span className="inline-block bg-gray-600 hover:bg-gray-700 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors">
+                                      Choose File
+                                    </span>
+                                  </label>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Upload an image of the inspected item (JPG, PNG, etc.)
+                                  </p>
+                                </div>
+                                {inspection.inspectionImage && (
+                                  <div className="relative">
+                                    <img
+                                      src={inspection.inspectionImage}
+                                      alt="Inspection"
+                                      className="w-32 h-32 object-cover rounded border border-gray-300"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = [...form.finalInspection];
+                                        updated[index] = {
+                                          ...updated[index],
+                                          inspectionImage: "",
+                                        };
+                                        updateField("finalInspection", updated);
+                                      }}
+                                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Remarks */}
+                            <div className="mb-0">
+                              <label className="block text-sm text-gray-600 mb-1.5">
+                                Remarks
+                              </label>
+                              <textarea
+                                value={inspection.remarks || ""}
+                                onChange={(e) => {
+                                  const updated = [...form.finalInspection];
+                                  updated[index] = {
+                                    ...updated[index],
+                                    remarks: e.target.value,
+                                  };
+                                  updateField("finalInspection", updated);
+                                }}
+                                placeholder="Enter any remarks or notes"
+                                rows="3"
+                                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-gray-500 text-sm">
+                          No inspections added yet. Click "+ Add Inspection" to add one.
                         </div>
-                      </div>
-
-                      {/* Final Remarks */}
-                      <div className="mb-4">
-                        <label className="block text-sm text-gray-600 mb-1.5">
-                          Final Remarks
-                        </label>
-                        <textarea
-                          value={form.finalInspection?.finalRemarks || ""}
-                          onChange={(e) =>
-                            updateField("finalInspection", {
-                              ...form.finalInspection,
-                              finalRemarks: e.target.value,
-                            })
-                          }
-                          placeholder="Any additional notes or observations"
-                          rows="3"
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
-
-                      {/* Approval Section */}
-                      <div className="border-t pt-4 mt-4">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                          Approval Details
-                        </h4>
-                        <div className="grid grid-cols-3 gap-4">
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1.5">
-                              Approved By
-                            </label>
-                            <input
-                              value={form.finalInspection?.approvedBy || ""}
-                              onChange={(e) =>
-                                updateField("finalInspection", {
-                                  ...form.finalInspection,
-                                  approvedBy: e.target.value,
-                                })
-                              }
-                              placeholder="Approver name"
-                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1.5">
-                              Approval Date
-                            </label>
-                            <input
-                              type="date"
-                              value={form.finalInspection?.approvalDate || ""}
-                              onChange={(e) =>
-                                updateField("finalInspection", {
-                                  ...form.finalInspection,
-                                  approvalDate: e.target.value,
-                                })
-                              }
-                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1.5">
-                              Rejection Reason (if failed)
-                            </label>
-                            <input
-                              value={form.finalInspection?.rejectionReason || ""}
-                              onChange={(e) =>
-                                updateField("finalInspection", {
-                                  ...form.finalInspection,
-                                  rejectionReason: e.target.value,
-                                })
-                              }
-                              placeholder="Reason for rejection"
-                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              disabled={form.finalInspection?.overallStatus !== "failed"}
-                            />
-                          </div>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 )}

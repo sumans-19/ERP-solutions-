@@ -65,83 +65,27 @@ const inspectionCheckSchema = new mongoose.Schema({
 }, { _id: false });
 
 const finalInspectionSchema = new mongoose.Schema({
-  inspectionDate: {
-    type: Date
+  id: {
+    type: Number,
+    required: true
   },
-  inspectorName: {
+  parameter: {
     type: String,
-    trim: true
-  },
-  overallStatus: {
-    type: String,
-    enum: ['pending', 'passed', 'failed', 'conditional'],
-    default: 'pending'
-  },
-  qualityGrade: {
-    type: String,
-    enum: ['A+', 'A', 'B', 'C', 'D', ''],
+    trim: true,
     default: ''
   },
-  defectCount: {
+  tolerance: {
     type: String,
+    trim: true,
     default: ''
-  },
-  defectTypes: {
-    type: String,
-    trim: true
-  },
-  dimensionalAccuracy: {
-    type: String,
-    trim: true
-  },
-  surfaceFinish: {
-    type: String,
-    enum: ['excellent', 'good', 'fair', 'poor', ''],
-    default: ''
-  },
-  functionalTest: {
-    type: String,
-    enum: ['not_tested', 'passed', 'failed', 'partial'],
-    default: 'not_tested'
-  },
-  functionalTestNotes: {
-    type: String,
-    trim: true
-  },
-  packagingCondition: {
-    type: String,
-    enum: ['excellent', 'good', 'fair', 'damaged'],
-    default: 'good'
-  },
-  labelingComplete: {
-    type: Boolean,
-    default: false
-  },
-  certificationsRequired: {
-    type: String,
-    trim: true
-  },
-  certificationsObtained: {
-    type: String,
-    trim: true
-  },
-  finalRemarks: {
-    type: String,
-    trim: true
-  },
-  approvedBy: {
-    type: String,
-    trim: true
-  },
-  approvalDate: {
-    type: Date
-  },
-  rejectionReason: {
-    type: String,
-    trim: true
   },
   inspectionImage: {
     type: String,
+    default: ''
+  },
+  remarks: {
+    type: String,
+    trim: true,
     default: ''
   }
 }, { _id: false });
@@ -292,7 +236,7 @@ const itemSchema = new mongoose.Schema({
   inspectionChecks: [inspectionCheckSchema],
 
   // Final Inspection Section
-  finalInspection: finalInspectionSchema
+  finalInspection: [finalInspectionSchema]
 }, {
   timestamps: true
 });
