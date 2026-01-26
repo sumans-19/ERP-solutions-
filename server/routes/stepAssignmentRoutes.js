@@ -40,9 +40,8 @@ router.get('/', async (req, res) => {
 router.get('/by-employee/:employeeId', async (req, res) => {
     try {
         const { employeeId } = req.params;
-        const assignments = await StepAssignment.find({ assignedEmployeeId: employeeId })
+        const assignments = await StepAssignment.find({ employeeId: employeeId })
             .populate('itemId', 'itemName itemCode')
-            .populate('orderId', 'poNumber customerName')
             .sort({ createdAt: -1 });
         res.json(assignments);
     } catch (err) {
@@ -68,8 +67,8 @@ router.get('/by-order/:orderId', async (req, res) => {
     try {
         const { orderId } = req.params;
         const assignments = await StepAssignment.find({ orderId })
-            .populate('itemId', 'itemName')
-            .populate('assignedEmployeeId', 'fullName employeeId')
+            .populate('itemId', 'itemName itemCode')
+            .populate('employeeId', 'fullName employeeId email')
             .sort({ createdAt: -1 });
         res.json(assignments);
     } catch (err) {
@@ -93,11 +92,11 @@ router.post('/', async (req, res) => {
             return res.status(404).json({ message: 'Employee not found' });
         }
 
-        // Check for duplicate assignment (same step + same employee in same item)
+        // Check if assignment already exists
         const existingAssignment = await StepAssignment.findOne({
             itemId,
-            manufacturingStepNumber,
-            assignedEmployeeId
+            processStepId: manufacturingStepNumber,
+            employeeId: assignedEmployeeId
         });
 
         if (existingAssignment) {
@@ -105,15 +104,13 @@ router.post('/', async (req, res) => {
         }
 
         const newAssignment = new StepAssignment({
-            jobNo,
             itemId,
-            orderId,
             itemName,
-            manufacturingStepNumber,
-            stepName,
-            assignedEmployeeId,
+            processStepId: manufacturingStepNumber,
+            processStepName: stepName,
+            employeeId: assignedEmployeeId,
             employeeName: employeeName || employee.fullName,
-            stepStatus: 'Pending'
+            status: 'assigned'
         });
 
         const savedAssignment = await newAssignment.save();
@@ -244,20 +241,22 @@ router.get('/analytics/employee-workload', async (req, res) => {
         const workload = await StepAssignment.aggregate([
             {
                 $group: {
-                    _id: '$assignedEmployeeId',
+                    _id: '$employeeId',
                     employeeName: { $first: '$employeeName' },
                     totalAssignments: { $sum: 1 },
-                    pendingCount: { $sum: { $cond: [{ $eq: ['$stepStatus', 'Pending'] }, 1, 0] } },
-                    processingCount: { $sum: { $cond: [{ $eq: ['$stepStatus', 'Processing'] }, 1, 0] } },
-                    qualityCheckCount: { $sum: { $cond: [{ $eq: ['$stepStatus', 'Quality Check'] }, 1, 0] } },
-                    doneCount: { $sum: { $cond: [{ $eq: ['$stepStatus', 'Done'] }, 1, 0] } }
+                    pendingCount: { $sum: { $cond: [{ $eq: ['$status', 'assigned'] }, 1, 0] } },
+                    processingCount: { $sum: { $cond: [{ $eq: ['$status', 'in-progress'] }, 1, 0] } },
+                    failedCount: { $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] } },
+                    doneCount: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } }
                 }
             },
             { $sort: { totalAssignments: -1 } }
         ]);
 
+        console.log('Employee workload aggregation result:', workload);
         res.json(workload);
     } catch (err) {
+        console.error('Error in employee workload aggregation:', err);
         res.status(500).json({ message: err.message });
     }
 });

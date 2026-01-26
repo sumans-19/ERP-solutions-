@@ -15,15 +15,16 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    if (user.role !== 'development') {
+    const allowedRoles = ['development', 'planning', 'admin'];
+    if (!allowedRoles.includes(user.role)) {
       console.log(`❌ Access denied: ${email} (${user.role})`);
-      return res.status(403).json({ success: false, message: 'Only development team can access' });
+      return res.status(403).json({ success: false, message: 'Unauthorized role' });
     }
 
     console.log(`✅ Login success: ${email}`);
-    res.json({ 
-      success: true, 
-      user: { id: user._id, name: user.companyName, role: user.role, email: user.email } 
+    res.json({
+      success: true,
+      user: { id: user._id, name: user.companyName, role: user.role, email: user.email }
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -32,7 +33,8 @@ router.post('/login', async (req, res) => {
 
 // Dashboard stats
 router.get('/dashboard-stats', (req, res) => {
-  if (req.header('x-user-role') !== 'development') {
+  const role = req.header('x-user-role');
+  if (role !== 'development' && role !== 'admin' && role !== 'planning') {
     return res.status(403).json({ message: 'Forbidden' });
   }
   res.json({ cashInHand: 45000, stockValue: 120000, toCollect: 15000, toPay: 8000 });

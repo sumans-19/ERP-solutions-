@@ -1,64 +1,111 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 const OrderTrendsChart = () => {
-  const [timeframe, setTimeframe] = useState('month');
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [timeframe, setTimeframe] = useState('week');
 
-  const mockChartData = [
-    { label: 'Week 1', inProgress: 5, newQueue: 3 },
-    { label: 'Week 2', inProgress: 8, newQueue: 5 },
-    { label: 'Week 3', inProgress: 6, newQueue: 4 },
-    { label: 'Week 4', inProgress: 12, newQueue: 8 },
-  ];
+  useEffect(() => {
+    const fetchTrend = async () => {
+      setLoading(true);
+      try {
+        const storedUser = localStorage.getItem('user');
+        const userObj = storedUser ? JSON.parse(storedUser) : null;
+        const role = userObj ? userObj.role : null;
+        const response = await axios.get(`${API_URL}/api/stats/dashboard-trend?timeframe=${timeframe}`, {
+          headers: { 'x-user-role': role }
+        });
+        setData(response.data);
+      } catch (error) {
+        console.error('Failed to fetch trend data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const maxValue = Math.max(...mockChartData.map(d => Math.max(d.inProgress, d.newQueue)));
+    fetchTrend();
+  }, [timeframe]);
+
+  if (loading && data.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-slate-200 p-8 shadow-sm flex items-center justify-center h-64">
+        <div className="text-slate-400 text-sm font-medium animate-pulse text-center">
+          Analysing production cycles...
+        </div>
+      </div>
+    );
+  }
+
+  const maxValue = Math.max(...data.map(d => Math.max(d.inProgress, d.newQueue)), 5);
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
-        <h2 className="text-lg sm:text-xl font-bold text-slate-900">Order Trends</h2>
-        <select
-          value={timeframe}
-          onChange={(e) => setTimeframe(e.target.value)}
-          className="text-xs sm:text-sm px-3 py-1.5 border border-slate-200 rounded bg-white focus:outline-none focus:border-blue-500 cursor-pointer"
-        >
-          <option value="week">This Week</option>
-          <option value="month">This Month</option>
-          <option value="year">This Year</option>
-        </select>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Production Velocity</h2>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-0.5">Cycle Performance</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <select
+            value={timeframe}
+            onChange={(e) => setTimeframe(e.target.value)}
+            className="text-[10px] font-bold uppercase tracking-wider bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+          >
+            <option value="week">1 Week Back</option>
+            <option value="month">1 Month Back</option>
+            <option value="year">1 Year Progress</option>
+          </select>
+        </div>
       </div>
 
-      {/* Simple Bar Chart */}
-      <div className="flex items-end gap-2 sm:gap-3 lg:gap-4 justify-around mb-5 h-48">
-        {mockChartData.map((data, idx) => (
-          <div key={idx} className="flex flex-col items-center flex-1 min-w-0">
-            <div className="flex items-end gap-1 sm:gap-1.5 h-40 mb-2 w-full justify-center">
-              {/* In Progress Bar */}
-              <div
-                className="flex-1 max-w-3 sm:max-w-4 bg-blue-500 rounded-t transition hover:bg-blue-600"
-                style={{ height: `${(data.inProgress / maxValue) * 100}%` }}
-                title={`In Progress: ${data.inProgress}`}
-              />
-              {/* New/Queue Bar */}
-              <div
-                className="flex-1 max-w-3 sm:max-w-4 bg-orange-500 rounded-t transition hover:bg-orange-600"
-                style={{ height: `${(data.newQueue / maxValue) * 100}%` }}
-                title={`New/Queue: ${data.newQueue}`}
-              />
+      {loading ? (
+        <div className="h-48 flex items-center justify-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : (
+        <div className="flex items-end gap-2 sm:gap-3 lg:gap-6 justify-around mb-8 h-48 px-4">
+          {data.map((item, idx) => (
+            <div key={idx} className="flex flex-col items-center flex-1 min-w-0 group relative">
+              <div className="flex items-end gap-1 sm:gap-1.5 h-40 mb-3 w-full justify-center">
+                {/* In Progress Bar */}
+                <div
+                  className="flex-1 max-w-[12px] bg-indigo-500 rounded-t-sm transition-all duration-300 group-hover:bg-indigo-600 relative overflow-hidden"
+                  style={{ height: `${(item.inProgress / maxValue) * 100}%` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
+                </div>
+                {/* New/Queue Bar */}
+                <div
+                  className="flex-1 max-w-[12px] bg-blue-300 rounded-t-sm transition-all duration-300 group-hover:bg-blue-400 relative overflow-hidden"
+                  style={{ height: `${(item.newQueue / maxValue) * 100}%` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent" />
+                </div>
+              </div>
+
+              {/* Tooltip on Hover */}
+              <div className="opacity-0 group-hover:opacity-100 absolute -top-12 bg-slate-900 text-white text-[9px] py-1.5 px-2.5 rounded shadow-xl transition-opacity pointer-events-none z-10 whitespace-nowrap font-bold">
+                Progress: {item.inProgress} | New: {item.newQueue}
+              </div>
+
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter truncate max-w-full">{item.label}</p>
             </div>
-            <p className="text-xs font-medium text-slate-600 text-center">{data.label}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-4 sm:gap-6 pt-4 border-t border-slate-200 flex-wrap">
+      <div className="flex items-center justify-center gap-8 pt-5 border-t border-slate-50">
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-blue-500 rounded-full flex-shrink-0" />
-          <span className="text-xs sm:text-sm text-slate-600">In Progress</span>
+          <div className="w-2.5 h-2.5 bg-indigo-500 rounded-sm" />
+          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Moved To Progress</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-orange-500 rounded-full flex-shrink-0" />
-          <span className="text-xs sm:text-sm text-slate-600">New / In Queue</span>
+          <div className="w-2.5 h-2.5 bg-blue-300 rounded-sm" />
+          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">New Job Entry</span>
         </div>
       </div>
     </div>

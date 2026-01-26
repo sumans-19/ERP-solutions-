@@ -5,7 +5,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
   const [isViewsExpanded, setIsViewsExpanded] = useState(false);
   const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
 
-  const navigationItems = [
+  const allNavigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'items', label: 'Item Manage', icon: Package },
     { id: 'orders', label: 'Order Manage', icon: ShoppingCart },
@@ -14,6 +14,14 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
     { id: 'users', label: 'User Manage', icon: Users },
     { id: 'reports', label: 'Report Manage', icon: BarChart3 },
   ];
+
+  // Filter items based on user role
+  const navigationItems = allNavigationItems.filter(item => {
+    if (user?.role === 'planning') {
+      return ['dashboard', 'items', 'orders', 'process'].includes(item.id);
+    }
+    return true; // Default show all for development/admin
+  });
 
   const viewItems = [
     { id: 'admin-view', label: 'Admin View', icon: Users },
@@ -65,64 +73,66 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
               <li key={item.id}>
                 <button
                   onClick={() => {
-                    setActiveSection(item.id);
+                    const targetId = item.id === 'dashboard' && user?.role === 'planning' ? 'planning-view' : item.id;
+                    setActiveSection(targetId);
                     setIsMobileOpen(false);
                   }}
                   className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition tracking-wide ${isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                     }`}
                 >
                   <IconComponent size={16} className="flex-shrink-0" />
                   <span className="hidden md:inline truncate">{item.label}</span>
-                  {isActive && <span className="ml-auto text-blue-300 hidden md:inline text-xs">→</span>}
+                  {(isActive || (item.id === 'dashboard' && activeSection === 'planning-view')) && <span className="ml-auto text-blue-300 hidden md:inline text-xs">→</span>}
                 </button>
               </li>
             );
           })}
 
-          {/* Views Section */}
-          <li className="mt-4 md:mt-6">
-            <button
-              onClick={() => setIsViewsExpanded(!isViewsExpanded)}
-              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition"
-            >
-              <Eye size={16} className="flex-shrink-0" />
-              <span className="hidden md:inline truncate">Views</span>
-              <ChevronDown
-                size={14}
-                className={`ml-auto hidden md:block flex-shrink-0 transition-transform ${isViewsExpanded ? 'rotate-180' : ''}`}
-              />
-            </button>
+          {user?.role !== 'planning' && (
+            <li className="mt-4 md:mt-6">
+              <button
+                onClick={() => setIsViewsExpanded(!isViewsExpanded)}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition"
+              >
+                <Eye size={16} className="flex-shrink-0" />
+                <span className="hidden md:inline truncate">Views</span>
+                <ChevronDown
+                  size={14}
+                  className={`ml-auto hidden md:block flex-shrink-0 transition-transform ${isViewsExpanded ? 'rotate-180' : ''}`}
+                />
+              </button>
 
-            {/* Views Submenu */}
-            {isViewsExpanded && (
-              <ul className="mt-1 ml-2 space-y-0.5 border-l border-slate-700 pl-2">
-                {viewItems.map((item) => {
-                  const IconComponent = item.icon;
-                  const isActive = activeSection === item.id;
-                  return (
-                    <li key={item.id}>
-                      <button
-                        onClick={() => {
-                          setActiveSection(item.id);
-                          setIsMobileOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs transition ${isActive
+              {/* Views Submenu */}
+              {isViewsExpanded && (
+                <ul className="mt-1 ml-2 space-y-0.5 border-l border-slate-700 pl-2">
+                  {viewItems.map((item) => {
+                    const IconComponent = item.icon;
+                    const isActive = activeSection === item.id;
+                    return (
+                      <li key={item.id}>
+                        <button
+                          onClick={() => {
+                            setActiveSection(item.id);
+                            setIsMobileOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs transition ${isActive
                             ? 'bg-blue-600 text-white'
                             : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                          }`}
-                      >
-                        <IconComponent size={14} className="flex-shrink-0" />
-                        <span className="hidden md:inline truncate text-xs">{item.label}</span>
-                        {isActive && <span className="ml-auto text-blue-300 hidden md:inline text-xs">→</span>}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </li>
+                            }`}
+                        >
+                          <IconComponent size={14} className="flex-shrink-0" />
+                          <span className="hidden md:inline truncate text-xs">{item.label}</span>
+                          {isActive && <span className="ml-auto text-blue-300 hidden md:inline text-xs">→</span>}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </li>
+          )}
 
           {/* Settings Section */}
           <li className="mt-4 md:mt-6">
@@ -152,8 +162,8 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
                           setIsMobileOpen(false);
                         }}
                         className={`w-full flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs transition ${isActive
-                            ? 'bg-blue-600 text-white'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                           }`}
                       >
                         <IconComponent size={14} className="flex-shrink-0" />

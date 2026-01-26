@@ -1,8 +1,25 @@
 import React, { useState } from 'react';
 import { LogOut, Menu, X } from 'lucide-react';
 
-const Header = ({ onLogout, onMenuToggle, user = {} }) => {
+const Header = ({ onLogout, onMenuToggle, user = {}, setActiveSection }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navigate = React.useMemo(() => {
+    // We can't use useNavigate directly if this is not a child of Router, 
+    // but in this project the App is usually wrapped.
+    // However, setActiveSection is our primary driver for local view changes.
+    return null;
+  }, []);
+
+  const handleCreateItem = () => {
+    if (setActiveSection) {
+      setActiveSection('items');
+      // Append query param to signal ItemPage to open form
+      const url = new URL(window.location.href);
+      url.searchParams.set('section', 'items');
+      url.searchParams.set('add', 'true');
+      window.history.pushState({}, '', url);
+    }
+  };
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
@@ -19,11 +36,14 @@ const Header = ({ onLogout, onMenuToggle, user = {} }) => {
 
         {/* Right Section - Actions */}
         <div className="flex items-center gap-3 ml-4 flex-shrink-0">
-          <button className="hidden md:flex px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition duration-200 whitespace-nowrap shadow-sm">
-            + Create Order
+          <button
+            onClick={handleCreateItem}
+            className="hidden md:flex px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition duration-200 whitespace-nowrap shadow-sm"
+          >
+            + Create Item
           </button>
 
-          <button 
+          <button
             onClick={onLogout}
             className="hidden md:flex px-4 py-2 border border-red-400 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-50 transition duration-200 items-center gap-2 whitespace-nowrap">
             <LogOut size={16} />
@@ -48,8 +68,11 @@ const Header = ({ onLogout, onMenuToggle, user = {} }) => {
       {isMobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white">
           <div className="p-4 space-y-2">
-            <button className="w-full px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition">
-              + Create Order
+            <button
+              onClick={handleCreateItem}
+              className="w-full px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition"
+            >
+              + Create Item
             </button>
             <button
               onClick={onLogout}

@@ -12,8 +12,8 @@ const permissions = {
     'viewReports'
   ],
   planning: [
-    'viewItems', 'createItems', 'editItems',
-    'viewOrders', 'createOrders',
+    'viewItems', 'createItems', 'editItems', 'deleteItems',
+    'viewOrders', 'createOrders', 'editOrders', 'deleteOrders',
     'viewReports'
   ],
   employee: [
@@ -26,13 +26,13 @@ const permissions = {
 const checkPermission = (requiredPermission) => {
   return (req, res, next) => {
     const userRole = req.user?.role || 'employee';
-    
+
     const rolePermissions = permissions[userRole] || [];
-    
+
     if (rolePermissions.includes(requiredPermission)) {
       next();
     } else {
-      res.status(403).json({ 
+      res.status(403).json({
         message: 'Forbidden: You do not have permission to perform this action',
         requiredPermission,
         userRole

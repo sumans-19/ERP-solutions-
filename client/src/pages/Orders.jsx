@@ -135,7 +135,7 @@ export default function Orders() {
         await createOrder(orderData);
         setMessage('Order created successfully!');
       }
-      
+
       // Reload orders
       const ordersRes = await getAllOrders();
       setOrders(Array.isArray(ordersRes) ? ordersRes : ordersRes.data || []);
@@ -199,11 +199,11 @@ export default function Orders() {
         setLoading(true);
         await deleteOrder(id);
         setMessage('Order deleted successfully');
-        
+
         // Reload orders
         const ordersRes = await getAllOrders();
         setOrders(Array.isArray(ordersRes) ? ordersRes : ordersRes.data || []);
-        
+
         setTimeout(() => setMessage(null), 2000);
       } catch (err) {
         console.error('Delete error:', err);
@@ -519,7 +519,7 @@ export default function Orders() {
 
                       {/* Actions */}
                       <div className="flex gap-2 justify-end">
-                        <button 
+                        <button
                           onClick={() => handleEditOrder(order)}
                           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium"
                         >

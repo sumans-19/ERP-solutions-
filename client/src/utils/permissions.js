@@ -9,8 +9,8 @@ const getUser = () => {
 export const canCreate = () => {
   const user = getUser();
   if (!user) return false;
-  // Development team can create items
-  return ['development', 'admin'].includes(user.role);
+  // Development and planning teams can create
+  return ['development', 'admin', 'planning'].includes(user.role);
 };
 
 export const canEdit = () => {
@@ -23,8 +23,8 @@ export const canEdit = () => {
 export const canDelete = () => {
   const user = getUser();
   if (!user) return false;
-  // Only admin and development can delete
-  return ['development', 'admin'].includes(user.role);
+  // Admin, development and planning can delete
+  return ['development', 'admin', 'planning'].includes(user.role);
 };
 
 export const canExportReports = () => {

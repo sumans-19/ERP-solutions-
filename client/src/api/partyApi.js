@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api/parties';
+const API_URL = 'http://localhost:5001/api/parties';
 
 const partyApi = {
   // Get all parties

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
+import { Package, Activity, ShoppingCart, LayoutDashboard, UserCog, Archive, MessageSquare, ClipboardCheck, Users } from 'lucide-react';
 
 // Layout imports
 import Sidebar from './layouts/Sidebar';
@@ -13,6 +14,12 @@ import ItemPage from './pages/item';
 import Orders from './pages/Orders';
 import ProcessManagement from './pages/ProcessManagement';
 import UserManagement from './pages/UserManagement/Employees';
+import PlanningDashboard from './pages/PlanningDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import CommunicationHub from './pages/CommunicationHub';
+import EmployeeTasks from './pages/EmployeeTasks';
+import InventoryDashboard from './pages/InventoryDashboard';
+import PartiesPage from './pages/UserManagement/PartiesPage';
 
 /**
  * Login Component
@@ -32,7 +39,7 @@ const Login = ({ setAuth, setUser }) => {
     setError('');
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
       console.log('API URL:', apiUrl);
       const response = await axios.post(`${apiUrl}/api/login`, {
         email,
@@ -129,8 +136,8 @@ const Login = ({ setAuth, setUser }) => {
 const DashboardLayout = ({ onLogout, user }) => {
   const navigate = useNavigate();
 
-  // Only development team can access dashboard
-  if (!user || user.role !== 'development') {
+  // Allow development, planning, and admin roles to access dashboard
+  if (!user || !['development', 'planning', 'admin'].includes(user.role)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <motion.div
@@ -162,14 +169,16 @@ const DashboardLayout = ({ onLogout, user }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
 
-  // Sync active section with query params
+  // Sync active section with query params or role default
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const section = params.get('section');
     if (section) {
       setActiveSection(section);
+    } else if (user?.role === 'planning') {
+      setActiveSection('planning-view');
     }
-  }, [location.search]);
+  }, [location.search, user?.role]);
 
   // Render the appropriate page based on activeSection
   const renderPage = () => {
@@ -182,8 +191,22 @@ const DashboardLayout = ({ onLogout, user }) => {
         return <ProcessManagement />;
       case 'users':
         return <UserManagement />;
+      case 'parties':
+        return user?.role === 'admin' ? <PartiesPage /> : <Dashboard />;
+      case 'inventory-dash':
+        return user?.role === 'admin' ? <InventoryDashboard setActiveSection={setActiveSection} /> : <Dashboard />;
+      case 'comm-hub':
+      case 'chats':
+      case 'bulletin':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <CommunicationHub activeSection={activeSection} setActiveSection={setActiveSection} /> : <Dashboard />;
+      case 'tasks-list':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeTasks /> : <Dashboard />;
+      case 'planning-view':
+        return <PlanningDashboard setActiveSection={setActiveSection} />;
       case 'dashboard':
       default:
+        if (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') return <AdminDashboard setActiveSection={setActiveSection} />;
+        if (user?.role === 'planning') return <PlanningDashboard setActiveSection={setActiveSection} />;
         return <Dashboard />;
     }
   };
@@ -200,8 +223,71 @@ const DashboardLayout = ({ onLogout, user }) => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-60 lg:ml-72">
-        <Header onLogout={onLogout} onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} user={user} />
-        {renderPage()}
+        <Header onLogout={onLogout} onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} user={user} setActiveSection={setActiveSection} />
+
+        {/* Planning Team Sub-Navigation */}
+        {user?.role === 'planning' && activeSection !== 'planning-view' && (
+          <div className="bg-white border-b border-slate-200 px-6 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {[
+                { id: 'items', label: 'Item Manage', icon: Package },
+                { id: 'process', label: 'Process Manage', icon: Activity },
+                { id: 'orders', label: 'Order Manage', icon: ShoppingCart }
+              ].map(nav => (
+                <button
+                  key={nav.id}
+                  onClick={() => setActiveSection(nav.id)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${activeSection === nav.id
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                >
+                  <nav.icon size={16} />
+                  {nav.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setActiveSection('planning-view')}
+              className="text-xs font-semibold text-blue-600 hover:underline"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        )}
+
+        {/* Admin Team Top Navigation */}
+        {(user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') && (
+          <div className="bg-white border-b border-slate-200 px-6 py-3 shadow-sm">
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+              {[
+                { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+                { id: 'process', label: 'Process Mgmt', icon: Activity },
+                { id: 'items', label: 'Items Mgmt', icon: Package },
+                { id: 'users', label: 'User Mgmt', icon: UserCog },
+                { id: 'inventory-dash', label: 'Inventory Mgmt', icon: Archive },
+                { id: 'comm-hub', label: 'Communication Mgmt', icon: MessageSquare },
+                { id: 'tasks-list', label: 'Emp Tasks', icon: ClipboardCheck }
+              ].map(nav => (
+                <button
+                  key={nav.id}
+                  onClick={() => setActiveSection(nav.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${activeSection === nav.id
+                    ? 'bg-slate-900 text-white shadow-lg'
+                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                    }`}
+                >
+                  <nav.icon size={16} />
+                  {nav.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+          {renderPage()}
+        </div>
       </div>
     </div>
   );

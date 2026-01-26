@@ -16,14 +16,7 @@ const StatCard = ({ title, count, status, statusColor, onViewMore }) => {
 
       {/* This div will be populated from backend */}
       <div className="text-xs text-slate-500 border-t border-slate-100 pt-2 mt-3">
-        <p className="mb-2">Recent Items</p>
-        <button
-          onClick={onViewMore}
-          className="text-blue-600 font-medium text-xs hover:text-blue-700 transition flex items-center gap-1"
-        >
-          <span>View Orders (10)</span>
-          <span>→</span>
-        </button>
+        <p>Real-time analytics updated from system</p>
       </div>
     </div>
   );
