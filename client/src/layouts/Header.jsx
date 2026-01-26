@@ -5,7 +5,7 @@ const Header = ({ onLogout, onMenuToggle, user = {} }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm print:hidden">
       <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
         {/* Left Section - Title & Subtitle */}
         <div className="flex-1 min-w-0">
@@ -23,7 +23,7 @@ const Header = ({ onLogout, onMenuToggle, user = {} }) => {
             + Create Order
           </button>
 
-          <button 
+          <button
             onClick={onLogout}
             className="hidden md:flex px-4 py-2 border border-red-400 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-50 transition duration-200 items-center gap-2 whitespace-nowrap">
             <LogOut size={16} />

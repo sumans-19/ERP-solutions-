@@ -69,8 +69,8 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
                     setIsMobileOpen(false);
                   }}
                   className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition tracking-wide ${isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                     }`}
                 >
                   <IconComponent size={16} className="flex-shrink-0" />
@@ -109,8 +109,8 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
                           setIsMobileOpen(false);
                         }}
                         className={`w-full flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs transition ${isActive
-                            ? 'bg-blue-600 text-white'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                           }`}
                       >
                         <IconComponent size={14} className="flex-shrink-0" />
@@ -152,8 +152,8 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
                           setIsMobileOpen(false);
                         }}
                         className={`w-full flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs transition ${isActive
-                            ? 'bg-blue-600 text-white'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                           }`}
                       >
                         <IconComponent size={14} className="flex-shrink-0" />
@@ -193,7 +193,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex w-60 lg:w-72 bg-slate-900 text-white h-screen fixed left-0 top-0 flex-col shadow-xl border-r border-slate-800">
+      <div className="hidden md:flex w-60 lg:w-72 bg-slate-900 text-white h-screen fixed left-0 top-0 flex-col shadow-xl border-r border-slate-800 print:hidden">
         {sidebarContent}
       </div>
 
@@ -204,7 +204,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
             className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
             onClick={() => setIsMobileOpen(false)}
           />
-          <div className="fixed left-0 top-0 w-60 h-screen bg-slate-900 text-white z-40 flex flex-col md:hidden shadow-xl border-r border-slate-800">
+          <div className="fixed left-0 top-0 w-60 h-screen bg-slate-900 text-white z-40 flex flex-col md:hidden shadow-xl border-r border-slate-800 print:hidden">
             {sidebarContent}
           </div>
         </>

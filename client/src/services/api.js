@@ -172,3 +172,13 @@ export const addInventoryItem = async (data) => {
     throw error;
   }
 };
+// Party API functions
+export const getAllParties = async () => {
+  try {
+    const response = await axios.get('/api/parties');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching parties:', error);
+    throw error;
+  }
+};

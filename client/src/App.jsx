@@ -14,6 +14,7 @@ import Orders from './pages/Orders';
 import ProcessManagement from './pages/ProcessManagement';
 import UserManagement from './pages/UserManagement/Employees';
 import Inventory from './pages/Inventory';
+import ReportManage from './pages/ReportManage';
 
 /**
  * Login Component
@@ -185,6 +186,8 @@ const DashboardLayout = ({ onLogout, user }) => {
         return <UserManagement />;
       case 'inventory':
         return <Inventory />;
+      case 'reports':
+        return <ReportManage />;
       case 'dashboard':
       default:
         return <Dashboard />;
@@ -194,16 +197,20 @@ const DashboardLayout = ({ onLogout, user }) => {
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       {/* Desktop Sidebar */}
-      <Sidebar
-        activeSection={activeSection}
-        setActiveSection={setActiveSection}
-        isMobileOpen={isMobileMenuOpen}
-        setIsMobileOpen={setIsMobileMenuOpen}
-        user={user} onLogout={onLogout} />
+      <div className="print:hidden">
+        <Sidebar
+          activeSection={activeSection}
+          setActiveSection={setActiveSection}
+          isMobileOpen={isMobileMenuOpen}
+          setIsMobileOpen={setIsMobileMenuOpen}
+          user={user} onLogout={onLogout} />
+      </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-60 lg:ml-72">
-        <Header onLogout={onLogout} onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} user={user} />
+      <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-60 lg:ml-72 print:ml-0">
+        <div className="print:hidden">
+          <Header onLogout={onLogout} onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} user={user} />
+        </div>
         {renderPage()}
       </div>
     </div>
