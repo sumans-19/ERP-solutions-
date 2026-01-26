@@ -236,17 +236,129 @@ const itemSchema = new mongoose.Schema({
   inspectionChecks: [inspectionCheckSchema],
 
   // Final Inspection Section
-  finalInspection: [finalInspectionSchema]
+  finalInspection: [finalInspectionSchema],
+
+  // State Management - Item Lifecycle
+  state: {
+    type: String,
+    enum: ['New', 'Assigned', 'Manufacturing', 'Verification', 'Documentation', 'Completed', 'Hold'],
+    default: 'New'
+  },
+  stateHistory: [{
+    state: String,
+    changedAt: { type: Date, default: Date.now },
+    changedBy: String,
+    reason: String
+  }],
+  holdReason: {
+    type: String,
+    default: ''
+  },
+  assignedEmployees: [{
+    processStepId: Number,
+    employeeId: String,
+    employeeName: String,
+    assignedAt: Date,
+    expectedCompletionDate: Date,
+    completedAt: Date,
+    status: {
+      type: String,
+      enum: ['assigned', 'in-progress', 'completed', 'failed'],
+      default: 'assigned'
+    }
+  }]
 }, {
   timestamps: true
 });
 
-// Pre-save hook to initialize currentStock from openingQty for new items
-itemSchema.pre('save', function(next) {
+// Method to calculate and update item state based on progress
+itemSchema.methods.calculateState = function () {
+  // Handle case where processes don't exist
+  if (!this.processes || this.processes.length === 0) {
+    return 'New';
+  }
+
+  // Include both execution and testing steps
+  const mfgSteps = this.processes.filter(p => p.stepType === 'execution' || p.stepType === 'testing');
+
+  if (mfgSteps.length === 0) {
+    return 'New';
+  }
+
+  const assignedEmployees = this.assignedEmployees || [];
+
+  const assignedCount = assignedEmployees.filter(a =>
+    mfgSteps.some(s => s.id === a.processStepId)
+  ).length;
+  const completedMfgSteps = assignedEmployees.filter(a =>
+    a.status === 'completed' && mfgSteps.some(s => s.id === a.processStepId)
+  ).length;
+
+  // Check if on hold
+  if (this.state === 'Hold') {
+    return 'Hold';
+  }
+
+  // New: No assignments
+  if (assignedCount === 0) {
+    return 'New';
+  }
+
+  // Assigned: All mfg steps assigned but none started
+  const inProgressCount = assignedEmployees.filter(a =>
+    a.status === 'in-progress' || a.status === 'completed'
+  ).length;
+  if (assignedCount === mfgSteps.length && inProgressCount === 0) {
+    return 'Assigned';
+  }
+
+  // Manufacturing: At least one started, not all completed
+  if (completedMfgSteps < mfgSteps.length && inProgressCount > 0) {
+    return 'Manufacturing';
+  }
+
+  // Verification: All mfg steps completed
+  if (completedMfgSteps === mfgSteps.length) {
+    const inspectionChecks = this.inspectionChecks || [];
+    const verificationDone = inspectionChecks.length > 0 && inspectionChecks.every(c => c.status === 'passed');
+    if (!verificationDone) {
+      return 'Verification';
+    }
+
+    // Documentation: Verification passed
+    const finalInspection = this.finalInspection || [];
+    const docDone = finalInspection.length > 0 &&
+      finalInspection.every(f => f.remarks);
+    if (!docDone) {
+      return 'Documentation';
+    }
+
+    // Completed: Everything done
+    return 'Completed';
+  }
+
+  return this.state; // Fallback to current state
+};
+
+// Pre-save hook to auto-update state
+itemSchema.pre('save', async function () {
   if (this.isNew && this.openingQty) {
     this.currentStock = parseFloat(this.openingQty) || 0;
   }
-  next();
+
+  // Auto-calculate state if not manually set to Hold
+  if (!this.isNew || this.isModified('assignedEmployees') || this.isModified('processes')) {
+    const newState = this.calculateState();
+    if (newState !== this.state && this.state !== 'Hold') {
+      this.stateHistory.push({
+        state: newState,
+        changedAt: new Date(),
+        changedBy: 'system',
+        reason: 'Auto-calculated based on progress'
+      });
+      this.state = newState;
+    }
+  }
 });
 
 // Add indexes for frequently queried fields
@@ -254,5 +366,6 @@ itemSchema.index({ createdAt: -1 });
 itemSchema.index({ name: 1 });
 itemSchema.index({ code: 1 });
 itemSchema.index({ type: 1 });
+itemSchema.index({ state: 1 });
 
 module.exports = mongoose.model('Item', itemSchema);

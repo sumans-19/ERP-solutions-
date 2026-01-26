@@ -11,7 +11,8 @@ import Header from './layouts/Header';
 import Dashboard from './pages/Dashboard';
 import ItemPage from './pages/item';
 import Orders from './pages/Orders';
-// import ProcessManagement from './pages/ProcessManagement';
+import ProcessManagement from './pages/ProcessManagement';
+import UserManagement from './pages/UserManagement/Employees';
 
 /**
  * Login Component
@@ -177,6 +178,10 @@ const DashboardLayout = ({ onLogout, user }) => {
         return <ItemPage />;
       case 'orders':
         return <Orders />;
+      case 'process':
+        return <ProcessManagement />;
+      case 'users':
+        return <UserManagement />;
       case 'dashboard':
       default:
         return <Dashboard />;
@@ -191,7 +196,7 @@ const DashboardLayout = ({ onLogout, user }) => {
         setActiveSection={setActiveSection}
         isMobileOpen={isMobileMenuOpen}
         setIsMobileOpen={setIsMobileMenuOpen}
-        user={user}        onLogout={onLogout}      />
+        user={user} onLogout={onLogout} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-60 lg:ml-72">
