@@ -13,6 +13,7 @@ import ItemPage from './pages/item';
 import Orders from './pages/Orders';
 import ProcessManagement from './pages/ProcessManagement';
 import UserManagement from './pages/UserManagement/Employees';
+import Inventory from './pages/Inventory';
 
 /**
  * Login Component
@@ -182,6 +183,8 @@ const DashboardLayout = ({ onLogout, user }) => {
         return <ProcessManagement />;
       case 'users':
         return <UserManagement />;
+      case 'inventory':
+        return <Inventory />;
       case 'dashboard':
       default:
         return <Dashboard />;

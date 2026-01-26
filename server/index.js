@@ -32,6 +32,7 @@ app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/employees', require('./routes/employeeRoutes'));
 app.use('/api/parties', require('./routes/partyRoutes'));
 app.use('/api/step-assignments', require('./routes/stepAssignmentRoutes'));
+app.use('/api/inventory', require('./routes/inventoryRoutes'));
 
 // Error Handler
 app.use((err, req, res, next) => {

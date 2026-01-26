@@ -151,3 +151,24 @@ export const updateOrderStatus = async (id, status) => {
     throw error;
   }
 };
+
+// Inventory API functions
+export const getInventory = async () => {
+  try {
+    const response = await axios.get('/api/inventory');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching inventory:', error);
+    throw error;
+  }
+};
+
+export const addInventoryItem = async (data) => {
+  try {
+    const response = await axios.post('/api/inventory', data);
+    return response.data;
+  } catch (error) {
+    console.error('Error adding inventory item:', error);
+    throw error;
+  }
+};
