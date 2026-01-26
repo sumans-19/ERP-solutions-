@@ -10,6 +10,7 @@ import Header from './layouts/Header';
 // Page imports
 import Dashboard from './pages/Dashboard';
 import ItemPage from './pages/item';
+import EmployeeView from './pages/EmployeeView';
 import Orders from './pages/Orders';
 import ProcessManagement from './pages/ProcessManagement';
 import UserManagement from './pages/UserManagement/Employees';
@@ -176,6 +177,8 @@ const DashboardLayout = ({ onLogout, user }) => {
     switch (activeSection) {
       case 'items':
         return <ItemPage />;
+      case 'employee-view':
+        return <EmployeeView />;
       case 'orders':
         return <Orders />;
       case 'process':
