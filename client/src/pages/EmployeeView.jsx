@@ -1,12 +1,23 @@
 import React, { useState, useEffect, useRef } from "react";
+import {
+  getEmployeeOrders,
+  getEmployeeOrderStats,
+  updateOrderProgress,
+  getConversation,
+  getEmployees,
+  sendMessage,
+  markMessagesAsRead
+} from "../services/employeeApi";
 
 export default function EmployeeView() {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [orders] = useState({
-    completed: 45,
-    inProgress: 23,
-    notStarted: 12,
+  const [orders, setOrders] = useState({
+    completed: 0,
+    inProgress: 0,
+    notStarted: 0,
   });
+  const [loading, setLoading] = useState(false);
+  const [currentUserId] = useState("EMP-12345"); // Get from auth context in real app
   
   // Chat state
   const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -20,62 +31,162 @@ export default function EmployeeView() {
   ]);
   const [chatbotInput, setChatbotInput] = useState("");
 
-  // Dummy employees
-  const [employees] = useState([
-    { id: 1, name: "John Smith", role: "Production Manager", status: "online" },
-    { id: 2, name: "Sarah Johnson", role: "Quality Inspector", status: "online" },
-    { id: 3, name: "Mike Williams", role: "Team Lead", status: "offline" },
-    { id: 4, name: "Emily Brown", role: "Assembly Worker", status: "online" },
-    { id: 5, name: "David Lee", role: "Planning Manager", status: "offline" },
-  ]);
+  // Employees state
+  const [employees, setEmployees] = useState([]);
 
-  // Dummy assigned orders
-  const [assignedOrders] = useState([
-    {
-      id: 1,
-      orderNo: "ORD-001",
-      itemName: "Steel Chair Frame",
-      customer: "Furniture Corp",
-      assignedDate: "2026-01-20",
-      dueDate: "2026-01-28",
-      status: "in-progress",
-      priority: "high",
-      completionPercent: 65,
-    },
-    {
-      id: 2,
-      orderNo: "ORD-002",
-      itemName: "Office Desk",
-      customer: "Office Solutions Ltd",
-      assignedDate: "2026-01-22",
-      dueDate: "2026-01-30",
-      status: "not-started",
-      priority: "medium",
-      completionPercent: 0,
-    },
-    {
-      id: 3,
-      orderNo: "ORD-003",
-      itemName: "LED Light Fixture",
-      customer: "Bright Lights Inc",
-      assignedDate: "2026-01-18",
-      dueDate: "2026-01-25",
-      status: "completed",
-      priority: "low",
-      completionPercent: 100,
-    },
-    {
-      id: 4,
-      orderNo: "ORD-004",
-      itemName: "Wooden Bookshelf",
-      customer: "Home Decor Co",
-      assignedDate: "2026-01-23",
-      dueDate: "2026-02-01",
-      status: "in-progress",
-      priority: "high",
-      completionPercent: 40,
-    },
-  ]);
+  // Assigned orders state
+  const [assignedOrders, setAssignedOrders] = useState([]);
+
+  // Load employee data
+  useEffect(() => {
+    loadEmployees();
+  }, []);
+
+  // Load orders and stats
+  useEffect(() => {
+    if (activeTab === "dashboard" || activeTab === "assigned") {
+      loadOrdersAndStats();
+    }
+  }, [activeTab]);
+
+  // Load conversation when employee selected
+  useEffect(() => {
+    if (selectedEmployee) {
+      loadConversation(selectedEmployee.id);
+    }
+  }, [selectedEmployee]);
+
+  const loadEmployees = async () => {
+    try {
+      const response = await getEmployees();
+      if (response.employees) {
+        const employeeList = response.employees.map(emp => ({
+          id: emp.employeeId || emp._id,
+          name: emp.name,
+          role: emp.position || emp.role,
+          status: emp.status === 'Active' ? 'online' : 'offline'
+        }));
+        setEmployees(employeeList);
+      }
+    } catch (error) {
+      console.error('Error loading employees:', error);
+      // Fallback to dummy data
+      setEmployees([
+        { id: 1, name: "John Smith", role: "Production Manager", status: "online" },
+        { id: 2, name: "Sarah Johnson", role: "Quality Inspector", status: "online" },
+        { id: 3, name: "Mike Williams", role: "Team Lead", status: "offline" },
+        { id: 4, name: "Emily Brown", role: "Assembly Worker", status: "online" },
+        { id: 5, name: "David Lee", role: "Planning Manager", status: "offline" },
+      ]);
+    }
+  };
+
+  const loadOrdersAndStats = async () => {
+    setLoading(true);
+    try {
+      // Load orders
+      const ordersResponse = await getEmployeeOrders(currentUserId);
+      if (ordersResponse.data.success && ordersResponse.data.orders) {
+        const formattedOrders = ordersResponse.data.orders.map(order => ({
+          id: order._id,
+          orderNo: order.poNumber || `ORD-${order._id.slice(-6)}`,
+          itemName: order.items?.[0]?.itemName || 'N/A',
+          customer: order.partyName,
+          assignedDate: order.assignedDate ? new Date(order.assignedDate).toISOString().split('T')[0] : new Date(order.createdAt).toISOString().split('T')[0],
+          dueDate: order.estimatedDeliveryDate ? new Date(order.estimatedDeliveryDate).toISOString().split('T')[0] : 'N/A',
+          status: order.status === 'Processing' ? 'in-progress' : order.status === 'New' ? 'not-started' : order.status.toLowerCase(),
+          priority: order.items?.[0]?.priority?.toLowerCase() || 'normal',
+          completionPercent: order.completionPercent || 0,
+        }));
+        setAssignedOrders(formattedOrders);
+      }
+
+      // Load stats
+      const statsResponse = await getEmployeeOrderStats(currentUserId);
+      if (statsResponse.data.success && statsResponse.data.stats) {
+        const stats = statsResponse.data.stats;
+        setOrders({
+          completed: stats.completed || 0,
+          inProgress: stats.inProgress || 0,
+          notStarted: stats.notStarted || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading orders:', error);
+      // Fallback to dummy data
+      setAssignedOrders([
+        {
+          id: 1,
+          orderNo: "ORD-001",
+          itemName: "Steel Chair Frame",
+          customer: "Furniture Corp",
+          assignedDate: "2026-01-20",
+          dueDate: "2026-01-28",
+          status: "in-progress",
+          priority: "high",
+          completionPercent: 65,
+        },
+        {
+          id: 2,
+          orderNo: "ORD-002",
+          itemName: "Office Desk",
+          customer: "Office Solutions Ltd",
+          assignedDate: "2026-01-22",
+          dueDate: "2026-01-30",
+          status: "not-started",
+          priority: "medium",
+          completionPercent: 0,
+        },
+      ]);
+      setOrders({ completed: 45, inProgress: 23, notStarted: 12 });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadConversation = async (employeeId) => {
+    try {
+      const response = await getConversation(currentUserId, employeeId.toString());
+      if (response.data.success && response.data.messages) {
+        const formattedMessages = response.data.messages.map(msg => ({
+          id: msg._id,
+          text: msg.text,
+          sender: msg.senderId === currentUserId ? 'me' : 'them',
+          timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }));
+        setMessages(prev => ({
+          ...prev,
+          [String(employeeId)]: formattedMessages
+        }));
+        
+        // Mark messages as read
+        await markMessagesAsRead(currentUserId, employeeId.toString());
+      }
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+      // Initialize empty array for this conversation
+      setMessages(prev => ({
+        ...prev,
+        [String(employeeId)]: []
+      }));
+    }
+  };
+
+  const handleUpdateProgress = async (orderId, newPercent, newStatus) => {
+    try {
+      const response = await updateOrderProgress(orderId, {
+        completionPercent: newPercent,
+        status: newStatus
+      });
+      
+      if (response.data.success) {
+        // Reload orders
+        loadOrdersAndStats();
+      }
+    } catch (error) {
+      console.error('Error updating progress:', error);
+    }
+  };
 
   useEffect(() => {
     if (chatEndRef.current) {
@@ -98,24 +209,42 @@ export default function EmployeeView() {
   const pieData = calculatePieChart();
 
   // Send message to employee
-  const sendMessage = () => {
+  const handleSendMessage = async () => {
     if (!currentMessage.trim() || !selectedEmployee) return;
 
+    const messageId = Date.now();
+    const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const employeeIdKey = String(selectedEmployee.id);
+
     const newMessage = {
-      id: Date.now(),
+      id: messageId,
       text: currentMessage,
       sender: "me",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      timestamp: timestamp,
     };
 
+    // Update UI immediately
     setMessages((prev) => ({
       ...prev,
-      [selectedEmployee.id]: [...(prev[selectedEmployee.id] || []), newMessage],
+      [employeeIdKey]: [...(prev[employeeIdKey] || []), newMessage],
     }));
 
     setCurrentMessage("");
 
-    // Simulate response after 1 second
+    try {
+      // Send message to backend
+      await sendMessage({
+        senderId: currentUserId,
+        senderName: "John Doe",
+        receiverId: selectedEmployee.id.toString(),
+        receiverName: selectedEmployee.name,
+        text: newMessage.text
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+
+    // Simulate response after 1 second (remove this in real app with WebSocket)
     setTimeout(() => {
       const response = {
         id: Date.now(),
@@ -125,7 +254,7 @@ export default function EmployeeView() {
       };
       setMessages((prev) => ({
         ...prev,
-        [selectedEmployee.id]: [...(prev[selectedEmployee.id] || []), response],
+        [employeeIdKey]: [...(prev[employeeIdKey] || []), response],
       }));
     }, 1000);
   };
@@ -372,12 +501,12 @@ export default function EmployeeView() {
 
         {/* Assigned Orders Tab */}
         {activeTab === "assigned" && (
-          <div className="bg-white rounded-lg shadow-sm">
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ height: "calc(100vh - 240px)" }}>
             <div className="p-6 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">My Assigned Orders</h2>
               <p className="text-sm text-gray-600 mt-1">View and manage your assigned work orders</p>
             </div>
-            <div className="p-6">
+            <div className="p-6 overflow-y-auto" style={{ height: "calc(100% - 73px)" }}>
               <div className="space-y-4">
                 {assignedOrders.map((order) => (
                   <div
@@ -530,8 +659,8 @@ export default function EmployeeView() {
 
                     {/* Messages */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ height: "calc(100% - 145px)" }}>
-                      {messages[selectedEmployee.id]?.length > 0 ? (
-                        messages[selectedEmployee.id].map((msg) => (
+                      {messages[String(selectedEmployee.id)]?.length > 0 ? (
+                        messages[String(selectedEmployee.id)].map((msg) => (
                           <div
                             key={msg.id}
                             className={`flex ${msg.sender === "me" ? "justify-end" : "justify-start"}`}
@@ -572,12 +701,12 @@ export default function EmployeeView() {
                           type="text"
                           value={currentMessage}
                           onChange={(e) => setCurrentMessage(e.target.value)}
-                          onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+                          onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
                           placeholder="Type your message..."
                           className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <button
-                          onClick={sendMessage}
+                          onClick={handleSendMessage}
                           className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
                         >
                           Send

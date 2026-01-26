@@ -79,6 +79,20 @@ const orderSchema = new mongoose.Schema({
     enum: ['New', 'Confirmed', 'Processing', 'Completed', 'Cancelled'],
     default: 'New',
     index: true
+  },
+  assignedTo: {
+    type: String,
+    trim: true,
+    index: true
+  },
+  assignedDate: {
+    type: Date
+  },
+  completionPercent: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
   }
 }, { timestamps: true });
 

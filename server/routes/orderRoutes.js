@@ -197,4 +197,84 @@ router.patch('/:id/status', checkPermission('editOrders'), async (req, res) => {
   }
 });
 
+// Get orders assigned to an employee
+router.get('/employee/:employeeId', async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const orders = await Order.find({ assignedTo: employeeId })
+      .sort({ createdAt: -1 });
+    
+    res.json({ success: true, orders });
+  } catch (error) {
+    console.error('Error fetching employee orders:', error);
+    res.status(500).json({ success: false, message: 'Error fetching orders', error: error.message });
+  }
+});
+
+// Get order statistics for an employee
+router.get('/employee/:employeeId/stats', async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    
+    const stats = await Order.aggregate([
+      { $match: { assignedTo: employeeId } },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          completed: {
+            $sum: { $cond: [{ $eq: ['$status', 'Completed'] }, 1, 0] }
+          },
+          inProgress: {
+            $sum: { $cond: [{ $eq: ['$status', 'Processing'] }, 1, 0] }
+          },
+          notStarted: {
+            $sum: { $cond: [{ $eq: ['$status', 'New'] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+    
+    const result = stats.length > 0 ? stats[0] : {
+      total: 0,
+      completed: 0,
+      inProgress: 0,
+      notStarted: 0
+    };
+    
+    res.json({ success: true, stats: result });
+  } catch (error) {
+    console.error('Error fetching order stats:', error);
+    res.status(500).json({ success: false, message: 'Error fetching statistics', error: error.message });
+  }
+});
+
+// Update order progress
+router.put('/:orderId/progress', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { completionPercent, status } = req.body;
+    
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+    
+    if (completionPercent !== undefined) {
+      order.completionPercent = completionPercent;
+    }
+    
+    if (status) {
+      order.status = status;
+    }
+    
+    await order.save();
+    
+    res.json({ success: true, order });
+  } catch (error) {
+    console.error('Error updating order progress:', error);
+    res.status(500).json({ success: false, message: 'Error updating order', error: error.message });
+  }
+});
+
 module.exports = router;

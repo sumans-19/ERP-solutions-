@@ -29,6 +29,7 @@ mongoose.connection.once('open', () => {
 app.use('/api', require('./routes/authRoutes'));
 app.use('/api/items', require('./routes/itemRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
+app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/employees', require('./routes/employeeRoutes'));
 app.use('/api/parties', require('./routes/partyRoutes'));
 app.use('/api/step-assignments', require('./routes/stepAssignmentRoutes'));
