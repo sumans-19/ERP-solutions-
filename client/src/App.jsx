@@ -20,6 +20,7 @@ import CommunicationHub from './pages/CommunicationHub';
 import EmployeeTasks from './pages/EmployeeTasks';
 import InventoryDashboard from './pages/InventoryDashboard';
 import PartiesPage from './pages/UserManagement/PartiesPage';
+import Inventory from './pages/Inventory';
 
 /**
  * Login Component
@@ -203,6 +204,8 @@ const DashboardLayout = ({ onLogout, user }) => {
         return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeTasks /> : <Dashboard />;
       case 'planning-view':
         return <PlanningDashboard setActiveSection={setActiveSection} />;
+      case 'inventory':
+        return <Inventory />;
       case 'dashboard':
       default:
         if (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') return <AdminDashboard setActiveSection={setActiveSection} />;

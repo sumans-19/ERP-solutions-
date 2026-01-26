@@ -53,6 +53,7 @@ app.use('/api/parties', require('./routes/partyRoutes'));
 
 console.log('📡 ROUTES: Registering Step Assignment module...');
 app.use('/api/step-assignments', require('./routes/stepAssignmentRoutes'));
+app.use('/api/inventory', require('./routes/inventoryRoutes'));
 
 console.log('📡 ROUTES: Registering Stats module...');
 app.use('/api/stats', require('./routes/statsRoutes'));
