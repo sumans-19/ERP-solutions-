@@ -8,6 +8,7 @@ const EmployeeTasks = () => {
     const [employeeTasks, setEmployeeTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [expandedEmpId, setExpandedEmpId] = useState(null);
 
     useEffect(() => {
         fetchEmployeeTasks();
@@ -38,6 +39,7 @@ const EmployeeTasks = () => {
                     pendingCount: 0,
                     processingCount: 0,
                     doneCount: 0,
+                    tasks: [],
                     role: emp.role || emp.designation || emp.employeeId || 'Employee'
                 }));
                 console.log('No workload data, showing all employees with 0 tasks:', employeesWithZeroTasks);
@@ -123,6 +125,9 @@ const EmployeeTasks = () => {
                                 <th className="px-6 py-4 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">
                                     Utilization
                                 </th>
+                                <th className="px-6 py-4 text-center text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                    Details
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -140,52 +145,118 @@ const EmployeeTasks = () => {
                                 </tr>
                             ) : (
                                 filteredTasks.map((emp) => (
-                                    <tr key={emp._id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                                    <span className="text-blue-700 font-bold text-sm">
-                                                        {emp.employeeName?.charAt(0) || 'E'}
+                                    <React.Fragment key={emp._id}>
+                                        <tr className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                                        <span className="text-blue-700 font-bold text-sm">
+                                                            {emp.employeeName?.charAt(0) || 'E'}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-slate-900">{emp.employeeName || 'Unknown'}</p>
+                                                        <p className="text-xs text-slate-500">{emp.role}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="text-sm font-bold text-slate-900">{emp.totalAssignments || 0}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm font-semibold">
+                                                    {emp.pendingCount || 0}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                                                    {emp.processingCount || 0}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm font-semibold">
+                                                    {emp.doneCount || 0}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex-1 bg-slate-200 rounded-full h-2 overflow-hidden">
+                                                        <div
+                                                            className="h-full rounded-full bg-blue-600 transition-all"
+                                                            style={{ width: `${getUtilization(emp)}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className="text-sm font-bold text-slate-700 w-12 text-right">
+                                                        {getUtilization(emp)}%
                                                     </span>
                                                 </div>
-                                                <div>
-                                                    <p className="text-sm font-semibold text-slate-900">{emp.employeeName || 'Unknown'}</p>
-                                                    <p className="text-xs text-slate-500">{emp.role}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className="text-sm font-bold text-slate-900">{emp.totalAssignments || 0}</span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm font-semibold">
-                                                {emp.pendingCount || 0}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
-                                                {emp.processingCount || 0}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm font-semibold">
-                                                {emp.doneCount || 0}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex-1 bg-slate-200 rounded-full h-2 overflow-hidden">
-                                                    <div
-                                                        className="h-full rounded-full bg-blue-600 transition-all"
-                                                        style={{ width: `${getUtilization(emp)}%` }}
-                                                    />
-                                                </div>
-                                                <span className="text-sm font-bold text-slate-700 w-12 text-right">
-                                                    {getUtilization(emp)}%
-                                                </span>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <button
+                                                    onClick={() => setExpandedEmpId(expandedEmpId === emp._id ? null : emp._id)}
+                                                    className={`p-2 rounded-lg transition-colors ${expandedEmpId === emp._id
+                                                        ? 'bg-blue-600 text-white'
+                                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                                        }`}
+                                                >
+                                                    {expandedEmpId === emp._id ? 'Close' : 'View Tasks'}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {expandedEmpId === emp._id && (
+                                            <tr key={`${emp._id}-details`} className="bg-slate-50">
+                                                <td colSpan="7" className="px-8 py-6">
+                                                    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+                                                        <div className="bg-slate-50/50 px-4 py-2 border-b border-slate-200">
+                                                            <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Active Task Details</h3>
+                                                        </div>
+                                                        <table className="w-full text-sm">
+                                                            <thead className="bg-slate-50/30">
+                                                                <tr>
+                                                                    <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Item</th>
+                                                                    <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Step</th>
+                                                                    <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Status</th>
+                                                                    <th className="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Assigned</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-slate-100">
+                                                                {emp.tasks && emp.tasks.length > 0 ? (
+                                                                    emp.tasks.map((task, idx) => (
+                                                                        <tr key={idx} className="hover:bg-slate-50/50">
+                                                                            <td className="px-4 py-3">
+                                                                                <p className="font-semibold text-slate-900">{task.itemName}</p>
+                                                                                <p className="text-[10px] text-slate-500">{task.itemCode}</p>
+                                                                            </td>
+                                                                            <td className="px-4 py-3 text-slate-700 font-medium">
+                                                                                {task.stepName}
+                                                                            </td>
+                                                                            <td className="px-4 py-3">
+                                                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${task.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                                                    task.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                                                                                        'bg-slate-100 text-slate-600'
+                                                                                    }`}>
+                                                                                    {task.status || 'Pending'}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td className="px-4 py-3 text-xs text-slate-500">
+                                                                                {task.assignedAt ? new Date(task.assignedAt).toLocaleDateString() : '-'}
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))
+                                                                ) : (
+                                                                    <tr>
+                                                                        <td colSpan="4" className="px-4 py-8 text-center text-slate-400 italic">
+                                                                            No detailed tasks found for this employee
+                                                                        </td>
+                                                                    </tr>
+                                                                )}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
                                 ))
                             )}
                         </tbody>
@@ -222,7 +293,7 @@ const EmployeeTasks = () => {
                     </div>
                 )}
             </div>
-        </main>
+        </main >
     );
 };
 

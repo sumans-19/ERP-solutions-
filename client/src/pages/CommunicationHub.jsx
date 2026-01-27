@@ -5,7 +5,8 @@ import { MessageSquare, Bell, Send, Users, ChevronDown, X } from 'lucide-react';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 const CommunicationHub = ({ activeSection, setActiveSection }) => {
-    const [activeTab, setActiveTab] = useState(activeSection === 'bulletin' ? 'bulletin' : 'chats');
+    const normalizedSection = activeSection?.replace('admin-', '');
+    const [activeTab, setActiveTab] = useState(normalizedSection === 'bulletin' ? 'bulletin' : 'chats');
     const [employees, setEmployees] = useState([]);
     const [selectedEmployees, setSelectedEmployees] = useState([]);
     const [message, setMessage] = useState('');
@@ -21,9 +22,16 @@ const CommunicationHub = ({ activeSection, setActiveSection }) => {
     }, []);
 
     useEffect(() => {
-        if (activeSection === 'bulletin') setActiveTab('bulletin');
-        else if (activeSection === 'chats') setActiveTab('chats');
+        const section = activeSection?.replace('admin-', '');
+        if (section === 'bulletin') setActiveTab('bulletin');
+        else if (section === 'chats') setActiveTab('chats');
     }, [activeSection]);
+
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        const prefix = activeSection?.startsWith('admin-') ? 'admin-' : '';
+        setActiveSection(`${prefix}${tab}`);
+    };
 
     const fetchEmployees = async () => {
         try {
@@ -100,7 +108,7 @@ const CommunicationHub = ({ activeSection, setActiveSection }) => {
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                     <div className="flex border-b border-slate-200">
                         <button
-                            onClick={() => { setActiveTab('chats'); setActiveSection('chats'); }}
+                            onClick={() => handleTabChange('chats')}
                             className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 font-semibold transition-colors ${activeTab === 'chats'
                                 ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-700'
                                 : 'text-slate-600 hover:bg-slate-50'
@@ -110,7 +118,7 @@ const CommunicationHub = ({ activeSection, setActiveSection }) => {
                             Direct Chats
                         </button>
                         <button
-                            onClick={() => { setActiveTab('bulletin'); setActiveSection('bulletin'); }}
+                            onClick={() => handleTabChange('bulletin')}
                             className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 font-semibold transition-colors ${activeTab === 'bulletin'
                                 ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-700'
                                 : 'text-slate-600 hover:bg-slate-50'

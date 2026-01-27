@@ -58,37 +58,37 @@ const AdminDashboard = ({ setActiveSection }) => {
             label: 'Total Orders',
             value: stats.totalOrders,
             icon: ShoppingCart,
-            onClick: () => setActiveSection('orders')
+            onClick: () => setActiveSection('admin-orders')
         },
         {
             label: 'In Progress',
             value: stats.inProgress,
             icon: Activity,
-            onClick: () => setActiveSection('process')
+            onClick: () => setActiveSection('admin-process')
         },
         {
             label: 'Completed',
             value: stats.completed,
             icon: CheckCircle2,
-            onClick: () => setActiveSection('orders')
+            onClick: () => setActiveSection('admin-orders')
         },
         {
             label: 'Total Items',
             value: stats.totalItems,
             icon: Package,
-            onClick: () => setActiveSection('items')
+            onClick: () => setActiveSection('admin-items')
         },
         {
             label: 'Parties',
             value: stats.totalParties,
             icon: Users,
-            onClick: () => setActiveSection('parties')
+            onClick: () => setActiveSection('admin-parties')
         },
         {
             label: 'Employees',
             value: stats.totalEmployees,
             icon: Users,
-            onClick: () => setActiveSection('users')
+            onClick: () => setActiveSection('admin-users')
         }
     ];
 
@@ -127,7 +127,7 @@ const AdminDashboard = ({ setActiveSection }) => {
                     <h2 className="text-lg font-bold text-slate-900 mb-4">Quick Actions</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <button
-                            onClick={() => setActiveSection('comm-hub')}
+                            onClick={() => setActiveSection('admin-comm-hub')}
                             className="p-4 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg transition-all text-left group"
                         >
                             <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-600">
@@ -136,7 +136,7 @@ const AdminDashboard = ({ setActiveSection }) => {
                             <p className="text-xs text-slate-500 mt-1">Send messages & bulletins</p>
                         </button>
                         <button
-                            onClick={() => setActiveSection('tasks-list')}
+                            onClick={() => setActiveSection('admin-tasks-list')}
                             className="p-4 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg transition-all text-left group"
                         >
                             <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-600">
@@ -145,7 +145,7 @@ const AdminDashboard = ({ setActiveSection }) => {
                             <p className="text-xs text-slate-500 mt-1">View all assignments</p>
                         </button>
                         <button
-                            onClick={() => setActiveSection('inventory-dash')}
+                            onClick={() => setActiveSection('admin-inventory-dash')}
                             className="p-4 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg transition-all text-left group"
                         >
                             <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-600">
@@ -154,7 +154,7 @@ const AdminDashboard = ({ setActiveSection }) => {
                             <p className="text-xs text-slate-500 mt-1">Check stock levels</p>
                         </button>
                         <button
-                            onClick={() => setActiveSection('process')}
+                            onClick={() => setActiveSection('admin-process')}
                             className="p-4 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg transition-all text-left group"
                         >
                             <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-600">

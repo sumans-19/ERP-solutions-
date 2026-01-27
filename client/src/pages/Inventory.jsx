@@ -410,7 +410,13 @@ const AddMaterialModal = ({ onClose, onSubmit }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSubmit(formData);
+        // Map form fields to backend schema
+        onSubmit({
+            name: formData.name,
+            qty: parseInt(formData.quantity),
+            unit: formData.unit,
+            expiry: formData.expiry
+        });
     };
 
     return (

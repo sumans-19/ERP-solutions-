@@ -172,3 +172,200 @@ export const addInventoryItem = async (data) => {
     throw error;
   }
 };
+
+// Party API functions
+export const getAllParties = async () => {
+  try {
+    const response = await axios.get('/api/parties');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching parties:', error);
+    throw error;
+  }
+};
+
+export const updateParty = async (id, data) => {
+  try {
+    const response = await axios.put(`/api/parties/${id}`, data);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating party:', error);
+    throw error;
+  }
+};
+
+// System Settings API functions
+export const getSystemSettings = async () => {
+  try {
+    const response = await axios.get('/api/system-settings');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching system settings:', error);
+    throw error;
+  }
+};
+
+export const updateSystemSettings = async (data) => {
+  try {
+    const response = await axios.put('/api/system-settings', data);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating system settings:', error);
+    throw error;
+  }
+};
+
+// Task API functions
+export const getEmployeeTasks = async (employeeId) => {
+  try {
+    const response = await axios.get(`/api/tasks/employee/${employeeId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching tasks:', error);
+    throw error;
+  }
+};
+
+export const createTask = async (taskData) => {
+  try {
+    const response = await axios.post('/api/tasks', taskData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating task:', error);
+    throw error;
+  }
+};
+
+export const updateTask = async (id, data) => {
+  try {
+    const response = await axios.patch(`/api/tasks/${id}`, data);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating task:', error);
+    throw error;
+  }
+};
+
+export const deleteTask = async (id) => {
+  try {
+    const response = await axios.delete(`/api/tasks/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    throw error;
+  }
+};
+
+// Chat API functions
+export const getChatMessages = async (userId, contactId) => {
+  try {
+    const response = await axios.get(`/api/chat/${userId}/${contactId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    throw error;
+  }
+};
+
+export const sendMessage = async (messageData) => {
+  try {
+    const response = await axios.post('/api/chat', messageData);
+    return response.data;
+  } catch (error) {
+    console.error('Error sending message:', error);
+    throw error;
+  }
+};
+
+export const getContacts = async () => {
+  try {
+    const response = await axios.get('/api/chat/contacts/all');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching contacts:', error);
+    throw error;
+  }
+};
+
+// Bulletin API functions
+export const getBulletins = async () => {
+  try {
+    const response = await axios.get('/api/bulletins');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching bulletins:', error);
+    throw error;
+  }
+};
+
+export const createBulletin = async (data) => {
+  try {
+    const response = await axios.post('/api/bulletins', data);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating bulletin:', error);
+    throw error;
+  }
+};
+
+export const deleteBulletin = async (id) => {
+  try {
+    const response = await axios.delete(`/api/bulletins/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting bulletin:', error);
+    throw error;
+  }
+};
+
+// Job/Process Tracking API
+export const getAssignedJobs = async (employeeId) => {
+  try {
+    const response = await axios.get(`/api/items/assigned/${employeeId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching assigned jobs:', error);
+    throw error;
+  }
+};
+
+export const startStep = async (itemId, processStepId) => {
+  try {
+    const response = await axios.post(`/api/items/${itemId}/start-step`, { processStepId });
+    return response.data;
+  } catch (error) {
+    console.error('Error starting step:', error);
+    throw error;
+  }
+};
+
+export const completeStep = async (itemId, processStepId, notes) => {
+  try {
+    const response = await axios.post(`/api/items/${itemId}/complete-step`, { processStepId, notes });
+    return response.data;
+  } catch (error) {
+    console.error('Error completing step:', error);
+    throw error;
+  }
+};
+
+export const toggleSubstep = async (itemId, processStepId, subStepId, status) => {
+  try {
+    const response = await axios.post(`/api/items/${itemId}/toggle-substep`, { processStepId, subStepId, status });
+    return response.data;
+  } catch (error) {
+    console.error('Error toggling substep:', error);
+    throw error;
+  }
+};
+
+export const saveStepNote = async (itemId, processStepId, notes, employeeId) => {
+  try {
+    const response = await axios.post(`/api/items/${itemId}/save-step-note`, { processStepId, notes, employeeId });
+    return response.data;
+  } catch (error) {
+    console.error('Error saving note:', error);
+    throw error;
+  }
+};
+

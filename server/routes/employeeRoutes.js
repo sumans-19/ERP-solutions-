@@ -133,4 +133,48 @@ router.get('/:id/assignments', async (req, res) => {
     }
 });
 
+// POST /api/employees/sync-assignments - Sync currentAssignments from Item.assignedEmployees
+router.post('/sync-assignments', async (req, res) => {
+    try {
+        const Item = require('../models/Item');
+        const items = await Item.find({ 'assignedEmployees.0': { $exists: true } }).lean();
+        const employees = await Employee.find({});
+
+        console.log(`[Sync] Starting synchronization for ${items.length} items with assignments`);
+
+        // Clear all current assignments first to avoid duplicates and ensure a fresh sync
+        for (let emp of employees) {
+            emp.currentAssignments = [];
+            emp.calculatedStatus = 'Available';
+        }
+
+        let syncCount = 0;
+        for (let item of items) {
+            for (let ae of item.assignedEmployees) {
+                const emp = employees.find(e => e._id.toString() === ae.employeeId?.toString());
+                if (emp) {
+                    const step = item.processes.find(p => p.id === ae.processStepId);
+                    emp.currentAssignments.push({
+                        orderId: item._id.toString(),
+                        processName: step ? step.stepName : 'Manufacturing Step',
+                        assignedAt: ae.assignedAt || new Date()
+                    });
+                    emp.calculatedStatus = 'Busy';
+                    syncCount++;
+                }
+            }
+        }
+
+        // Save all updated employees
+        for (let emp of employees) {
+            await emp.save();
+        }
+
+        res.json({ message: 'Synchronization complete', syncedTasks: syncCount, employeesUpdated: employees.length });
+    } catch (err) {
+        console.error('Error during sync:', err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
 module.exports = router;

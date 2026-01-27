@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Calendar, Package, ShoppingCart } from 'lucide-react';
-import { getAllItems, getAllOrders, createOrder, updateOrder, deleteOrder, updateOrderStatus } from '../services/api';
+import { getAllItems, getAllOrders, createOrder, updateOrder, deleteOrder, updateOrderStatus, getAllParties } from '../services/api';
 
 const getTodayString = () => new Date().toISOString().slice(0, 10);
 
@@ -20,6 +20,7 @@ export default function Orders() {
   const [activeView, setActiveView] = useState('list');
   const [orders, setOrders] = useState([]);
   const [items, setItems] = useState([]);
+  const [parties, setParties] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
@@ -33,16 +34,18 @@ export default function Orders() {
   const [itemRows, setItemRows] = useState([createNewItemRow()]);
   const [notes, setNotes] = useState('');
 
-  // Fetch items and orders
+  // Fetch items, orders and parties
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [itemsRes, ordersRes] = await Promise.all([
+        const [itemsRes, ordersRes, partiesRes] = await Promise.all([
           getAllItems(),
-          getAllOrders()
+          getAllOrders(),
+          getAllParties()
         ]);
         setItems(Array.isArray(itemsRes) ? itemsRes : itemsRes.data || []);
         setOrders(Array.isArray(ordersRes) ? ordersRes : ordersRes.data || []);
+        setParties(Array.isArray(partiesRes) ? partiesRes : partiesRes.data || []);
       } catch (err) {
         console.error('Error loading data:', err);
         setError('Failed to load data');
@@ -270,11 +273,17 @@ export default function Orders() {
                 <label className="block text-xs font-bold text-slate-600 mb-2">CUSTOMER NAME *</label>
                 <input
                   type="text"
+                  list="parties-list"
                   className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   value={partyName}
                   onChange={e => setPartyName(e.target.value)}
-                  placeholder="Enter customer name"
+                  placeholder="Type or select customer..."
                 />
+                <datalist id="parties-list">
+                  {parties.map(p => (
+                    <option key={p._id} value={p.name} />
+                  ))}
+                </datalist>
               </div>
 
               <div>

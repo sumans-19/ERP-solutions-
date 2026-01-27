@@ -53,10 +53,20 @@ app.use('/api/parties', require('./routes/partyRoutes'));
 
 console.log('📡 ROUTES: Registering Step Assignment module...');
 app.use('/api/step-assignments', require('./routes/stepAssignmentRoutes'));
+
+console.log('📡 ROUTES: Registering Inventory module...');
 app.use('/api/inventory', require('./routes/inventoryRoutes'));
 
 console.log('📡 ROUTES: Registering Stats module...');
 app.use('/api/stats', require('./routes/statsRoutes'));
+
+console.log('📡 ROUTES: Registering System Settings module...');
+app.use('/api/system-settings', require('./routes/systemSettingsRoutes'));
+
+console.log('📡 ROUTES: Registering Task, Chat, and Bulletin modules...');
+app.use('/api/tasks', require('./routes/taskRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/bulletins', require('./routes/bulletinRoutes'));
 
 console.log('📡 ROUTES: Registering Auth module...');
 app.use('/api', require('./routes/authRoutes'));

@@ -21,6 +21,18 @@ import EmployeeTasks from './pages/EmployeeTasks';
 import InventoryDashboard from './pages/InventoryDashboard';
 import PartiesPage from './pages/UserManagement/PartiesPage';
 import Inventory from './pages/Inventory';
+import ProfileSettings from './pages/Settings/ProfileSettings';
+import SystemSettings from './pages/Settings/SystemSettings';
+
+// Employee View Imports
+import EmployeeDashboard from './pages/EmployeeView/EmployeeDashboard';
+import EmployeeTasksView from './pages/EmployeeView/EmployeeTasks';
+import EmployeeJobs from './pages/EmployeeView/EmployeeJobs';
+import EmployeeChat from './pages/EmployeeView/EmployeeChat';
+import EmployeeBulletins from './pages/EmployeeView/EmployeeBulletins';
+
+// Admin View Imports
+import TaskAssignment from './pages/AdminView/TaskAssignment';
 
 /**
  * Login Component
@@ -49,9 +61,14 @@ const Login = ({ setAuth, setUser }) => {
 
       if (response.data && response.data.success) {
         // Store user data and role
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        const userData = response.data.user;
+        localStorage.setItem('user', JSON.stringify(userData));
+
+        // Set global headers for all subsequent requests
+        axios.defaults.headers.common['x-user-role'] = userData.role;
+
         setAuth(true);
-        setUser(response.data.user);
+        setUser(userData);
         navigate('/dashboard');
       } else {
         setError(response.data?.message || 'Login failed');
@@ -64,6 +81,17 @@ const Login = ({ setAuth, setUser }) => {
       setLoading(false);
     }
   };
+
+  // Restore axios headers on app load if user is logged in
+  useEffect(() => {
+    const stored = localStorage.getItem('user');
+    if (stored) {
+      const u = JSON.parse(stored);
+      if (u.role) {
+        axios.defaults.headers.common['x-user-role'] = u.role;
+      }
+    }
+  }, []);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-4">
@@ -205,10 +233,43 @@ const DashboardLayout = ({ onLogout, user }) => {
       case 'planning-view':
         return <PlanningDashboard setActiveSection={setActiveSection} />;
       case 'inventory':
-        return <Inventory />;
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <Inventory /> : <Dashboard />;
+      case 'admin-view':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <AdminDashboard setActiveSection={setActiveSection} /> : <Dashboard />;
+      case 'admin-process':
+        return <ProcessManagement />;
+      case 'admin-items':
+        return <ItemPage />;
+      case 'admin-users':
+        return <UserManagement />;
+      case 'admin-inventory':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <Inventory /> : <Dashboard />;
+      case 'admin-comm-hub':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <CommunicationHub activeSection={activeSection} setActiveSection={setActiveSection} /> : <Dashboard />;
+      case 'admin-tasks-list':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <TaskAssignment user={user} /> : <Dashboard />;
+      case 'employee-dashboard':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeDashboard user={user} /> : <Dashboard />;
+      case 'employee-tasks':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeTasksView user={user} /> : <Dashboard />;
+      case 'employee-jobs':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeJobs user={user} /> : <Dashboard />;
+      case 'employee-chat':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeChat user={user} /> : <Dashboard />;
+      case 'employee-bulletins':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeBulletins /> : <Dashboard />;
+      case 'admin-orders':
+        return <Orders />;
+      case 'admin-parties':
+        return <PartiesPage />;
+      case 'admin-inventory-dash':
+        return <InventoryDashboard setActiveSection={setActiveSection} />;
+      case 'profile-settings':
+        return <ProfileSettings />;
+      case 'system-settings':
+        return <SystemSettings />;
       case 'dashboard':
       default:
-        if (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') return <AdminDashboard setActiveSection={setActiveSection} />;
         if (user?.role === 'planning') return <PlanningDashboard setActiveSection={setActiveSection} />;
         return <Dashboard />;
     }
@@ -259,34 +320,35 @@ const DashboardLayout = ({ onLogout, user }) => {
           </div>
         )}
 
-        {/* Admin Team Top Navigation */}
-        {(user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') && (
-          <div className="bg-white border-b border-slate-200 px-6 py-3 shadow-sm">
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-              {[
-                { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-                { id: 'process', label: 'Process Mgmt', icon: Activity },
-                { id: 'items', label: 'Items Mgmt', icon: Package },
-                { id: 'users', label: 'User Mgmt', icon: UserCog },
-                { id: 'inventory-dash', label: 'Inventory Mgmt', icon: Archive },
-                { id: 'comm-hub', label: 'Communication Mgmt', icon: MessageSquare },
-                { id: 'tasks-list', label: 'Emp Tasks', icon: ClipboardCheck }
-              ].map(nav => (
-                <button
-                  key={nav.id}
-                  onClick={() => setActiveSection(nav.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${activeSection === nav.id
-                    ? 'bg-slate-900 text-white shadow-lg'
-                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-                    }`}
-                >
-                  <nav.icon size={16} />
-                  {nav.label}
-                </button>
-              ))}
+        {/* Admin Team Top Navigation - Only show in admin view */}
+        {(user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') &&
+          activeSection.startsWith('admin-') && (
+            <div className="bg-white border-b border-slate-200 px-6 py-3 shadow-sm">
+              <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+                {[
+                  { id: 'admin-view', label: 'Dashboard', icon: LayoutDashboard },
+                  { id: 'admin-process', label: 'Process Mgmt', icon: Activity },
+                  { id: 'admin-items', label: 'Items Mgmt', icon: Package },
+                  { id: 'admin-users', label: 'User Mgmt', icon: UserCog },
+                  { id: 'admin-inventory', label: 'Inventory Mgmt', icon: Archive },
+                  { id: 'admin-comm-hub', label: 'Communication Mgmt', icon: MessageSquare },
+                  { id: 'admin-tasks-list', label: 'Emp Tasks', icon: ClipboardCheck }
+                ].map(nav => (
+                  <button
+                    key={nav.id}
+                    onClick={() => setActiveSection(nav.id)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${activeSection === nav.id
+                      ? 'bg-slate-900 text-white shadow-lg'
+                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                      }`}
+                  >
+                    <nav.icon size={16} />
+                    {nav.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           {renderPage()}

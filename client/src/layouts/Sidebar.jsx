@@ -3,6 +3,7 @@ import { Home, Package, Activity, Archive, Users, BarChart3, LogOut, X, ChevronD
 
 const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpen, user = {}, onLogout }) => {
   const [isViewsExpanded, setIsViewsExpanded] = useState(false);
+  const [isEmployeeViewExpanded, setIsEmployeeViewExpanded] = useState(false);
   const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
 
   const allNavigationItems = [
@@ -25,8 +26,15 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
 
   const viewItems = [
     { id: 'admin-view', label: 'Admin View', icon: Users },
-    { id: 'employee-view', label: 'Employee View', icon: Home },
     { id: 'planning-view', label: 'Planning Team View', icon: BarChart3 },
+  ];
+
+  const employeeViewItems = [
+    { id: 'employee-dashboard', label: 'Dashboard', icon: Home },
+    { id: 'employee-tasks', label: 'Tasks', icon: Activity },
+    { id: 'employee-jobs', label: 'Jobs', icon: Package },
+    { id: 'employee-chat', label: 'Chat', icon: Users },
+    { id: 'employee-bulletins', label: 'Bulletins', icon: BarChart3 },
   ];
 
   const settingsItems = [
@@ -108,6 +116,53 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
               {isViewsExpanded && (
                 <ul className="mt-1 ml-2 space-y-0.5 border-l border-slate-700 pl-2">
                   {viewItems.map((item) => {
+                    const IconComponent = item.icon;
+                    const isActive = item.id === 'admin-view'
+                      ? activeSection.startsWith('admin-')
+                      : activeSection === item.id;
+                    return (
+                      <li key={item.id}>
+                        <button
+                          onClick={() => {
+                            setActiveSection(item.id);
+                            setIsMobileOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs transition ${isActive
+                            ? 'bg-blue-600 text-white'
+                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                            }`}
+                        >
+                          <IconComponent size={14} className="flex-shrink-0" />
+                          <span className="hidden md:inline truncate text-xs">{item.label}</span>
+                          {isActive && <span className="ml-auto text-blue-300 hidden md:inline text-xs">→</span>}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </li>
+          )}
+
+          {/* Employee View Section */}
+          {user?.role !== 'planning' && (
+            <li className="mt-2">
+              <button
+                onClick={() => setIsEmployeeViewExpanded(!isEmployeeViewExpanded)}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition"
+              >
+                <Users size={16} className="flex-shrink-0" />
+                <span className="hidden md:inline truncate">Employee View</span>
+                <ChevronDown
+                  size={14}
+                  className={`ml-auto hidden md:block flex-shrink-0 transition-transform ${isEmployeeViewExpanded ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {/* Employee View Submenu */}
+              {isEmployeeViewExpanded && (
+                <ul className="mt-1 ml-2 space-y-0.5 border-l border-slate-700 pl-2">
+                  {employeeViewItems.map((item) => {
                     const IconComponent = item.icon;
                     const isActive = activeSection === item.id;
                     return (

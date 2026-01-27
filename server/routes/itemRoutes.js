@@ -1,14 +1,27 @@
-// routes/itemRoutes.js (Combined)
 const express = require('express');
 const router = express.Router();
 const Item = require('../models/Item');
+const Employee = require('../models/Employee');
 const Sale = require('../models/Sale');
 const Purchase = require('../models/Purchase');
-const authenticateToken = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permissions');
+const authenticateToken = require('../middleware/auth');
 
 // Apply authentication to all routes
 router.use(authenticateToken);
+
+// Get items assigned to a specific employee
+router.get('/assigned/:employeeId', authenticateToken, async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const items = await Item.find({
+      'assignedEmployees.employeeId': employeeId
+    }).sort({ createdAt: -1 });
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 // Get all items
 router.get('/', checkPermission('viewItems'), async (req, res) => {
@@ -198,36 +211,8 @@ router.get('/stats/state-counts', checkPermission('viewItems'), async (req, res)
   }
 });
 
-// Assign employee to process step
-router.post('/:id/assign-step', checkPermission('editItems'), async (req, res) => {
-  try {
-    const { processStepId, employeeId, employeeName } = req.body;
-    const item = await Item.findById(req.params.id);
+// Middle routes continue...
 
-    if (!item) {
-      return res.status(404).json({ message: 'Item not found' });
-    }
-
-    // Check if already assigned
-    const existing = item.assignedEmployees.find(a => a.processStepId === processStepId);
-    if (existing) {
-      return res.status(400).json({ message: 'Step already assigned' });
-    }
-
-    item.assignedEmployees.push({
-      processStepId,
-      employeeId,
-      employeeName,
-      assignedAt: new Date(),
-      status: 'assigned'
-    });
-
-    await item.save();
-    res.json(item);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
 
 // Start working on a step
 router.post('/:id/start-step', checkPermission('editItems'), async (req, res) => {
@@ -276,6 +261,45 @@ router.post('/:id/complete-step', checkPermission('editItems'), async (req, res)
       processStep.status = 'completed';
     }
 
+    await item.save();
+    res.json(item);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Toggle substep status
+router.post('/:id/toggle-substep', authenticateToken, checkPermission('editItems'), async (req, res) => {
+  try {
+    const { processStepId, subStepId, status } = req.body;
+    const item = await Item.findById(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+
+    const processStep = item.processes.find(p => p.id === processStepId);
+    if (!processStep) return res.status(404).json({ message: 'Process step not found' });
+
+    const subStep = processStep.subSteps.find(s => s.id === subStepId);
+    if (!subStep) return res.status(404).json({ message: 'Substep not found' });
+
+    subStep.status = status;
+    await item.save();
+    res.json(item);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Save step note
+router.post('/:id/save-step-note', authenticateToken, checkPermission('editItems'), async (req, res) => {
+  try {
+    const { processStepId, notes, employeeId } = req.body;
+    const item = await Item.findById(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+
+    const assignment = item.assignedEmployees.find(a => a.processStepId === processStepId && a.employeeId === employeeId);
+    if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+
+    assignment.notes = notes;
     await item.save();
     res.json(item);
   } catch (error) {
@@ -416,10 +440,12 @@ router.post('/:id/complete-documentation', checkPermission('editItems'), async (
   }
 });
 
+
 // POST /:id/assign-step - Assign employee to a manufacturing step
-router.post('/:id/assign-step', checkPermission('editItems'), async (req, res) => {
+router.post('/:id/assign-step', authenticateToken, checkPermission('editItems'), async (req, res) => {
   try {
     const { processStepId, employeeId, employeeName, expectedCompletionDate } = req.body;
+    console.log(`[AssignStep] Assigning step ${processStepId} of item ${req.params.id} to ${employeeName} (${employeeId})`);
 
     if (!processStepId || !employeeId || !employeeName) {
       return res.status(400).json({ message: 'Missing required fields' });
@@ -436,56 +462,63 @@ router.post('/:id/assign-step', checkPermission('editItems'), async (req, res) =
     );
 
     if (existingAssignment) {
+      console.log(`[AssignStep] Step ${processStepId} already assigned to ${existingAssignment.employeeName}`);
       return res.status(400).json({ message: 'Step already assigned to an employee' });
     }
 
-    // Add assignment to Item
-    item.assignedEmployees.push({
+    // Create the assignment object
+    const assignment = {
       processStepId,
       employeeId,
       employeeName,
       assignedAt: new Date(),
       expectedCompletionDate: expectedCompletionDate ? new Date(expectedCompletionDate) : null,
       status: 'pending'
-    });
+    };
 
-    // Recalculate state
+    // Add assignment to Item
+    item.assignedEmployees.push(assignment);
+
+    // Recalculate item state
+    const oldState = item.state;
     const newState = item.calculateState();
-    if (newState !== item.state) {
+    if (newState !== oldState) {
+      item.state = newState;
       item.stateHistory.push({
         state: newState,
         changedAt: new Date(),
-        changedBy: req.user?.username || 'system',
-        reason: `Step assigned to ${employeeName}${expectedCompletionDate ? ` (Expected: ${new Date(expectedCompletionDate).toLocaleDateString()})` : ''}`
+        changedBy: req.user?.username || req.user?.role || 'system',
+        reason: `Step assigned to ${employeeName}`
       });
-      item.state = newState;
+      console.log(`[AssignStep] Item state changed from ${oldState} to ${newState}`);
     }
 
-    // Update Employee model as well for better tracking
-    const Employee = require('../models/Employee');
+    // Update Employee model
     const employee = await Employee.findById(employeeId);
     if (employee) {
-      // Find step details for the employee assignment log
-      const step = item.processes.find(p => p.id === processStepId);
+      const stepDetails = item.processes.find(p => p.id === processStepId);
 
       employee.currentAssignments.push({
-        orderId: item._id.toString(), // Using item ID as reference
-        processName: step ? step.stepName : 'Unknown Step',
+        orderId: item._id.toString(),
+        processName: stepDetails ? stepDetails.stepName : 'Manufacturing Step',
         assignedAt: new Date()
       });
 
-      // Update employee status to Busy if they were available
-      if (employee.status === 'Active') {
+      if (employee.calculatedStatus === 'Available') {
         employee.calculatedStatus = 'Busy';
       }
 
       await employee.save();
+      console.log(`[AssignStep] Updated employee ${employeeName} assignments`);
+    } else {
+      console.warn(`[AssignStep] Employee ${employeeId} not found in database!`);
     }
 
     await item.save();
+    console.log(`[AssignStep] Successfully saved item process mapping`);
     res.json({ message: 'Step assigned successfully', item });
   } catch (error) {
-    console.error('Error assigning step:', error);
+    console.error('Error in assign-step:', error);
     res.status(500).json({ message: error.message });
   }
 });

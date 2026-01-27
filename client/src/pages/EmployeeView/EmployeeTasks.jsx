@@ -1,0 +1,210 @@
+import React, { useState, useEffect } from 'react';
+import { getEmployeeTasks, updateTask } from '../../services/api';
+import { CheckCircle, Circle, Clock, AlertTriangle, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const EmployeeTasks = ({ user }) => {
+    const [tasks, setTasks] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState('Pending');
+    const [expandedTaskId, setExpandedTaskId] = useState(null);
+    const [noteInput, setNoteInput] = useState('');
+
+    useEffect(() => {
+        if (user?.id || user?._id) {
+            fetchTasks();
+        }
+    }, [user]);
+
+    const fetchTasks = async () => {
+        try {
+            setLoading(true);
+            const userId = user.id || user._id;
+            const data = await getEmployeeTasks(userId);
+            setTasks(data);
+        } catch (error) {
+            console.error('Error fetching tasks:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleToggleComplete = async (task) => {
+        try {
+            const newStatus = task.status === 'Completed' ? 'Pending' : 'Completed';
+            await updateTask(task._id, { status: newStatus });
+
+            // Optimistic update
+            setTasks(prev => prev.map(t =>
+                t._id === task._id ? { ...t, status: newStatus, completedAt: newStatus === 'Completed' ? new Date() : null } : t
+            ));
+        } catch (error) {
+            console.error('Error updating task:', error);
+            fetchTasks(); // Revert on error
+        }
+    };
+
+    const handleSaveNote = async (taskId) => {
+        try {
+            await updateTask(taskId, { notes: noteInput });
+            setTasks(prev => prev.map(t => t._id === taskId ? { ...t, notes: noteInput } : t));
+            setExpandedTaskId(null);
+            setNoteInput('');
+        } catch (error) {
+            console.error('Error saving note:', error);
+        }
+    };
+
+    const toggleExpand = (task) => {
+        if (expandedTaskId === task._id) {
+            setExpandedTaskId(null);
+            setNoteInput('');
+        } else {
+            setExpandedTaskId(task._id);
+            setNoteInput(task.notes || '');
+        }
+    };
+
+    const filteredTasks = tasks.filter(t =>
+        filter === 'Completed' ? t.status === 'Completed' : t.status !== 'Completed'
+    );
+
+    const getPriorityColor = (priority) => {
+        switch (priority) {
+            case 'High': return 'text-red-600 bg-red-50 border-red-200';
+            case 'Medium': return 'text-amber-600 bg-amber-50 border-amber-200';
+            case 'Low': return 'text-blue-600 bg-blue-50 border-blue-200';
+            default: return 'text-slate-600 bg-slate-50 border-slate-200';
+        }
+    };
+
+    if (loading && tasks.length === 0) return <div className="p-8">Loading tasks...</div>;
+
+    return (
+        <div className="max-w-4xl mx-auto space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900">My Tasks</h1>
+                    <p className="text-slate-500">Manage your assigned administrative tasks</p>
+                </div>
+                <div className="flex bg-slate-100 p-1 rounded-lg">
+                    {['Pending', 'Completed'].map(f => (
+                        <button
+                            key={f}
+                            onClick={() => setFilter(f)}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${filter === f
+                                ? 'bg-white text-blue-600 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                        >
+                            {f}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                <AnimatePresence mode="popLayout">
+                    {filteredTasks.length === 0 ? (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="bg-white rounded-xl border border-dashed border-slate-300 p-12 text-center"
+                        >
+                            <p className="text-slate-500">No {filter.toLowerCase()} tasks found.</p>
+                        </motion.div>
+                    ) : (
+                        filteredTasks.map(task => (
+                            <motion.div
+                                key={task._id}
+                                layout
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className={`bg-white rounded-xl border transition-all ${task.status === 'Completed' ? 'border-slate-200 opacity-75' : 'border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200'
+                                    }`}
+                            >
+                                <div className="p-5 flex items-start gap-4">
+                                    <button
+                                        onClick={() => handleToggleComplete(task)}
+                                        className={`mt-1 flex-shrink-0 transition-colors ${task.status === 'Completed' ? 'text-emerald-500' : 'text-slate-300 hover:text-blue-500'
+                                            }`}
+                                    >
+                                        {task.status === 'Completed' ? <CheckCircle size={24} /> : <Circle size={24} />}
+                                    </button>
+
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div>
+                                                <h3 className={`text-lg font-bold text-slate-900 truncate ${task.status === 'Completed' ? 'line-through text-slate-500' : ''}`}>
+                                                    {task.title}
+                                                </h3>
+                                                <p className="text-slate-500 text-sm mt-1">{task.description}</p>
+                                            </div>
+                                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getPriorityColor(task.priority)}`}>
+                                                {task.priority || 'Normal'}
+                                            </span>
+                                        </div>
+
+                                        <div className="flex items-center gap-4 mt-4 text-xs text-slate-500">
+                                            {task.dueDate && (
+                                                <div className="flex items-center gap-1">
+                                                    <Clock size={14} />
+                                                    <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex items-center gap-1">
+                                                <span className="font-medium">By:</span> {task.assignedBy?.email || 'Admin'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => toggleExpand(task)}
+                                        className={`p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors ${expandedTaskId === task._id ? 'bg-slate-100 text-blue-600' : ''}`}
+                                    >
+                                        {expandedTaskId === task._id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                    </button>
+                                </div>
+
+                                <AnimatePresence>
+                                    {expandedTaskId === task._id && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            className="overflow-hidden border-t border-slate-100 bg-slate-50/50"
+                                        >
+                                            <div className="p-5">
+                                                <label className="block text-xs font-bold text-slate-500 mb-2 flex items-center gap-2">
+                                                    <FileText size={14} /> NOTES & UPDATE
+                                                </label>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={noteInput}
+                                                        onChange={(e) => setNoteInput(e.target.value)}
+                                                        placeholder="Add a note or update..."
+                                                        className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                    />
+                                                    <button
+                                                        onClick={() => handleSaveNote(task._id)}
+                                                        className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition"
+                                                    >
+                                                        Save
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </motion.div>
+                        ))
+                    )}
+                </AnimatePresence>
+            </div>
+        </div>
+    );
+};
+
+export default EmployeeTasks;

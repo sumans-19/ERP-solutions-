@@ -263,8 +263,12 @@ const itemSchema = new mongoose.Schema({
     completedAt: Date,
     status: {
       type: String,
-      enum: ['assigned', 'in-progress', 'completed', 'failed'],
+      enum: ['assigned', 'pending', 'in-progress', 'completed', 'failed'],
       default: 'assigned'
+    },
+    notes: {
+      type: String,
+      trim: true
     }
   }]
 }, {
