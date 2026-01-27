@@ -23,6 +23,7 @@ import PartiesPage from './pages/UserManagement/PartiesPage';
 import Inventory from './pages/Inventory';
 import ProfileSettings from './pages/Settings/ProfileSettings';
 import SystemSettings from './pages/Settings/SystemSettings';
+import ReportManage from './pages/ReportManage';
 
 // Employee View Imports
 import EmployeeDashboard from './pages/EmployeeView/EmployeeDashboard';
@@ -33,6 +34,11 @@ import EmployeeBulletins from './pages/EmployeeView/EmployeeBulletins';
 
 // Admin View Imports
 import TaskAssignment from './pages/AdminView/TaskAssignment';
+import CommunicationManagement from './pages/AdminView/CommunicationManagement';
+
+// Employee View Context and Layout
+import { EmployeeViewProvider } from './contexts/EmployeeViewContext';
+import EmployeeViewLayout from './layouts/EmployeeViewLayout';
 
 /**
  * Login Component
@@ -242,22 +248,43 @@ const DashboardLayout = ({ onLogout, user }) => {
         return <ItemPage />;
       case 'admin-users':
         return <UserManagement />;
+      case 'admin-communication':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <CommunicationManagement user={user} /> : <Dashboard />;
       case 'admin-inventory':
         return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <Inventory /> : <Dashboard />;
       case 'admin-comm-hub':
         return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <CommunicationHub activeSection={activeSection} setActiveSection={setActiveSection} /> : <Dashboard />;
       case 'admin-tasks-list':
         return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <TaskAssignment user={user} /> : <Dashboard />;
+      case 'employee-view':
       case 'employee-dashboard':
-        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeDashboard user={user} /> : <Dashboard />;
       case 'employee-tasks':
-        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeTasksView user={user} /> : <Dashboard />;
       case 'employee-jobs':
-        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeJobs user={user} /> : <Dashboard />;
       case 'employee-chat':
-        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeChat user={user} /> : <Dashboard />;
       case 'employee-bulletins':
-        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeBulletins /> : <Dashboard />;
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? (
+          <EmployeeViewProvider>
+            <EmployeeViewLayout activeTab={activeSection === 'employee-view' ? 'employee-dashboard' : activeSection} setActiveTab={setActiveSection}>
+              {(() => {
+                const tab = activeSection === 'employee-view' ? 'employee-dashboard' : activeSection;
+                switch (tab) {
+                  case 'employee-dashboard':
+                    return <EmployeeDashboard user={user} />;
+                  case 'employee-tasks':
+                    return <EmployeeTasksView user={user} />;
+                  case 'employee-jobs':
+                    return <EmployeeJobs user={user} />;
+                  case 'employee-chat':
+                    return <EmployeeChat user={user} />;
+                  case 'employee-bulletins':
+                    return <EmployeeBulletins />;
+                  default:
+                    return <EmployeeDashboard user={user} />;
+                }
+              })()}
+            </EmployeeViewLayout>
+          </EmployeeViewProvider>
+        ) : <Dashboard />;
       case 'admin-orders':
         return <Orders />;
       case 'admin-parties':
@@ -268,6 +295,8 @@ const DashboardLayout = ({ onLogout, user }) => {
         return <ProfileSettings />;
       case 'system-settings':
         return <SystemSettings />;
+      case 'reports':
+        return <ReportManage />;
       case 'dashboard':
       default:
         if (user?.role === 'planning') return <PlanningDashboard setActiveSection={setActiveSection} />;
@@ -278,12 +307,14 @@ const DashboardLayout = ({ onLogout, user }) => {
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       {/* Desktop Sidebar */}
-      <Sidebar
-        activeSection={activeSection}
-        setActiveSection={setActiveSection}
-        isMobileOpen={isMobileMenuOpen}
-        setIsMobileOpen={setIsMobileMenuOpen}
-        user={user} onLogout={onLogout} />
+      <div className="print:hidden">
+        <Sidebar
+          activeSection={activeSection}
+          setActiveSection={setActiveSection}
+          isMobileOpen={isMobileMenuOpen}
+          setIsMobileOpen={setIsMobileMenuOpen}
+          user={user} onLogout={onLogout} />
+      </div>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-60 lg:ml-72">

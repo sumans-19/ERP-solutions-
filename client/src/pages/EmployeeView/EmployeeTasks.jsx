@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { getEmployeeTasks, updateTask } from '../../services/api';
 import { CheckCircle, Circle, Clock, AlertTriangle, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useEmployeeView } from '../../contexts/EmployeeViewContext';
 
 const EmployeeTasks = ({ user }) => {
+    const { selectedEmployeeId } = useEmployeeView();
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('Pending');
@@ -11,16 +13,15 @@ const EmployeeTasks = ({ user }) => {
     const [noteInput, setNoteInput] = useState('');
 
     useEffect(() => {
-        if (user?.id || user?._id) {
+        if (selectedEmployeeId) {
             fetchTasks();
         }
-    }, [user]);
+    }, [selectedEmployeeId]);
 
     const fetchTasks = async () => {
         try {
             setLoading(true);
-            const userId = user.id || user._id;
-            const data = await getEmployeeTasks(userId);
+            const data = await getEmployeeTasks(selectedEmployeeId);
             setTasks(data);
         } catch (error) {
             console.error('Error fetching tasks:', error);
@@ -78,21 +79,27 @@ const EmployeeTasks = ({ user }) => {
         }
     };
 
-    if (loading && tasks.length === 0) return <div className="p-8">Loading tasks...</div>;
+    if (!selectedEmployeeId) {
+        return null; // Layout handles empty state
+    }
+
+    if (loading && tasks.length === 0) {
+        return <div className="p-8 text-center text-slate-500">Loading tasks...</div>;
+    }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6 h-full overflow-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">My Tasks</h1>
-                    <p className="text-slate-500">Manage your assigned administrative tasks</p>
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Tasks</h1>
+                    <p className="text-sm sm:text-base text-slate-500">Manage assigned administrative tasks</p>
                 </div>
-                <div className="flex bg-slate-100 p-1 rounded-lg">
+                <div className="flex bg-slate-100 p-1 rounded-lg w-full sm:w-auto">
                     {['Pending', 'Completed'].map(f => (
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${filter === f
+                            className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-sm font-medium transition-all ${filter === f
                                 ? 'bg-white text-blue-600 shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'
                                 }`}
@@ -103,13 +110,13 @@ const EmployeeTasks = ({ user }) => {
                 </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
                 <AnimatePresence mode="popLayout">
                     {filteredTasks.length === 0 ? (
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="bg-white rounded-xl border border-dashed border-slate-300 p-12 text-center"
+                            className="bg-white rounded-xl border border-dashed border-slate-300 p-8 sm:p-12 text-center"
                         >
                             <p className="text-slate-500">No {filter.toLowerCase()} tasks found.</p>
                         </motion.div>
@@ -124,7 +131,7 @@ const EmployeeTasks = ({ user }) => {
                                 className={`bg-white rounded-xl border transition-all ${task.status === 'Completed' ? 'border-slate-200 opacity-75' : 'border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200'
                                     }`}
                             >
-                                <div className="p-5 flex items-start gap-4">
+                                <div className="p-4 sm:p-5 flex items-start gap-3 sm:gap-4">
                                     <button
                                         onClick={() => handleToggleComplete(task)}
                                         className={`mt-1 flex-shrink-0 transition-colors ${task.status === 'Completed' ? 'text-emerald-500' : 'text-slate-300 hover:text-blue-500'
@@ -134,19 +141,19 @@ const EmployeeTasks = ({ user }) => {
                                     </button>
 
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-start justify-between gap-4">
-                                            <div>
-                                                <h3 className={`text-lg font-bold text-slate-900 truncate ${task.status === 'Completed' ? 'line-through text-slate-500' : ''}`}>
+                                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className={`text-base sm:text-lg font-bold text-slate-900 ${task.status === 'Completed' ? 'line-through text-slate-500' : ''}`}>
                                                     {task.title}
                                                 </h3>
                                                 <p className="text-slate-500 text-sm mt-1">{task.description}</p>
                                             </div>
-                                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getPriorityColor(task.priority)}`}>
+                                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getPriorityColor(task.priority)} whitespace-nowrap self-start`}>
                                                 {task.priority || 'Normal'}
                                             </span>
                                         </div>
 
-                                        <div className="flex items-center gap-4 mt-4 text-xs text-slate-500">
+                                        <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-3 sm:mt-4 text-xs text-slate-500">
                                             {task.dueDate && (
                                                 <div className="flex items-center gap-1">
                                                     <Clock size={14} />
@@ -161,7 +168,7 @@ const EmployeeTasks = ({ user }) => {
 
                                     <button
                                         onClick={() => toggleExpand(task)}
-                                        className={`p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors ${expandedTaskId === task._id ? 'bg-slate-100 text-blue-600' : ''}`}
+                                        className={`p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0 ${expandedTaskId === task._id ? 'bg-slate-100 text-blue-600' : ''}`}
                                     >
                                         {expandedTaskId === task._id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                     </button>
@@ -175,11 +182,11 @@ const EmployeeTasks = ({ user }) => {
                                             exit={{ height: 0, opacity: 0 }}
                                             className="overflow-hidden border-t border-slate-100 bg-slate-50/50"
                                         >
-                                            <div className="p-5">
+                                            <div className="p-4 sm:p-5">
                                                 <label className="block text-xs font-bold text-slate-500 mb-2 flex items-center gap-2">
                                                     <FileText size={14} /> NOTES & UPDATE
                                                 </label>
-                                                <div className="flex gap-2">
+                                                <div className="flex flex-col sm:flex-row gap-2">
                                                     <input
                                                         type="text"
                                                         value={noteInput}
@@ -189,7 +196,7 @@ const EmployeeTasks = ({ user }) => {
                                                     />
                                                     <button
                                                         onClick={() => handleSaveNote(task._id)}
-                                                        className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition"
+                                                        className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition whitespace-nowrap"
                                                     >
                                                         Save
                                                     </button>

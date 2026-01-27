@@ -136,6 +136,15 @@ const AdminDashboard = ({ setActiveSection }) => {
                             <p className="text-xs text-slate-500 mt-1">Send messages & bulletins</p>
                         </button>
                         <button
+                            onClick={() => setActiveSection('admin-communication')}
+                            className="p-4 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg transition-all text-left group"
+                        >
+                            <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-600">
+                                Employee Communication
+                            </p>
+                            <p className="text-xs text-slate-500 mt-1">Chat with employees</p>
+                        </button>
+                        <button
                             onClick={() => setActiveSection('admin-tasks-list')}
                             className="p-4 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg transition-all text-left group"
                         >
