@@ -35,6 +35,8 @@ import EmployeeBulletins from './pages/EmployeeView/EmployeeBulletins';
 // Admin View Imports
 import TaskAssignment from './pages/AdminView/TaskAssignment';
 import CommunicationManagement from './pages/AdminView/CommunicationManagement';
+import EmployeeWorkloadManagement from './pages/AdminView/EmployeeWorkloadManagement';
+import Preferences from './pages/AdminView/Preferences';
 
 // Employee View Context and Layout
 import { EmployeeViewProvider } from './contexts/EmployeeViewContext';
@@ -72,6 +74,15 @@ const Login = ({ setAuth, setUser }) => {
 
         // Set global headers for all subsequent requests
         axios.defaults.headers.common['x-user-role'] = userData.role;
+        axios.defaults.headers.common['x-user-id'] = userData._id;
+
+        // Fetch dynamic permissions
+        try {
+          const permsRes = await axios.get(`${apiUrl}/api/role-permissions/${userData.role}`);
+          localStorage.setItem('role_permissions', JSON.stringify(permsRes.data));
+        } catch (e) {
+          console.warn("Could not fetch remote permissions, using defaults.");
+        }
 
         setAuth(true);
         setUser(userData);
@@ -233,7 +244,10 @@ const DashboardLayout = ({ onLogout, user }) => {
       case 'comm-hub':
       case 'chats':
       case 'bulletin':
-        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <CommunicationHub activeSection={activeSection} setActiveSection={setActiveSection} /> : <Dashboard />;
+      case 'admin-comm-hub':
+      case 'admin-chats':
+      case 'admin-bulletin':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <CommunicationHub activeSection={activeSection} setActiveSection={setActiveSection} user={user} /> : <Dashboard />;
       case 'tasks-list':
         return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeTasks /> : <Dashboard />;
       case 'planning-view':
@@ -253,9 +267,11 @@ const DashboardLayout = ({ onLogout, user }) => {
       case 'admin-inventory':
         return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <Inventory /> : <Dashboard />;
       case 'admin-comm-hub':
-        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <CommunicationHub activeSection={activeSection} setActiveSection={setActiveSection} /> : <Dashboard />;
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <CommunicationHub activeSection={activeSection} setActiveSection={setActiveSection} user={user} /> : <Dashboard />;
       case 'admin-tasks-list':
         return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <TaskAssignment user={user} /> : <Dashboard />;
+      case 'admin-jobs-list':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <EmployeeWorkloadManagement user={user} /> : <Dashboard />;
       case 'employee-view':
       case 'employee-dashboard':
       case 'employee-tasks':
@@ -269,7 +285,7 @@ const DashboardLayout = ({ onLogout, user }) => {
                 const tab = activeSection === 'employee-view' ? 'employee-dashboard' : activeSection;
                 switch (tab) {
                   case 'employee-dashboard':
-                    return <EmployeeDashboard user={user} />;
+                    return <EmployeeDashboard user={user} setActiveSection={setActiveSection} />;
                   case 'employee-tasks':
                     return <EmployeeTasksView user={user} />;
                   case 'employee-jobs':
@@ -291,6 +307,8 @@ const DashboardLayout = ({ onLogout, user }) => {
         return <PartiesPage />;
       case 'admin-inventory-dash':
         return <InventoryDashboard setActiveSection={setActiveSection} />;
+      case 'preferences':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <Preferences user={user} /> : <Dashboard />;
       case 'profile-settings':
         return <ProfileSettings />;
       case 'system-settings':
@@ -363,7 +381,8 @@ const DashboardLayout = ({ onLogout, user }) => {
                   { id: 'admin-users', label: 'User Mgmt', icon: UserCog },
                   { id: 'admin-inventory', label: 'Inventory Mgmt', icon: Archive },
                   { id: 'admin-comm-hub', label: 'Communication Mgmt', icon: MessageSquare },
-                  { id: 'admin-tasks-list', label: 'Emp Tasks', icon: ClipboardCheck }
+                  { id: 'admin-tasks-list', label: 'Emp Tasks', icon: ClipboardCheck },
+                  { id: 'admin-jobs-list', label: 'Emp Jobs', icon: Users }
                 ].map(nav => (
                   <button
                     key={nav.id}
@@ -402,6 +421,19 @@ function App() {
     const stored = localStorage.getItem('user');
     return stored ? JSON.parse(stored) : null;
   });
+
+  useEffect(() => {
+    if (user) {
+      axios.defaults.headers.common['x-user-role'] = user.role;
+      axios.defaults.headers.common['x-user-id'] = user._id;
+
+      // Sync permissions on reload
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      axios.get(`${apiUrl}/api/role-permissions/${user.role}`)
+        .then(res => localStorage.setItem('role_permissions', JSON.stringify(res.data)))
+        .catch(err => console.warn("Permission sync failed"));
+    }
+  }, [user]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');

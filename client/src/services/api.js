@@ -12,6 +12,7 @@ axios.interceptors.request.use(
     if (user) {
       const userData = JSON.parse(user);
       config.headers['x-user-role'] = userData.role || 'development';
+      config.headers['x-user-id'] = userData.id || userData._id;
     }
     return config;
   },
@@ -215,6 +216,27 @@ export const updateSystemSettings = async (data) => {
   }
 };
 
+// Role Permission API functions
+export const getRolePermissions = async () => {
+  try {
+    const response = await axios.get('/api/role-permissions');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching role permissions:', error);
+    throw error;
+  }
+};
+
+export const updateRolePermissions = async (role, data) => {
+  try {
+    const response = await axios.put(`/api/role-permissions/${role}`, data);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating role permissions:', error);
+    throw error;
+  }
+};
+
 // Task API functions
 export const getEmployeeTasks = async (employeeId) => {
   try {
@@ -319,6 +341,16 @@ export const deleteBulletin = async (id) => {
 };
 
 // Job/Process Tracking API
+export const getEmployeeWorkload = async () => {
+  try {
+    const response = await axios.get('/api/employees/workload');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching employee workload:', error);
+    throw error;
+  }
+};
+
 export const getAssignedJobs = async (employeeId) => {
   try {
     const response = await axios.get(`/api/items/assigned/${employeeId}`);

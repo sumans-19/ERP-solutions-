@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Item = require('../models/Item');
 const Employee = require('../models/Employee');
+const Task = require('../models/Task');
 const authenticateToken = require('../middleware/auth');
 
 // GET /api/employees/workload - Get employee workload from items
@@ -17,6 +18,10 @@ router.get('/workload', authenticateToken, async (req, res) => {
         const items = await Item.find({}).lean();
         console.log(`Found ${items.length} items`);
 
+        // Get all administrative tasks
+        const adminTasks = await Task.find({}).lean();
+        console.log(`Found ${adminTasks.length} administrative tasks`);
+
         // Initialize workload map
         const workloadMap = {};
         employees.forEach(emp => {
@@ -29,7 +34,8 @@ router.get('/workload', authenticateToken, async (req, res) => {
                 pendingCount: 0,
                 processingCount: 0,
                 doneCount: 0,
-                tasks: [] // Store detailed tasks
+                adminTaskCount: 0,
+                tasks: [] // Store detailed tasks (both jobs and admin tasks)
             };
         });
 
@@ -72,7 +78,26 @@ router.get('/workload', authenticateToken, async (req, res) => {
             }
         });
 
-        console.log(`Total tasks found across all items: ${totalTasksFound}`);
+        // Aggregate administrative tasks
+        adminTasks.forEach(task => {
+            const empId = task.employeeId ? task.employeeId.toString().trim() : null;
+            if (empId && workloadMap[empId]) {
+                workloadMap[empId].adminTaskCount++;
+                workloadMap[empId].totalAssignments++;
+
+                workloadMap[empId].tasks.push({
+                    taskId: task._id,
+                    title: task.title,
+                    type: 'Administrative',
+                    status: task.status,
+                    priority: task.priority,
+                    dueDate: task.dueDate,
+                    assignedAt: task.createdAt
+                });
+            }
+        });
+
+        console.log(`Total manufacturing tasks: ${totalTasksFound}, Total admin tasks: ${adminTasks.length}`);
 
         // Convert to array and sort
         const workload = Object.values(workloadMap).sort((a, b) => b.totalAssignments - a.totalAssignments);

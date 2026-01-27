@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Calendar, Package, ShoppingCart } from 'lucide-react';
 import { getAllItems, getAllOrders, createOrder, updateOrder, deleteOrder, updateOrderStatus, getAllParties } from '../services/api';
+import { canCreate, canEdit, canDelete } from '../utils/permissions';
 
 const getTodayString = () => new Date().toISOString().slice(0, 10);
 
@@ -231,7 +232,7 @@ export default function Orders() {
             <h1 className="text-3xl font-bold text-slate-900">Order Management</h1>
             <p className="text-slate-500 text-sm mt-1">{editingOrderId ? 'Edit order' : 'Create and manage purchase orders'}</p>
           </div>
-          {activeView === 'list' && (
+          {activeView === 'list' && canCreate('orders') && (
             <button
               onClick={() => {
                 setEditingOrderId(null);
@@ -528,18 +529,22 @@ export default function Orders() {
 
                       {/* Actions */}
                       <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={() => handleEditOrder(order)}
-                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium"
-                        >
-                          <Edit2 size={16} /> Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteOrder(order._id)}
-                          className="flex items-center gap-2 px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition"
-                        >
-                          <Trash2 size={16} /> Delete
-                        </button>
+                        {canEdit('orders') && (
+                          <button
+                            onClick={() => handleEditOrder(order)}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium"
+                          >
+                            <Edit2 size={16} /> Edit
+                          </button>
+                        )}
+                        {canDelete('orders') && (
+                          <button
+                            onClick={() => handleDeleteOrder(order._id)}
+                            className="flex items-center gap-2 px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition"
+                          >
+                            <Trash2 size={16} /> Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

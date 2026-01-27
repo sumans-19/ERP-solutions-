@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, CheckSquare, MessageSquare, Briefcase } from 'lucide-react';
-import { getEmployeeTasks, getAssignedJobs, getChatMessages } from '../../services/api';
+import axios from 'axios';
+import {
+    CheckCircle2, Clock, CheckSquare, MessageSquare,
+    Briefcase, Bell, AlertTriangle, TrendingUp,
+    Zap, Target, Package, Activity
+} from 'lucide-react';
+import { getEmployeeTasks, getAssignedJobs } from '../../services/api';
 import { useEmployeeView } from '../../contexts/EmployeeViewContext';
+import { motion } from 'framer-motion';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 const PieChart = ({ percentage, color = '#2563EB', size = 120 }) => {
-    const strokeWidth = 10;
+    const strokeWidth = 8;
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
     const offset = circumference - (percentage / 100) * circumference;
@@ -16,11 +24,14 @@ const PieChart = ({ percentage, color = '#2563EB', size = 120 }) => {
                     cx={size / 2}
                     cy={size / 2}
                     r={radius}
-                    stroke="#E2E8F0"
+                    stroke="#F1F5F9"
                     strokeWidth={strokeWidth}
                     fill="none"
                 />
-                <circle
+                <motion.circle
+                    initial={{ strokeDashoffset: circumference }}
+                    animate={{ strokeDashoffset: offset }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
                     cx={size / 2}
                     cy={size / 2}
                     r={radius}
@@ -28,32 +39,38 @@ const PieChart = ({ percentage, color = '#2563EB', size = 120 }) => {
                     strokeWidth={strokeWidth}
                     fill="none"
                     strokeDasharray={circumference}
-                    strokeDashoffset={offset}
                     strokeLinecap="round"
-                    className="transition-all duration-1000 ease-out"
                 />
             </svg>
             <div className="absolute flex flex-col items-center">
-                <span className="text-xl font-bold text-slate-900">{Math.round(percentage)}%</span>
+                <span className="text-2xl font-bold text-slate-900">{Math.round(percentage)}%</span>
             </div>
         </div>
     );
 };
 
-const StatCard = ({ title, value, subtitle, icon: Icon, color }) => (
-    <div className="bg-white rounded-xl p-4 sm:p-6 border border-slate-200 shadow-sm flex items-start justify-between">
-        <div>
-            <p className="text-slate-500 text-sm font-medium mb-1">{title}</p>
-            <h3 className="text-xl sm:text-2xl font-bold text-slate-900">{value}</h3>
-            {subtitle && <p className="text-xs text-slate-400 mt-1">{subtitle}</p>}
+const StatCard = ({ label, value, icon: Icon, colorClass = "text-blue-600", delay = 0 }) => (
+    <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay }}
+        className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-300 transition-all text-left group"
+    >
+        <div className="flex items-center justify-between mb-4">
+            <div className={`p-2 rounded-lg bg-slate-50 group-hover:bg-white transition-colors`}>
+                <Icon className={`${colorClass} transition-colors`} size={20} />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                {label}
+            </span>
         </div>
-        <div className={`p-2 sm:p-3 rounded-lg ${color} bg-opacity-10 text-opacity-100`}>
-            <Icon size={20} className={color.replace('bg-', 'text-')} />
-        </div>
-    </div>
+        <p className="text-3xl font-bold text-slate-900">
+            {value}
+        </p>
+    </motion.div>
 );
 
-const EmployeeDashboard = ({ user }) => {
+const EmployeeDashboard = ({ user, setActiveSection }) => {
     const { selectedEmployeeId, selectedEmployee } = useEmployeeView();
     const [stats, setStats] = useState({
         completedTasks: 0,
@@ -63,56 +80,60 @@ const EmployeeDashboard = ({ user }) => {
         unreadMessages: 0
     });
     const [recentActivity, setRecentActivity] = useState([]);
+    const [latestBulletins, setLatestBulletins] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (selectedEmployeeId) {
             fetchStats();
+            fetchLatestBulletins();
         }
     }, [selectedEmployeeId]);
+
+    const fetchLatestBulletins = async () => {
+        try {
+            const response = await axios.get(`${API_URL}/api/bulletins`);
+            setLatestBulletins(response.data.slice(0, 3));
+        } catch (error) {
+            console.error('Error fetching bulletins:', error);
+        }
+    };
 
     const fetchStats = async () => {
         try {
             setLoading(true);
-
-            // Fetch tasks
             const tasks = await getEmployeeTasks(selectedEmployeeId);
             const completedTasks = tasks.filter(t => t.status === 'Completed').length;
-
-            // Fetch jobs
             const jobsData = await getAssignedJobs(selectedEmployeeId);
             const jobs = jobsData.map(item => {
                 const assignments = item.assignedEmployees.filter(a => a.employeeId === selectedEmployeeId);
-                return assignments.map(a => ({
-                    ...a,
-                    itemCode: item.code,
-                    itemName: item.name,
-                    itemId: item._id,
-                    processDetails: item.processes.find(p => p.id === a.processStepId)
-                }));
+                return assignments.map(a => {
+                    const processStep = item.processes.find(p => String(p.id) === String(a.processStepId));
+                    return {
+                        ...a,
+                        itemCode: item.code,
+                        itemName: item.name,
+                        itemId: item._id,
+                        processName: processStep?.stepName || processStep?.name || 'Manufacturing Step'
+                    };
+                });
             }).flat();
 
             const activeJobs = jobs.filter(j => j.status === 'in-progress' || j.status === 'pending' || j.status === 'assigned').length;
             const completedJobs = jobs.filter(j => j.status === 'completed').length;
 
-            // Get recent activity from jobs
             const recentJobs = jobs
                 .filter(j => j.status === 'in-progress' || j.status === 'completed')
-                .sort((a, b) => {
-                    const dateA = a.completedAt || a.startedAt || new Date(0);
-                    const dateB = b.completedAt || b.startedAt || new Date(0);
-                    return new Date(dateB) - new Date(dateA);
-                })
-                .slice(0, 2);
+                .sort((a, b) => new Date(b.completedAt || b.startedAt || 0) - new Date(a.completedAt || a.startedAt || 0))
+                .slice(0, 4);
 
             setRecentActivity(recentJobs);
-
             setStats({
                 completedTasks,
                 totalTasks: tasks.length || 1,
                 activeJobs,
                 completedJobs,
-                unreadMessages: 0 // Will be calculated from chat if needed
+                unreadMessages: 0
             });
         } catch (error) {
             console.error('Error loading stats:', error);
@@ -122,105 +143,145 @@ const EmployeeDashboard = ({ user }) => {
     };
 
     const taskProgress = (stats.completedTasks / stats.totalTasks) * 100;
+    const urgentBulletin = latestBulletins.find(b => b.priority === 'Urgent');
 
-    if (!selectedEmployeeId) {
-        return null; // Layout handles empty state
-    }
+    if (!selectedEmployeeId) return null;
 
     if (loading) {
-        return <div className="p-8 text-center text-slate-500">Loading dashboard...</div>;
+        return (
+            <div className="flex flex-col items-center justify-center h-full p-20">
+                <div className="w-8 h-8 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Analytics...</p>
+            </div>
+        );
     }
 
     return (
-        <div className="space-y-4 sm:space-y-6 h-full overflow-auto">
-            <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Employee Dashboard</h1>
-                <p className="text-sm sm:text-base text-slate-500">
-                    Viewing performance for {selectedEmployee?.name || 'employee'}
-                </p>
-            </div>
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                <StatCard
-                    title="Task Completion"
-                    value={`${stats.completedTasks}/${stats.totalTasks}`}
-                    subtitle="Tasks completed"
-                    icon={CheckSquare}
-                    color="bg-emerald-500"
-                />
-                <StatCard
-                    title="Active Jobs"
-                    value={stats.activeJobs}
-                    subtitle="In progress"
-                    icon={Briefcase}
-                    color="bg-blue-500"
-                />
-                <StatCard
-                    title="Completed Jobs"
-                    value={stats.completedJobs}
-                    subtitle="Total completed"
-                    icon={CheckCircle}
-                    color="bg-emerald-500"
-                />
-                <StatCard
-                    title="Unread Messages"
-                    value={stats.unreadMessages}
-                    subtitle="Check your chat"
-                    icon={MessageSquare}
-                    color="bg-violet-500"
-                />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                {/* Progress Chart */}
-                <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-1">
-                    <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-4 sm:mb-6">Task Progress</h3>
-                    <div className="flex flex-col items-center justify-center py-4">
-                        <PieChart percentage={taskProgress} size={180} color="#2563EB" />
-                        <p className="mt-4 text-xs sm:text-sm text-slate-500 text-center">
-                            Completed <span className="font-bold text-slate-900">{Math.round(taskProgress)}%</span> of assigned tasks
+        <div className="p-8 bg-slate-50 h-full overflow-y-auto custom-scrollbar">
+            <div className="max-w-7xl mx-auto space-y-8">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold text-slate-900 mb-1">Efficiency Hub</h1>
+                        <p className="text-slate-600 font-medium">
+                            Performance overview for <span className="text-blue-600 font-bold">{selectedEmployee?.name}</span>
                         </p>
                     </div>
                 </div>
 
-                {/* Recent Activity */}
-                <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-2">
-                    <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-4">Recent Activity</h3>
-                    <div className="space-y-3 sm:space-y-4">
-                        {recentActivity.length === 0 ? (
-                            <div className="p-8 text-center text-slate-400 text-sm">
-                                No recent activity
+                {/* Urgent Bulletin Alert */}
+                {urgentBulletin && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center text-red-600">
+                                <AlertTriangle size={20} />
                             </div>
-                        ) : (
-                            recentActivity.map((job, idx) => (
-                                <div key={idx} className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-slate-50 rounded-lg border border-slate-100">
-                                    <div className={`p-2 rounded-full flex-shrink-0 ${job.status === 'completed'
-                                            ? 'bg-emerald-100 text-emerald-600'
-                                            : 'bg-blue-100 text-blue-600'
-                                        }`}>
-                                        {job.status === 'completed' ? <CheckCircle size={18} /> : <Briefcase size={18} />}
+                            <div>
+                                <p className="text-xs font-bold text-red-600 uppercase tracking-wider">Urgent Announcement</p>
+                                <h3 className="text-sm font-bold text-slate-900">{urgentBulletin.title}</h3>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setActiveSection('employee-bulletins')}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-xs hover:bg-red-700 transition"
+                        >
+                            View Notice
+                        </button>
+                    </motion.div>
+                )}
+
+                {/* Stats Grid - Matching AdminDashboard Style */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <StatCard label="Task Ratio" value={`${stats.completedTasks}/${stats.totalTasks}`} icon={Target} colorClass="text-emerald-600" delay={0.05} />
+                    <StatCard label="Live Pipeline" value={stats.activeJobs} icon={Activity} colorClass="text-blue-600" delay={0.1} />
+                    <StatCard label="Lifetime Gear" value={stats.completedJobs} icon={Package} colorClass="text-indigo-600" delay={0.15} />
+                    <StatCard label="Comm Stream" value={stats.unreadMessages} icon={MessageSquare} colorClass="text-violet-600" delay={0.2} />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Notice Board Widget */}
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                <Bell size={20} className="text-blue-600" /> Notice Board
+                            </h3>
+                        </div>
+                        <div className="space-y-4 flex-1">
+                            {latestBulletins.length === 0 ? (
+                                <div className="py-12 text-center text-slate-400 text-sm">No announcements to display.</div>
+                            ) : (
+                                latestBulletins.map((bulletin) => (
+                                    <button
+                                        key={bulletin._id}
+                                        onClick={() => setActiveSection('employee-bulletins')}
+                                        className="w-full text-left p-4 bg-slate-50 hover:bg-white border border-transparent hover:border-blue-100 rounded-lg transition-all"
+                                    >
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className={`text-[9px] font-bold uppercase tracking-widest ${bulletin.priority === 'Urgent' ? 'text-red-500' : 'text-blue-600'}`}>
+                                                {bulletin.priority}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400">{new Date(bulletin.createdAt).toLocaleDateString()}</span>
+                                        </div>
+                                        <h4 className="text-sm font-bold text-slate-800 line-clamp-1">{bulletin.title}</h4>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                        <button
+                            onClick={() => setActiveSection('employee-bulletins')}
+                            className="mt-6 w-full py-2.5 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-blue-600 transition transition-all active:scale-95"
+                        >
+                            View Archives
+                        </button>
+                    </div>
+
+                    {/* Progress Chart */}
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center">
+                        <h3 className="text-lg font-bold text-slate-900 self-start mb-6 flex items-center gap-2">
+                            <CheckSquare size={20} className="text-emerald-600" /> Performance
+                        </h3>
+                        <PieChart percentage={taskProgress} size={160} color="#059669" />
+                        <div className="mt-6">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Efficiency Rating</p>
+                            <p className="text-base font-bold text-slate-900">
+                                {taskProgress > 80 ? 'Exceptional' : taskProgress > 50 ? 'Steady' : 'Emerging'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Recent Activity (Pulse) */}
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                            <Clock size={20} className="text-indigo-600" /> Recent Pulse
+                        </h3>
+                        <div className="space-y-6">
+                            {recentActivity.length === 0 ? (
+                                <div className="py-12 text-center text-slate-400 text-sm">No recent activity.</div>
+                            ) : (
+                                recentActivity.map((job, idx) => (
+                                    <div key={idx} className="flex items-start gap-4">
+                                        <div className={`mt-1 p-2 rounded-lg flex-shrink-0 ${job.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                            {job.status === 'completed' ? <CheckCircle2 size={16} /> : <Zap size={16} />}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-bold text-sm text-slate-900 leading-tight mb-0.5 truncate">{job.itemName}</p>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-wide">
+                                                    {job.processName}
+                                                </span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 font-medium">
+                                                {job.status === 'completed' ? 'Finalized' : 'Updated'} {new Date(job.completedAt || job.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-sm sm:text-base text-slate-900 truncate">
-                                            {job.processName}: {job.itemName}
-                                        </p>
-                                        <p className="text-xs text-slate-500">
-                                            {job.status === 'completed'
-                                                ? `Completed ${job.completedAt ? new Date(job.completedAt).toLocaleString() : 'recently'}`
-                                                : `Started ${job.startedAt ? new Date(job.startedAt).toLocaleString() : 'recently'}`
-                                            }
-                                        </p>
-                                    </div>
-                                    <span className={`px-2 sm:px-3 py-1 text-xs font-bold rounded-full whitespace-nowrap ${job.status === 'completed'
-                                            ? 'bg-emerald-100 text-emerald-700'
-                                            : 'bg-yellow-100 text-yellow-700'
-                                        }`}>
-                                        {job.status === 'completed' ? 'Done' : 'In Progress'}
-                                    </span>
-                                </div>
-                            ))
-                        )}
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

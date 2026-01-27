@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const RolePermission = require('../models/RolePermission');
 
 const seedUsers = async () => {
   const users = [
@@ -19,4 +20,49 @@ const seedUsers = async () => {
   }
 };
 
-module.exports = { seedUsers };
+const seedPermissions = async () => {
+  const sections = [
+    'dashboard', 'items', 'orders', 'process', 'inventory',
+    'users', 'reports', 'comm-hub', 'tasks', 'jobs',
+    'admin-view', 'employee-view', 'planning-view',
+    'profile-settings', 'system-settings'
+  ];
+
+  const defaultRoles = [
+    {
+      role: 'admin',
+      permissions: sections.map(s => ({
+        section: s,
+        visibility: true,
+        actions: { create: true, read: true, update: true, delete: true }
+      }))
+    },
+    {
+      role: 'planning',
+      permissions: sections.map(s => ({
+        section: s,
+        visibility: ['items', 'orders', 'process'].includes(s),
+        actions: { create: true, read: true, update: true, delete: false }
+      }))
+    },
+    {
+      role: 'employee',
+      permissions: sections.map(s => ({
+        section: s,
+        visibility: ['dashboard', 'tasks', 'jobs', 'comm-hub'].includes(s), // Note: Sidebar IDs
+        actions: { create: false, read: true, update: false, delete: false }
+      }))
+    }
+  ];
+
+  for (const r of defaultRoles) {
+    try {
+      await RolePermission.updateOne({ role: r.role }, { $setOnInsert: r }, { upsert: true });
+    } catch (err) {
+      console.log(`⚠️ Permission Seed error for ${r.role}:`, err.message);
+    }
+  }
+};
+
+module.exports = { seedUsers, seedPermissions };
+

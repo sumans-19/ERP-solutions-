@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Package, Activity, ShoppingCart, ChevronRight, Users, UserCheck, AlertCircle } from 'lucide-react';
 import OrderTrendsChart from '../components/OrderTrendsChart';
+import { canRead } from '../utils/permissions';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
@@ -62,7 +63,7 @@ const PlanningDashboard = ({ setActiveSection }) => {
             color: 'text-emerald-600',
             bgColor: 'bg-emerald-50'
         }
-    ];
+    ].filter(a => canRead(a.id));
 
     const statItems = [
         { label: 'New Orders', value: stats.newOrders, icon: ShoppingCart, color: 'text-blue-600', isPrimary: true },

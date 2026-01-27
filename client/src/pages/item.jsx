@@ -177,7 +177,7 @@ export default function ItemPage() {
 
       if (userRole === 'employee') {
         // For employees, fetch only assigned items from their orders
-        const ordersResponse = await fetch('http://localhost:5000/api/employees/my-orders', {
+        const ordersResponse = await fetch('http://localhost:5001/api/employees/my-orders', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -185,7 +185,7 @@ export default function ItemPage() {
         const ordersData = await ordersResponse.json();
 
         // Fetch employee tracking data
-        const trackingResponse = await fetch('http://localhost:5000/api/employees/my-items', {
+        const trackingResponse = await fetch('http://localhost:5001/api/employees/my-items', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -1018,8 +1018,8 @@ export default function ItemPage() {
                         <div
                           key={process.id}
                           className={`p-4 border rounded-lg ${process.status === 'completed'
-                              ? 'bg-green-50 border-green-200'
-                              : 'bg-white border-gray-200'
+                            ? 'bg-green-50 border-green-200'
+                            : 'bg-white border-gray-200'
                             }`}
                         >
                           <div className="flex items-start gap-4">
@@ -1039,16 +1039,16 @@ export default function ItemPage() {
                                 </h4>
                                 <span
                                   className={`px-2 py-1 rounded text-xs font-medium ${process.stepType === 'testing'
-                                      ? 'bg-green-100 text-green-700'
-                                      : 'bg-blue-100 text-blue-700'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-blue-100 text-blue-700'
                                     }`}
                                 >
                                   {process.stepType === 'testing' ? '🧪 Testing' : '⚙️ Execution'}
                                 </span>
                                 <span
                                   className={`px-2 py-1 rounded text-xs font-medium ${process.status === 'completed'
-                                      ? 'bg-green-100 text-green-700'
-                                      : 'bg-yellow-100 text-yellow-700'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-yellow-100 text-yellow-700'
                                     }`}
                                 >
                                   {process.status === 'completed' ? '✓ Completed' : '⏳ Pending'}
@@ -1064,8 +1064,8 @@ export default function ItemPage() {
                                     <div
                                       key={subStep.id || idx}
                                       className={`text-sm p-3 rounded border flex items-start gap-3 ${subStep.status === 'completed'
-                                          ? 'bg-green-50 border-green-200'
-                                          : 'bg-white border-gray-200'
+                                        ? 'bg-green-50 border-green-200'
+                                        : 'bg-white border-gray-200'
                                         }`}
                                     >
                                       {userRole === 'product team' && (
@@ -1084,8 +1084,8 @@ export default function ItemPage() {
                                           <div className="font-medium text-gray-800">{idx + 1}. {subStep.name}</div>
                                           <span
                                             className={`px-2 py-0.5 rounded text-xs font-medium ${subStep.status === 'completed'
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-yellow-100 text-yellow-700'
+                                              ? 'bg-green-100 text-green-700'
+                                              : 'bg-yellow-100 text-yellow-700'
                                               }`}
                                           >
                                             {subStep.status === 'completed' ? '✓ Done' : '⏳ Pending'}
@@ -1197,8 +1197,8 @@ export default function ItemPage() {
                             </td>
                             <td className="py-3 px-4">
                               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${item.type === 'product'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : 'bg-purple-100 text-purple-700'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-purple-100 text-purple-700'
                                 }`}>
                                 {item.type}
                               </span>
@@ -1500,8 +1500,8 @@ export default function ItemPage() {
                       <button
                         onClick={() => setActiveTab("pricing")}
                         className={`pb-3 text-sm font-medium transition-all ${activeTab === "pricing"
-                            ? "border-b-2 border-red-500 text-red-600"
-                            : "text-gray-600 hover:text-gray-800"
+                          ? "border-b-2 border-red-500 text-red-600"
+                          : "text-gray-600 hover:text-gray-800"
                           }`}
                       >
                         Pricing
@@ -1510,8 +1510,8 @@ export default function ItemPage() {
                     <button
                       onClick={() => setActiveTab("stock")}
                       className={`pb-3 text-sm font-medium transition-all ${activeTab === "stock"
-                          ? "border-b-2 border-red-500 text-red-600"
-                          : "text-gray-600 hover:text-gray-800"
+                        ? "border-b-2 border-red-500 text-red-600"
+                        : "text-gray-600 hover:text-gray-800"
                         }`}
                     >
                       Stock
@@ -1519,8 +1519,8 @@ export default function ItemPage() {
                     <button
                       onClick={() => setActiveTab("processes")}
                       className={`pb-3 text-sm font-medium transition-all ${activeTab === "processes"
-                          ? "border-b-2 border-red-500 text-red-600"
-                          : "text-gray-600 hover:text-gray-800"
+                        ? "border-b-2 border-red-500 text-red-600"
+                        : "text-gray-600 hover:text-gray-800"
                         }`}
                     >
                       Processes
@@ -1528,8 +1528,8 @@ export default function ItemPage() {
                     <button
                       onClick={() => setActiveTab("rawMaterials")}
                       className={`pb-3 text-sm font-medium transition-all ${activeTab === "rawMaterials"
-                          ? "border-b-2 border-red-500 text-red-600"
-                          : "text-gray-600 hover:text-gray-800"
+                        ? "border-b-2 border-red-500 text-red-600"
+                        : "text-gray-600 hover:text-gray-800"
                         }`}
                     >
                       Raw Materials
@@ -1537,8 +1537,8 @@ export default function ItemPage() {
                     <button
                       onClick={() => setActiveTab("inspectionCheck")}
                       className={`pb-3 text-sm font-medium transition-all ${activeTab === "inspectionCheck"
-                          ? "border-b-2 border-red-500 text-red-600"
-                          : "text-gray-600 hover:text-gray-800"
+                        ? "border-b-2 border-red-500 text-red-600"
+                        : "text-gray-600 hover:text-gray-800"
                         }`}
                     >
                       Inspection Check
@@ -1546,8 +1546,8 @@ export default function ItemPage() {
                     <button
                       onClick={() => setActiveTab("finalInspection")}
                       className={`pb-3 text-sm font-medium transition-all ${activeTab === "finalInspection"
-                          ? "border-b-2 border-red-500 text-red-600"
-                          : "text-gray-600 hover:text-gray-800"
+                        ? "border-b-2 border-red-500 text-red-600"
+                        : "text-gray-600 hover:text-gray-800"
                         }`}
                     >
                       Final Inspection
@@ -1555,8 +1555,8 @@ export default function ItemPage() {
                     <button
                       onClick={() => setActiveTab("reports")}
                       className={`pb-3 text-sm font-medium transition-all ${activeTab === "reports"
-                          ? "border-b-2 border-red-500 text-red-600"
-                          : "text-gray-600 hover:text-gray-800"
+                        ? "border-b-2 border-red-500 text-red-600"
+                        : "text-gray-600 hover:text-gray-800"
                         }`}
                     >
                       Reports
@@ -1837,8 +1837,8 @@ export default function ItemPage() {
                                     updateField("processes", newProcesses);
                                   }}
                                   className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${process.stepType === "execution"
-                                      ? "bg-blue-500 text-white shadow-sm"
-                                      : "text-gray-600 hover:text-gray-800"
+                                    ? "bg-blue-500 text-white shadow-sm"
+                                    : "text-gray-600 hover:text-gray-800"
                                     }`}
                                 >
                                   Execution
@@ -1851,8 +1851,8 @@ export default function ItemPage() {
                                     updateField("processes", newProcesses);
                                   }}
                                   className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${process.stepType === "testing"
-                                      ? "bg-green-500 text-white shadow-sm"
-                                      : "text-gray-600 hover:text-gray-800"
+                                    ? "bg-green-500 text-white shadow-sm"
+                                    : "text-gray-600 hover:text-gray-800"
                                     }`}
                                 >
                                   Testing
@@ -1862,8 +1862,8 @@ export default function ItemPage() {
                               {/* Visual Badge */}
                               <span
                                 className={`px-2 py-1 rounded text-xs font-medium ${process.stepType === "testing"
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-blue-100 text-blue-700"
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-blue-100 text-blue-700"
                                   }`}
                               >
                                 {process.stepType === "testing"
@@ -2305,12 +2305,12 @@ export default function ItemPage() {
                               {/* Check Type Badge */}
                               <span
                                 className={`px-2 py-1 rounded text-xs font-medium ${check.checkType === "visual"
-                                    ? "bg-purple-100 text-purple-700"
-                                    : check.checkType === "measurement"
-                                      ? "bg-blue-100 text-blue-700"
-                                      : check.checkType === "functional"
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-gray-100 text-gray-700"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : check.checkType === "measurement"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : check.checkType === "functional"
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-gray-100 text-gray-700"
                                   }`}
                               >
                                 {check.checkType === "visual" && "👁️ Visual"}
@@ -2859,15 +2859,15 @@ export default function ItemPage() {
                                     <span className="text-xs font-semibold text-red-800">Check {index + 1}:</span>
                                     <span className="text-sm font-medium text-gray-900">{check.checkName}</span>
                                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${check.checkType === 'visual' ? 'bg-purple-100 text-purple-700' :
-                                        check.checkType === 'measurement' ? 'bg-blue-100 text-blue-700' :
-                                          check.checkType === 'functional' ? 'bg-green-100 text-green-700' :
-                                            'bg-gray-100 text-gray-700'
+                                      check.checkType === 'measurement' ? 'bg-blue-100 text-blue-700' :
+                                        check.checkType === 'functional' ? 'bg-green-100 text-green-700' :
+                                          'bg-gray-100 text-gray-700'
                                       }`}>
                                       {check.checkType}
                                     </span>
                                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${check.status === 'passed' ? 'bg-green-100 text-green-700' :
-                                        check.status === 'failed' ? 'bg-red-100 text-red-700' :
-                                          'bg-yellow-100 text-yellow-700'
+                                      check.status === 'failed' ? 'bg-red-100 text-red-700' :
+                                        'bg-yellow-100 text-yellow-700'
                                       }`}>
                                       {check.status}
                                     </span>
@@ -2956,10 +2956,10 @@ export default function ItemPage() {
                           <div
                             key={idx}
                             className={`w-8 h-1.5 rounded-full ${idx < currentStepIndex
-                                ? 'bg-green-500'
-                                : idx === currentStepIndex
-                                  ? 'bg-blue-600'
-                                  : 'bg-gray-300'
+                              ? 'bg-green-500'
+                              : idx === currentStepIndex
+                                ? 'bg-blue-600'
+                                : 'bg-gray-300'
                               }`}
                           />
                         ))}
@@ -2998,8 +2998,8 @@ export default function ItemPage() {
                               )}
                             </div>
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${process.stepType === 'testing'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-blue-100 text-blue-700'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-blue-100 text-blue-700'
                               }`}>
                               {process.stepType === 'testing' ? '🧪 Testing' : '⚙️ Execution'}
                             </span>

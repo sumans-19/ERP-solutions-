@@ -17,18 +17,21 @@ app.get('/elints-ping', (req, res) => {
 // 2. Middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(cors({
-  origin: '*',
+  origin: true,
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-role']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-role', 'x-user-id', 'Accept']
 }));
+// CORS Pre-flight handled by middleware above
 
 // 3. Database Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log('✅ DATABASE: Connected successfully');
-    return seedUsers();
+    const { seedUsers, seedPermissions } = require('./utils/seed');
+    return Promise.all([seedUsers(), seedPermissions()]);
   })
-  .then(() => console.log('✅ DATABASE: Seed complete [VERSION 3.1-DEFINITIVE]'))
+  .then(() => console.log('✅ DATABASE: Seed complete [VERSION 4.0-DYNAMIC-AUTH]'))
   .catch(err => console.error('❌ DATABASE ERROR:', err.message));
 
 // 4. Debug API Prefix
@@ -62,6 +65,9 @@ app.use('/api/stats', require('./routes/statsRoutes'));
 
 console.log('📡 ROUTES: Registering System Settings module...');
 app.use('/api/system-settings', require('./routes/systemSettingsRoutes'));
+
+console.log('📡 ROUTES: Registering Role Permission system...');
+app.use('/api/role-permissions', require('./routes/rolePermissionRoutes'));
 
 console.log('📡 ROUTES: Registering Task, Chat, and Bulletin modules...');
 app.use('/api/tasks', require('./routes/taskRoutes'));

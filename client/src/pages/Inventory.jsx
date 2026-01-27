@@ -15,6 +15,7 @@ import {
     X
 } from 'lucide-react';
 import { getAllItems, getAllOrders, getInventory, addInventoryItem } from '../services/api';
+import { canCreate } from '../utils/permissions';
 
 const Inventory = () => {
     const [activeTab, setActiveTab] = useState('raw-materials');
@@ -239,13 +240,15 @@ const Inventory = () => {
                         <h1 className="text-2xl font-bold text-slate-900">Inventory Management</h1>
                         <p className="text-slate-500 mt-1">Material tracking across production stages</p>
                     </div>
-                    <button
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm shadow-blue-200"
-                    >
-                        <Plus size={18} />
-                        <span>Add Material</span>
-                    </button>
+                    {canCreate('inventory') && (
+                        <button
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm shadow-blue-200"
+                        >
+                            <Plus size={18} />
+                            <span>Add Material</span>
+                        </button>
+                    )}
                 </div>
 
                 {/* Tabs */}

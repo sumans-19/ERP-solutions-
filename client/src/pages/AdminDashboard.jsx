@@ -171,6 +171,15 @@ const AdminDashboard = ({ setActiveSection }) => {
                             </p>
                             <p className="text-xs text-slate-500 mt-1">Manage workflows</p>
                         </button>
+                        <button
+                            onClick={() => setActiveSection('admin-jobs-list')}
+                            className="p-4 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg transition-all text-left group"
+                        >
+                            <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-600">
+                                Employee Job Tracker
+                            </p>
+                            <p className="text-xs text-slate-500 mt-1">Monitor team workload</p>
+                        </button>
                     </div>
                 </div>
             </div>

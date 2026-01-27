@@ -15,7 +15,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    const allowedRoles = ['development', 'planning', 'admin'];
+    const allowedRoles = ['development', 'planning', 'admin', 'employee'];
     if (!allowedRoles.includes(user.role)) {
       console.log(`❌ Access denied: ${email} (${user.role})`);
       return res.status(403).json({ success: false, message: 'Unauthorized role' });
