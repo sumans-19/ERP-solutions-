@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getContacts, getChatMessages, sendMessage } from '../../services/api';
+import { getContacts, getChatMessages, sendMessage, markMessagesAsRead } from '../../services/api';
 import { Send, User, Search, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -17,12 +17,17 @@ const CommunicationManagement = ({ user, noPadding = false }) => {
     useEffect(() => {
         if (userId) {
             fetchContacts();
+            // Poll for contact list updates (new messages, read status)
+            const contactInterval = setInterval(fetchContacts, 10000);
+            return () => clearInterval(contactInterval);
         }
     }, [userId]);
 
     useEffect(() => {
         if (selectedContact && userId) {
             fetchMessages(selectedContact._id);
+            // Mark as read immediately when selected
+            markMessagesAsRead(userId, selectedContact._id);
             const interval = setInterval(() => fetchMessages(selectedContact._id), 5000);
             return () => clearInterval(interval);
         }
@@ -38,11 +43,10 @@ const CommunicationManagement = ({ user, noPadding = false }) => {
 
     const fetchContacts = async () => {
         try {
-            setLoading(true);
             const data = await getContacts();
-            // In Admin view, we primarily communicate with Employees
-            const employeeList = data.filter(c => c.type === 'Employee');
-            setContacts(employeeList);
+            // Show all contacts, but exclude self
+            const otherContacts = data.filter(c => c._id !== userId);
+            setContacts(otherContacts);
         } catch (error) {
             console.error('Error fetching contacts:', error);
         } finally {
@@ -54,6 +58,11 @@ const CommunicationManagement = ({ user, noPadding = false }) => {
         try {
             const data = await getChatMessages(userId, contactId);
             setMessages(data);
+            // If there are unread messages, mark them as read
+            const hasUnread = data.some(m => m.receiver === userId && !m.read);
+            if (hasUnread) {
+                await markMessagesAsRead(userId, contactId);
+            }
         } catch (error) {
             console.error('Error fetching messages:', error);
         }
@@ -68,7 +77,7 @@ const CommunicationManagement = ({ user, noPadding = false }) => {
                 sender: userId,
                 receiver: selectedContact._id,
                 senderModel: 'User',
-                receiverModel: 'Employee',
+                receiverModel: selectedContact.type || 'Employee',
                 content: newMessage
             });
             setNewMessage('');
@@ -91,7 +100,7 @@ const CommunicationManagement = ({ user, noPadding = false }) => {
         <div className={`flex flex-col h-full overflow-hidden ${noPadding ? '' : 'bg-slate-50 p-4 sm:p-6'}`}>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 flex-1 min-h-0 overflow-hidden">
                 {/* Contacts List */}
-                <div className="lg:col-span-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0">
+                <div className="lg:col-span-1 bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0">
                     <div className="p-3 sm:p-4 border-b border-slate-100 bg-white flex-shrink-0">
                         <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
                             <MessageSquare size={20} className="text-blue-600" /> Contacts
@@ -103,7 +112,7 @@ const CommunicationManagement = ({ user, noPadding = false }) => {
                                 placeholder="Search contacts..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                             />
                         </div>
                     </div>
@@ -125,7 +134,18 @@ const CommunicationManagement = ({ user, noPadding = false }) => {
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <p className="font-bold text-slate-900 text-sm truncate">{contact.name}</p>
-                                            <p className="text-[10px] sm:text-xs text-slate-500 truncate tracking-tight">{contact.email}</p>
+                                            {contact.lastMessage ? (
+                                                <div className="flex justify-between items-center mt-0.5">
+                                                    <p className={`text-[11px] sm:text-xs truncate max-w-[70%] ${!contact.isLastMsgRead ? 'font-bold text-slate-800' : 'text-slate-500'}`}>
+                                                        {contact.lastMessage}
+                                                    </p>
+                                                    <span className="text-[10px] text-slate-400 flex-shrink-0">
+                                                        {new Date(contact.lastMessageTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <p className="text-[10px] sm:text-xs text-slate-500 truncate tracking-tight">{contact.email}</p>
+                                            )}
                                         </div>
                                     </div>
                                 </button>
@@ -135,7 +155,7 @@ const CommunicationManagement = ({ user, noPadding = false }) => {
                 </div>
 
                 {/* Chat Area */}
-                <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-0 overflow-hidden">
+                <div className="lg:col-span-2 bg-white rounded-md border border-slate-200 shadow-sm flex flex-col min-h-0 overflow-hidden">
                     {selectedContact ? (
                         <>
                             {/* Chat Header */}
@@ -172,7 +192,7 @@ const CommunicationManagement = ({ user, noPadding = false }) => {
                                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                                     className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}
                                                 >
-                                                    <div className={`max-w-[85%] sm:max-w-[75%] px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl shadow-sm ${isSent
+                                                    <div className={`max-w-[85%] sm:max-w-[75%] px-3 sm:px-4 py-2 sm:py-2.5 rounded-md shadow-sm ${isSent
                                                         ? 'bg-blue-600 text-white rounded-tr-none'
                                                         : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
                                                         }`}>
@@ -197,12 +217,12 @@ const CommunicationManagement = ({ user, noPadding = false }) => {
                                         value={newMessage}
                                         onChange={(e) => setNewMessage(e.target.value)}
                                         placeholder="Type a message..."
-                                        className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                     />
                                     <button
                                         type="submit"
                                         disabled={!newMessage.trim()}
-                                        className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                        className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                     >
                                         <Send size={16} />
                                         <span className="hidden sm:inline">Send</span>
@@ -225,3 +245,4 @@ const CommunicationManagement = ({ user, noPadding = false }) => {
 };
 
 export default CommunicationManagement;
+

@@ -4,15 +4,9 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const { seedUsers } = require('./utils/seed');
 
-console.log('--- SERVER BOOT SEQUENCE [VERSION 3.1-DEFINITIVE] ---');
+console.log('--- SERVER BOOT SEQUENCE [VERSION 4.6-STABLE] ---');
 
 const app = express();
-
-// 1. GHOST CHECK - Root level route (NO PREFIX)
-app.get('/elints-ping', (req, res) => {
-  console.log('📡 PING RECEIVED: Server is alive and responding on Port 5001!');
-  res.send('PONG - Elints Server is Active on 5001');
-});
 
 // 2. Middleware
 app.use(express.json({ limit: '50mb' }));
@@ -22,60 +16,51 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-user-role', 'x-user-id', 'Accept']
 }));
-// CORS Pre-flight handled by middleware above
 
 // 3. Database Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log('✅ DATABASE: Connected successfully');
-    const { seedUsers, seedPermissions } = require('./utils/seed');
-    return Promise.all([seedUsers(), seedPermissions()]);
   })
-  .then(() => console.log('✅ DATABASE: Seed complete [VERSION 4.0-DYNAMIC-AUTH]'))
   .catch(err => console.error('❌ DATABASE ERROR:', err.message));
 
-// 4. Debug API Prefix
-app.get('/api/health-check', (req, res) => {
-  console.log('📡 HEALTH CHECK: /api prefix is working');
-  res.json({ status: 'ok', server: 'elints-oms' });
-});
-
-// 5. Functional Routes
-console.log('📡 ROUTES: Registering Item module...');
+// 4. Functional Routes
 app.use('/api/items', require('./routes/itemRoutes'));
-
-console.log('📡 ROUTES: Registering Order module...');
 app.use('/api/orders', require('./routes/orderRoutes'));
-
-console.log('📡 ROUTES: Registering Employee module...');
 app.use('/api/employees', require('./routes/employeeRoutes'));
 app.use('/api/employees', require('./routes/employeeWorkloadRoutes'));
-
-console.log('📡 ROUTES: Registering Party module...');
 app.use('/api/parties', require('./routes/partyRoutes'));
-
-console.log('📡 ROUTES: Registering Step Assignment module...');
 app.use('/api/step-assignments', require('./routes/stepAssignmentRoutes'));
-
-console.log('📡 ROUTES: Registering Inventory module...');
 app.use('/api/inventory', require('./routes/inventoryRoutes'));
-
-console.log('📡 ROUTES: Registering Stats module...');
 app.use('/api/stats', require('./routes/statsRoutes'));
-
-console.log('📡 ROUTES: Registering System Settings module...');
 app.use('/api/system-settings', require('./routes/systemSettingsRoutes'));
-
-console.log('📡 ROUTES: Registering Role Permission system...');
+app.use('/api/raw-materials', require('./routes/rawMaterialRoutes'));
+app.use('/api/material-requests', require('./routes/materialRequestRoutes'));
+app.use('/api/grn', require('./routes/grnRoutes'));
+app.use('/api/wip-stock', require('./routes/wipRoutes'));
+app.use('/api/finished-goods', require('./routes/fgRoutes'));
+app.use('/api/rejected-goods', require('./routes/rejectedGoodRoutes'));
+app.use('/api/todos', require('./routes/todoRoutes'));
 app.use('/api/role-permissions', require('./routes/rolePermissionRoutes'));
-
-console.log('📡 ROUTES: Registering Task, Chat, and Bulletin modules...');
-app.use('/api/tasks', require('./routes/taskRoutes'));
-app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/bulletins', require('./routes/bulletinRoutes'));
+app.use('/api/job-cards', require('./routes/jobCardRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/calendar', require('./routes/calendarRoutes'));
+app.use('/api/tasks', require('./routes/taskRoutes'));
 
-console.log('📡 ROUTES: Registering Auth module...');
-app.use('/api', require('./routes/authRoutes'));
+// 5. Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('--- GLOBAL ERROR CAUGHT ---');
+  console.error('Error Name:', err.name);
+  console.error('Error Message:', err.message);
+  console.error('Stack Trace:', err.stack);
+
+  res.status(err.status || 500).json({
+    message: err.message || 'Internal Server Error',
+    error: err.name,
+    stack: err.stack
+  });
+});
 
 // 6. Final Fallback (MUST BE LAST)
 app.use((req, res) => {
@@ -87,7 +72,7 @@ app.use((req, res) => {
   });
 });
 
-const PORT = 5001; // FORCED TO 5001
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log('--- SERVER BOOT SEQUENCE COMPLETE ---');
   console.log(`🚀 Elints OMS Server is now listening on http://localhost:${PORT}`);

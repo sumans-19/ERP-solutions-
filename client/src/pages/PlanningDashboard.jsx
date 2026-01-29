@@ -83,7 +83,7 @@ const PlanningDashboard = ({ setActiveSection }) => {
                 </div>
 
                 {/* Stats Summary Box */}
-                <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm mb-8">
+                <div className="bg-white rounded-md border border-slate-200 p-6 shadow-sm mb-8">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-lg font-bold text-slate-800 whitespace-nowrap">Operational Overview</h2>
                         <div className="text-[10px] font-bold px-2 py-1 bg-blue-100 text-blue-700 rounded-full uppercase tracking-wider ml-4">
@@ -93,7 +93,7 @@ const PlanningDashboard = ({ setActiveSection }) => {
 
                     <div className="grid grid-cols-2 lg:grid-cols-6 gap-8">
                         {statItems.map((stat, idx) => (
-                            <div key={idx} className={`${idx !== statItems.length - 1 ? 'lg:border-r border-slate-100' : ''} pr-4 ${stat.isPrimary ? 'bg-slate-50/50 -m-2 p-2 rounded-lg border border-slate-100' : ''}`}>
+                            <div key={idx} className={`${idx !== statItems.length - 1 ? 'lg:border-r border-slate-100' : ''} pr-4 ${stat.isPrimary ? 'bg-slate-50/50 -m-2 p-2 rounded-md border border-slate-100' : ''}`}>
                                 <div className="flex items-center gap-2 mb-2 text-slate-500">
                                     <stat.icon size={14} className={stat.color} />
                                     <span className="text-[10px] font-bold uppercase tracking-widest">{stat.label}</span>
@@ -117,9 +117,9 @@ const PlanningDashboard = ({ setActiveSection }) => {
                         <button
                             key={item.id}
                             onClick={() => setActiveSection(item.id)}
-                            className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm hover:shadow-md transition duration-200 text-left group"
+                            className="bg-white rounded-md border border-slate-200 p-6 shadow-sm hover:shadow-md transition duration-200 text-left group"
                         >
-                            <div className={`${item.bgColor} ${item.color} w-12 h-12 rounded-lg flex items-center justify-center mb-4`}>
+                            <div className={`${item.bgColor} ${item.color} w-12 h-12 rounded-md flex items-center justify-center mb-4`}>
                                 <item.icon size={24} />
                             </div>
                             <h3 className="text-lg font-bold text-slate-900 mb-2">{item.label}</h3>
@@ -138,3 +138,4 @@ const PlanningDashboard = ({ setActiveSection }) => {
 };
 
 export default PlanningDashboard;
+

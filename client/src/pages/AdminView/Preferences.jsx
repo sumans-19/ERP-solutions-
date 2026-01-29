@@ -117,7 +117,7 @@ const Preferences = ({ user }) => {
                 <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-slate-200 pb-8 gap-6">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-blue-600 text-white rounded-lg shadow-lg shadow-blue-200">
+                            <div className="p-2 bg-blue-600 text-white rounded-md shadow-sm shadow-blue-200">
                                 <Shield size={24} />
                             </div>
                             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Supreme Authority</h1>
@@ -128,7 +128,7 @@ const Preferences = ({ user }) => {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={fetchPermissions}
-                            className="p-3 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm"
+                            className="p-3 bg-white border border-slate-200 rounded-md text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm"
                             title="Refresh Protocols"
                         >
                             <RefreshCcw size={20} className={loading ? 'animate-spin' : ''} />
@@ -136,7 +136,7 @@ const Preferences = ({ user }) => {
                         <button
                             onClick={handleSave}
                             disabled={isSaving}
-                            className="px-8 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-blue-600 active:scale-95 transition-all disabled:opacity-50 shadow-xl shadow-slate-200 group"
+                            className="px-8 py-3 bg-slate-900 text-white rounded-md font-bold text-sm flex items-center gap-2 hover:bg-blue-600 active:scale-95 transition-all disabled:opacity-50 shadow-sm shadow-slate-200 group"
                         >
                             {isSaving ? (
                                 <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
@@ -163,8 +163,8 @@ const Preferences = ({ user }) => {
                                 <button
                                     key={role.role}
                                     onClick={() => setSelectedRole(role)}
-                                    className={`w-full group relative flex flex-col items-start p-4 rounded-2xl transition-all border-2 ${selectedRole?.role === role.role
-                                        ? 'bg-white border-blue-600 shadow-xl shadow-blue-50'
+                                    className={`w-full group relative flex flex-col items-start p-4 rounded-md transition-all border-2 ${selectedRole?.role === role.role
+                                        ? 'bg-white border-blue-600 shadow-sm shadow-blue-50'
                                         : 'bg-transparent border-transparent hover:bg-white hover:border-slate-200'
                                         }`}
                                 >
@@ -187,7 +187,7 @@ const Preferences = ({ user }) => {
                         </div>
 
                         {/* Security Warning Box */}
-                        <div className="mt-8 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+                        <div className="mt-8 p-5 bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden relative">
                             <div className="absolute top-0 left-0 w-full h-1 bg-amber-500"></div>
                             <div className="flex items-center gap-2 text-amber-600 mb-2">
                                 <AlertTriangle size={16} />
@@ -202,7 +202,7 @@ const Preferences = ({ user }) => {
 
                     {/* Permissions Workspace */}
                     <div className="lg:col-span-9">
-                        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
                             <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-white">
                                 <div>
                                     <div className="flex items-center gap-2 mb-1">
@@ -232,7 +232,7 @@ const Preferences = ({ user }) => {
                                                 <tr key={perm.section} className="hover:bg-slate-50/70 transition-colors group">
                                                     <td className="px-8 py-6">
                                                         <div className="flex items-center gap-4">
-                                                            <div className={`p-2.5 rounded-xl transition-colors ${perm.visibility ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
+                                                            <div className={`p-2.5 rounded-md transition-colors ${perm.visibility ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
                                                                 <Icon size={20} />
                                                             </div>
                                                             <div>
@@ -246,7 +246,7 @@ const Preferences = ({ user }) => {
                                                     <td className="px-4 py-6 text-center">
                                                         <button
                                                             onClick={() => handleToggleVisibility(perm.section)}
-                                                            className={`inline-flex items-center justify-center p-2 rounded-lg transition-all ${perm.visibility
+                                                            className={`inline-flex items-center justify-center p-2 rounded-md transition-all ${perm.visibility
                                                                 ? 'text-blue-600 bg-blue-50 hover:bg-blue-100 ring-4 ring-blue-50/50'
                                                                 : 'text-slate-300 bg-slate-50 hover:bg-slate-100'
                                                                 }`}
@@ -307,3 +307,4 @@ const AlertTriangle = ({ size, className }) => (
 );
 
 export default Preferences;
+

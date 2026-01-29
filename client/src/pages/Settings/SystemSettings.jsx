@@ -82,7 +82,7 @@ const SystemSettings = () => {
                 <button
                     onClick={handleSave}
                     disabled={loading}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition shadow-lg shadow-blue-200 disabled:bg-slate-300 disabled:shadow-none transform hover:-translate-y-0.5 active:translate-y-0"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700 transition shadow-sm shadow-blue-200 disabled:bg-slate-300 disabled:shadow-none transform hover:-translate-y-0.5 active:translate-y-0"
                 >
                     {loading ? (
                         <>
@@ -102,7 +102,7 @@ const SystemSettings = () => {
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className={`mb-6 p-4 rounded-lg flex items-center gap-3 shadow-sm border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
+                    className={`mb-6 p-4 rounded-md flex items-center gap-3 shadow-sm border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
                         }`}
                 >
                     {message.type === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
@@ -110,14 +110,14 @@ const SystemSettings = () => {
                 </motion.div>
             )}
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row min-h-[600px]">
+            <div className="bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row min-h-[600px]">
                 {/* Sidebar Navigation */}
                 <div className="w-full md:w-72 bg-slate-50/50 border-r border-slate-100 p-4 space-y-2">
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => tabChange(tab.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === tab.id
+                            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-md text-sm font-semibold transition-all duration-200 ${activeTab === tab.id
                                     ? 'bg-white text-blue-600 shadow-md border border-slate-200/60 ring-1 ring-slate-100'
                                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                                 }`}
@@ -151,14 +151,14 @@ const SystemSettings = () => {
                                             type="text"
                                             value={settings.businessName}
                                             onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
-                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-md text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
                                             placeholder="e.g. Elints OMS"
                                         />
                                         <p className="text-xs text-slate-400">This name will appear in the browser tab and reports.</p>
                                     </div>
 
                                     <div className="pt-4 border-t border-slate-100">
-                                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-md border border-slate-100">
                                             <div>
                                                 <p className="font-semibold text-slate-900">System Logging</p>
                                                 <p className="text-xs text-slate-500 mt-1">Record detailed logs for debugging and auditing</p>
@@ -177,7 +177,7 @@ const SystemSettings = () => {
                                                 />
                                                 <label
                                                     onClick={() => setSettings({ ...settings, systemLogs: !settings.systemLogs })}
-                                                    className={`toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer ${settings.systemLogs ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                                    className={`toggle-label block overflow-hidden h-6 rounded-full bg-slate-300 cursor-pointer ${settings.systemLogs ? 'bg-blue-600' : 'bg-slate-200'}`}
                                                 ></label>
                                             </div>
                                         </div>
@@ -195,7 +195,7 @@ const SystemSettings = () => {
                                             rows="3"
                                             value={settings.address}
                                             onChange={(e) => setSettings({ ...settings, address: e.target.value })}
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none resize-none"
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-md text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none resize-none"
                                             placeholder="Enter full business address"
                                         />
                                     </div>
@@ -208,7 +208,7 @@ const SystemSettings = () => {
                                                 type="text"
                                                 value={settings.phone}
                                                 onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
-                                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
+                                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-md text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
                                                 placeholder="+91 99999 00000"
                                             />
                                         </div>
@@ -220,7 +220,7 @@ const SystemSettings = () => {
                                                 type="text"
                                                 value={settings.website}
                                                 onChange={(e) => setSettings({ ...settings, website: e.target.value })}
-                                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
+                                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-md text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
                                                 placeholder="https://example.com"
                                             />
                                         </div>
@@ -230,9 +230,9 @@ const SystemSettings = () => {
 
                             {activeTab === 'tax' && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
-                                    <div className="p-6 bg-slate-50 rounded-xl border border-slate-200/60 hover:border-blue-200 transition bg-white shadow-sm">
+                                    <div className="p-6 bg-slate-50 rounded-md border border-slate-200/60 hover:border-blue-200 transition bg-white shadow-sm">
                                         <div className="flex items-center gap-3 mb-4">
-                                            <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                                            <div className="p-2 bg-green-100 text-green-600 rounded-md">
                                                 <Percent size={20} />
                                             </div>
                                             <h3 className="font-bold text-slate-800">GST Settings</h3>
@@ -244,7 +244,7 @@ const SystemSettings = () => {
                                                     type="number"
                                                     value={settings.gstRate}
                                                     onChange={(e) => setSettings({ ...settings, gstRate: e.target.value })}
-                                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all outline-none"
+                                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-md text-slate-900 font-medium focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all outline-none"
                                                 />
                                             </div>
                                             <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -259,9 +259,9 @@ const SystemSettings = () => {
                                         </div>
                                     </div>
 
-                                    <div className="p-6 bg-slate-50 rounded-xl border border-slate-200/60 hover:border-blue-200 transition bg-white shadow-sm">
+                                    <div className="p-6 bg-slate-50 rounded-md border border-slate-200/60 hover:border-blue-200 transition bg-white shadow-sm">
                                         <div className="flex items-center gap-3 mb-4">
-                                            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                                            <div className="p-2 bg-blue-100 text-blue-600 rounded-md">
                                                 <Globe size={20} />
                                             </div>
                                             <h3 className="font-bold text-slate-800">Currency</h3>
@@ -272,7 +272,7 @@ const SystemSettings = () => {
                                                 <select
                                                     value={settings.defaultCurrency}
                                                     onChange={(e) => setSettings({ ...settings, defaultCurrency: e.target.value })}
-                                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-md text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
                                                 >
                                                     <option value="INR">Indian Rupee (₹)</option>
                                                     <option value="USD">US Dollar ($)</option>
@@ -289,7 +289,7 @@ const SystemSettings = () => {
                                     <div className="flex gap-6 max-w-3xl">
                                         <button
                                             onClick={() => setSettings({ ...settings, theme: 'light' })}
-                                            className={`flex-1 p-6 rounded-2xl border-2 flex flex-col items-center gap-4 transition-all duration-200 group ${settings.theme === 'light'
+                                            className={`flex-1 p-6 rounded-md border-2 flex flex-col items-center gap-4 transition-all duration-200 group ${settings.theme === 'light'
                                                     ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-600/20'
                                                     : 'border-slate-200 hover:border-blue-400 hover:bg-slate-50'
                                                 }`}
@@ -304,8 +304,8 @@ const SystemSettings = () => {
                                         </button>
                                         <button
                                             onClick={() => setSettings({ ...settings, theme: 'dark' })}
-                                            className={`flex-1 p-6 rounded-2xl border-2 flex flex-col items-center gap-4 transition-all duration-200 group ${settings.theme === 'dark'
-                                                    ? 'border-indigo-600 bg-slate-900 text-white shadow-xl'
+                                            className={`flex-1 p-6 rounded-md border-2 flex flex-col items-center gap-4 transition-all duration-200 group ${settings.theme === 'dark'
+                                                    ? 'border-indigo-600 bg-slate-900 text-white shadow-sm'
                                                     : 'border-slate-200 hover:border-indigo-400 hover:bg-slate-50'
                                                 }`}
                                         >
@@ -324,9 +324,9 @@ const SystemSettings = () => {
                             {activeTab === 'notifications' && (
                                 <div className="max-w-2xl">
                                     <div className="space-y-4">
-                                        <div className="flex items-center justify-between p-5 bg-white rounded-xl border border-slate-200 hover:border-blue-200 hover:shadow-sm transition-all">
+                                        <div className="flex items-center justify-between p-5 bg-white rounded-md border border-slate-200 hover:border-blue-200 hover:shadow-sm transition-all">
                                             <div className="flex items-start gap-4">
-                                                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg mt-1">
+                                                <div className="p-2 bg-blue-50 text-blue-600 rounded-md mt-1">
                                                     <Mail size={20} />
                                                 </div>
                                                 <div>
@@ -349,7 +349,7 @@ const SystemSettings = () => {
                                                 />
                                                 <label
                                                     onClick={() => setSettings({ ...settings, emailNotifications: !settings.emailNotifications })}
-                                                    className={`toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer ${settings.emailNotifications ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                                    className={`toggle-label block overflow-hidden h-6 rounded-full bg-slate-300 cursor-pointer ${settings.emailNotifications ? 'bg-blue-600' : 'bg-slate-200'}`}
                                                 ></label>
                                             </div>
                                         </div>
@@ -365,3 +365,4 @@ const SystemSettings = () => {
 };
 
 export default SystemSettings;
+

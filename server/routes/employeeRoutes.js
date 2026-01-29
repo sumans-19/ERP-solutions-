@@ -13,6 +13,17 @@ router.get('/', async (req, res) => {
     }
 });
 
+// GET /api/employees/email/:email - Fetch employee by email
+router.get('/email/:email', async (req, res) => {
+    try {
+        const employee = await Employee.findOne({ email: req.params.email.toLowerCase() }).lean();
+        if (!employee) return res.status(404).json({ message: 'Employee not found' });
+        res.json(employee);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 // POST /api/employees - Create new employee
 router.post('/', async (req, res) => {
     const { employeeId, fullName, email, dateJoined, status } = req.body;
@@ -96,32 +107,43 @@ router.delete('/:id', async (req, res) => {
 // GET /api/employees/:id/assignments - Fetch detailed assignments from Items
 router.get('/:id/assignments', async (req, res) => {
     try {
-        const Item = require('../models/Item');
-        // Find all items where this employee is in the assignedEmployees array
-        const items = await Item.find({
-            'assignedEmployees.employeeId': req.params.id
-        }).select('name code assignedEmployees processes state').lean();
+        const JobCard = require('../models/JobCard');
 
-        // Extract and format assignments for this specific employee
-        const assignments = items.flatMap(item => {
-            return item.assignedEmployees
-                .filter(ae => ae.employeeId === req.params.id)
-                .map(ae => {
-                    const processStep = item.processes.find(p => p.id === ae.processStepId);
-                    return {
-                        itemId: item._id,
-                        itemName: item.name,
-                        itemCode: item.code,
-                        itemState: item.state,
-                        processStepId: ae.processStepId,
-                        stepName: processStep ? processStep.stepName : 'Unknown',
-                        status: ae.status,
-                        assignedAt: ae.assignedAt,
-                        expectedCompletionDate: ae.expectedCompletionDate,
-                        completedAt: ae.completedAt
-                    };
-                });
-        });
+        // Find all JobCards where this employee is assigned to any step
+        const jobs = await JobCard.find({
+            'steps.employeeId': req.params.id
+        })
+            .populate('itemId', 'name code')
+            .lean();
+
+        // Extract and format assignments
+        const assignments = [];
+
+        for (const job of jobs) {
+            if (job.steps && Array.isArray(job.steps)) {
+                // Filter steps for this employee
+                const employeeSteps = job.steps.filter(s =>
+                    s.employeeId && s.employeeId.toString() === req.params.id
+                );
+
+                for (const step of employeeSteps) {
+                    assignments.push({
+                        itemId: job.itemId?._id || job._id, // Fallback if populate fails
+                        itemName: job.itemId?.name || 'Unknown Item',
+                        itemCode: job.itemId?.code || job.jobNumber,
+                        jobId: job._id,
+                        jobNumber: job.jobNumber,
+                        itemState: job.stage, // use job stage
+                        processStepId: step.stepId,
+                        stepName: step.stepName || 'Manufacturing Step',
+                        status: step.status || 'pending',
+                        assignedAt: step.assignedAt || job.createdAt,
+                        targetDeadline: step.targetDeadline,
+                        completedAt: step.endTime
+                    });
+                }
+            }
+        }
 
         // Sort by assigned date (newest first)
         assignments.sort((a, b) => new Date(b.assignedAt) - new Date(a.assignedAt));

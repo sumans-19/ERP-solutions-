@@ -21,3 +21,4 @@ const InventoryDashboard = ({ setActiveSection }) => {
 };
 
 export default InventoryDashboard;
+

@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import {
     FileText, CheckCircle2, Wrench, ClipboardCheck, FileCheck,
     PauseCircle, Package, ChevronRight, Play, Check, X, AlertCircle
 } from 'lucide-react';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+import {
+    getStateCounts,
+    getItemsByState,
+    completeStep,
+    holdItem,
+    resumeItem,
+    completeVerification,
+    completeDocumentation
+} from '../services/api';
 
 const STATE_CONFIG = {
     New: { color: 'blue', icon: FileText, label: 'New' },
@@ -36,11 +42,8 @@ const ProcessManagement = () => {
 
     const fetchStateCounts = async () => {
         try {
-            const token = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).token : null;
-            const response = await axios.get(`${API_URL}/api/items/stats/state-counts`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setStateCounts(response.data);
+            const data = await getStateCounts();
+            setStateCounts(data);
             setLoading(false);
         } catch (error) {
             console.error('Failed to fetch state counts:', error);
@@ -50,11 +53,8 @@ const ProcessManagement = () => {
 
     const fetchItemsByState = async (state) => {
         try {
-            const token = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).token : null;
-            const response = await axios.get(`${API_URL}/api/items/state/${state}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setItems(response.data);
+            const data = await getItemsByState(state);
+            setItems(data);
         } catch (error) {
             console.error('Failed to fetch items:', error);
         }
@@ -62,11 +62,7 @@ const ProcessManagement = () => {
 
     const handleCompleteStep = async (itemId, processStepId) => {
         try {
-            const token = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).token : null;
-            await axios.post(`${API_URL}/api/items/${itemId}/complete-step`,
-                { processStepId },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await completeStep(itemId, processStepId);
             fetchStateCounts();
             fetchItemsByState(selectedState);
             alert('Step completed successfully!');
@@ -78,11 +74,7 @@ const ProcessManagement = () => {
 
     const handleHoldItem = async (itemId, reason) => {
         try {
-            const token = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).token : null;
-            await axios.post(`${API_URL}/api/items/${itemId}/hold`,
-                { reason },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await holdItem(itemId, reason);
             fetchStateCounts();
             fetchItemsByState(selectedState);
             alert('Item put on hold');
@@ -94,10 +86,7 @@ const ProcessManagement = () => {
 
     const handleResumeItem = async (itemId) => {
         try {
-            const token = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).token : null;
-            await axios.post(`${API_URL}/api/items/${itemId}/resume`, {},
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await resumeItem(itemId);
             fetchStateCounts();
             fetchItemsByState(selectedState);
             alert('Item resumed');
@@ -109,10 +98,7 @@ const ProcessManagement = () => {
 
     const handleCompleteVerification = async (itemId) => {
         try {
-            const token = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).token : null;
-            await axios.post(`${API_URL}/api/items/${itemId}/complete-verification`, {},
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await completeVerification(itemId);
             fetchStateCounts();
             fetchItemsByState(selectedState);
             alert('Verification completed!');
@@ -124,11 +110,7 @@ const ProcessManagement = () => {
 
     const handleCompleteDocumentation = async (itemId) => {
         try {
-            const token = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).token : null;
-            await axios.post(`${API_URL}/api/items/${itemId}/complete-documentation`,
-                { remarks: 'Documentation completed' },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await completeDocumentation(itemId, 'Documentation completed');
             fetchStateCounts();
             fetchItemsByState(selectedState);
             alert('Documentation completed!');
@@ -161,7 +143,7 @@ const ProcessManagement = () => {
                         <button
                             key={state}
                             onClick={() => setSelectedState(state)}
-                            className={`p-5 rounded-2xl border-2 transition-all text-left flex flex-col justify-between ${isSelected
+                            className={`p-5 rounded-md border-2 transition-all text-left flex flex-col justify-between ${isSelected
                                 ? `border-${config.color}-500 bg-${config.color}-50 shadow-md`
                                 : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
                                 }`}
@@ -181,7 +163,7 @@ const ProcessManagement = () => {
                 <div className="mb-6 flex-shrink-0">
                     <button
                         onClick={() => setSelectedState('Hold')}
-                        className={`w-full p-4 rounded-2xl border-2 transition-all text-left ${selectedState === 'Hold'
+                        className={`w-full p-4 rounded-md border-2 transition-all text-left ${selectedState === 'Hold'
                             ? 'border-red-500 bg-red-50 shadow-md'
                             : 'border-red-100 bg-white hover:border-red-300 hover:shadow-sm'
                             }`}
@@ -202,7 +184,7 @@ const ProcessManagement = () => {
 
             {/* Item List - Maximized Space */}
             {selectedState && (
-                <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0">
+                <div className="flex-1 bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0">
                     <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-shrink-0">
                         <h2 className="text-xs font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
                             {React.createElement(STATE_CONFIG[selectedState].icon, { size: 14 })}
@@ -221,7 +203,7 @@ const ProcessManagement = () => {
                                 {items.map(item => (
                                     <div
                                         key={item._id}
-                                        className="border border-slate-200 rounded-lg p-4 hover:border-blue-200 transition-colors bg-white shadow-xs"
+                                        className="border border-slate-200 rounded-md p-4 hover:border-blue-200 transition-colors bg-white shadow-xs"
                                     >
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
@@ -235,7 +217,7 @@ const ProcessManagement = () => {
 
                                         {/* Process Steps */}
                                         {item.processes && item.processes.length > 0 && (
-                                            <div className="mt-3 bg-slate-50 rounded-lg p-2 space-y-2 border border-slate-100">
+                                            <div className="mt-3 bg-slate-50 rounded-md p-2 space-y-2 border border-slate-100">
                                                 <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 px-1">Production Steps:</div>
                                                 {item.processes.filter(p => p.stepType === 'execution' || p.stepType === 'testing').map(step => {
                                                     const assignment = item.assignedEmployees?.find(a => a.processStepId === step.id);
@@ -319,7 +301,7 @@ const ProcessManagement = () => {
 
             {!selectedState && (
                 <div className="flex-1 flex items-center justify-center">
-                    <div className="text-center p-8 bg-white rounded-2xl border border-dashed border-slate-300">
+                    <div className="text-center p-8 bg-white rounded-md border border-dashed border-slate-300">
                         <Package size={48} className="mx-auto mb-3 text-slate-200" />
                         <h3 className="font-bold text-slate-700 text-sm">No State Selected</h3>
                         <p className="text-[11px] text-slate-400 mt-1 max-w-[200px] mx-auto leading-relaxed">Choose a production phase from the grid above to investigate active items.</p>
@@ -331,3 +313,4 @@ const ProcessManagement = () => {
 };
 
 export default ProcessManagement;
+

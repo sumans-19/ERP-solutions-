@@ -117,7 +117,7 @@ const MappingPage = () => {
             </div>
 
             {/* Items List */}
-            <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+            <div className="flex-1 bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden flex flex-col">
                 <div className="p-4 border-b border-slate-200 bg-slate-50">
                     <h2 className="font-semibold text-slate-800">Items Awaiting Assignment ({items.length})</h2>
                 </div>
@@ -140,7 +140,7 @@ const MappingPage = () => {
                                 const assignedCount = item.assignedEmployees?.length || 0;
 
                                 return (
-                                    <div key={item._id} className="border border-slate-200 rounded-lg overflow-hidden">
+                                    <div key={item._id} className="border border-slate-200 rounded-md overflow-hidden">
                                         {/* Item Header */}
                                         <div
                                             onClick={() => toggleItemExpand(item._id)}
@@ -176,7 +176,7 @@ const MappingPage = () => {
                                                         const selectedEmpId = selectedSteps[key];
 
                                                         return (
-                                                            <div key={step.id} className="border border-slate-200 rounded-lg p-3">
+                                                            <div key={step.id} className="border border-slate-200 rounded-md p-3">
                                                                 <div className="flex items-center justify-between mb-2">
                                                                     <div className="flex-1">
                                                                         <div className="font-medium text-slate-800">{step.stepName}</div>
@@ -200,7 +200,7 @@ const MappingPage = () => {
                                                                                 <select
                                                                                     value={selectedEmpId || ''}
                                                                                     onChange={(e) => handleEmployeeSelect(item._id, step.id, e.target.value)}
-                                                                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white"
+                                                                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white"
                                                                                 >
                                                                                     <option value="">Select Employee...</option>
                                                                                     {employees.map(emp => (
@@ -216,14 +216,14 @@ const MappingPage = () => {
                                                                                     type="date"
                                                                                     value={expectedDates[key] || ''}
                                                                                     onChange={(e) => handleDateChange(item._id, step.id, e.target.value)}
-                                                                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                                                                 />
                                                                             </div>
                                                                         </div>
                                                                         <button
                                                                             onClick={() => handleAssignStep(item, step)}
                                                                             disabled={!selectedEmpId}
-                                                                            className="w-full py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition"
+                                                                            className="w-full py-2 bg-blue-600 text-white text-sm font-semibold rounded-md hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition"
                                                                         >
                                                                             <Save size={16} />
                                                                             Assign & Map Step
@@ -236,7 +236,7 @@ const MappingPage = () => {
                                                 </div>
 
                                                 {assignedCount === mfgSteps.length && (
-                                                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                                                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md text-green-700 text-sm">
                                                         ✅ All steps assigned! This item will move to "Assigned" state automatically.
                                                     </div>
                                                 )}
@@ -254,3 +254,4 @@ const MappingPage = () => {
 };
 
 export default MappingPage;
+

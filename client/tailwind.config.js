@@ -14,6 +14,11 @@ export default {
           text: '#1e293b',
           subtext: '#64748b'
         }
+      },
+      fontFamily: {
+        sans: ['Helvetica', 'Arial', 'sans-serif'],
+        serif: ['Georgia', 'Garamond', 'serif'],
+        body: ['Helvetica', 'Arial', 'sans-serif'],
       }
     },
   },

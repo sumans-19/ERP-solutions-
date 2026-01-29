@@ -23,7 +23,12 @@ import PartiesPage from './pages/UserManagement/PartiesPage';
 import Inventory from './pages/Inventory';
 import ProfileSettings from './pages/Settings/ProfileSettings';
 import SystemSettings from './pages/Settings/SystemSettings';
+import CompanyInfo from './pages/Settings/CompanyInfo';
+import IndividualPermissions from './pages/Settings/IndividualPermissions';
+import ShiftTimeSettings from './pages/Settings/ShiftTimeSettings';
 import ReportManage from './pages/ReportManage';
+import ProductionModule from './pages/Production/ProductionModule';
+
 
 // Employee View Imports
 import EmployeeDashboard from './pages/EmployeeView/EmployeeDashboard';
@@ -31,6 +36,10 @@ import EmployeeTasksView from './pages/EmployeeView/EmployeeTasks';
 import EmployeeJobs from './pages/EmployeeView/EmployeeJobs';
 import EmployeeChat from './pages/EmployeeView/EmployeeChat';
 import EmployeeBulletins from './pages/EmployeeView/EmployeeBulletins';
+
+// Task View Imports
+import TodoListPage from './pages/Tasks/TodoListPage';
+import FollowUpsPage from './pages/Tasks/FollowUpsPage';
 
 // Admin View Imports
 import TaskAssignment from './pages/AdminView/TaskAssignment';
@@ -41,6 +50,9 @@ import Preferences from './pages/AdminView/Preferences';
 // Employee View Context and Layout
 import { EmployeeViewProvider } from './contexts/EmployeeViewContext';
 import EmployeeViewLayout from './layouts/EmployeeViewLayout';
+
+// Additional Imports from instruction
+import CalendarPage from './pages/Calendar/CalendarPage';
 
 /**
  * Login Component
@@ -235,10 +247,17 @@ const DashboardLayout = ({ onLogout, user }) => {
         return <Orders />;
       case 'process':
         return <ProcessManagement />;
+      case 'production':
+        return <ProductionModule />;
       case 'users':
+
         return <UserManagement />;
       case 'parties':
-        return user?.role === 'admin' ? <PartiesPage /> : <Dashboard />;
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <PartiesPage /> : <Dashboard />;
+      case 'tasks-todo': // New Route
+        return <TodoListPage />;
+      case 'tasks-followups': // New Route
+        return <FollowUpsPage />;
       case 'inventory-dash':
         return user?.role === 'admin' ? <InventoryDashboard setActiveSection={setActiveSection} /> : <Dashboard />;
       case 'comm-hub':
@@ -266,8 +285,7 @@ const DashboardLayout = ({ onLogout, user }) => {
         return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <CommunicationManagement user={user} /> : <Dashboard />;
       case 'admin-inventory':
         return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <Inventory /> : <Dashboard />;
-      case 'admin-comm-hub':
-        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <CommunicationHub activeSection={activeSection} setActiveSection={setActiveSection} user={user} /> : <Dashboard />;
+
       case 'admin-tasks-list':
         return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <TaskAssignment user={user} /> : <Dashboard />;
       case 'admin-jobs-list':
@@ -303,7 +321,10 @@ const DashboardLayout = ({ onLogout, user }) => {
         ) : <Dashboard />;
       case 'admin-orders':
         return <Orders />;
+      case 'admin-production':
+        return <ProductionModule />;
       case 'admin-parties':
+
         return <PartiesPage />;
       case 'admin-inventory-dash':
         return <InventoryDashboard setActiveSection={setActiveSection} />;
@@ -311,8 +332,18 @@ const DashboardLayout = ({ onLogout, user }) => {
         return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? <Preferences user={user} /> : <Dashboard />;
       case 'profile-settings':
         return <ProfileSettings />;
+      case 'company-info':
+        return <CompanyInfo />;
+      case 'employee-master':
+        return <UserManagement initialTab="employees" />;
+      case 'set-permissions':
+        return <IndividualPermissions />;
+      case 'set-time':
+        return <ShiftTimeSettings />;
       case 'system-settings':
         return <SystemSettings />;
+      case 'calendar':
+        return <CalendarPage />;
       case 'reports':
         return <ReportManage />;
       case 'dashboard':
@@ -336,7 +367,7 @@ const DashboardLayout = ({ onLogout, user }) => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-60 lg:ml-72">
-        <Header onLogout={onLogout} onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} user={user} setActiveSection={setActiveSection} />
+        <Header onLogout={onLogout} onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} isMobileMenuOpen={isMobileMenuOpen} user={user} setActiveSection={setActiveSection} />
 
         {/* Planning Team Sub-Navigation */}
         {user?.role === 'planning' && activeSection !== 'planning-view' && (
@@ -345,7 +376,9 @@ const DashboardLayout = ({ onLogout, user }) => {
               {[
                 { id: 'items', label: 'Item Manage', icon: Package },
                 { id: 'process', label: 'Process Manage', icon: Activity },
+                { id: 'production', label: 'Production', icon: Activity },
                 { id: 'orders', label: 'Order Manage', icon: ShoppingCart }
+
               ].map(nav => (
                 <button
                   key={nav.id}
@@ -378,7 +411,10 @@ const DashboardLayout = ({ onLogout, user }) => {
                   { id: 'admin-view', label: 'Dashboard', icon: LayoutDashboard },
                   { id: 'admin-process', label: 'Process Mgmt', icon: Activity },
                   { id: 'admin-items', label: 'Items Mgmt', icon: Package },
+                  { id: 'admin-orders', label: 'Orders Mgmt', icon: ShoppingCart },
+                  { id: 'admin-production', label: 'Production Mgmt', icon: Activity },
                   { id: 'admin-users', label: 'User Mgmt', icon: UserCog },
+
                   { id: 'admin-inventory', label: 'Inventory Mgmt', icon: Archive },
                   { id: 'admin-comm-hub', label: 'Communication Mgmt', icon: MessageSquare },
                   { id: 'admin-tasks-list', label: 'Emp Tasks', icon: ClipboardCheck },
@@ -466,6 +502,18 @@ function App() {
             )
           }
         />
+        <Route
+          path="/tasks"
+          element={
+            isAuthenticated ? (
+              <Navigate to={`/dashboard?section=tasks-todo`} replace />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route path="/tasks/followups" element={<FollowUpsPage />} />
+        <Route path="/calendar" element={<CalendarPage />} />
         <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
       </Routes>
     </Router>

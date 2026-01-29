@@ -38,8 +38,53 @@ const orderItemSchema = new mongoose.Schema({
     type: String,
     enum: ['Normal', 'High'],
     default: 'Normal'
+  },
+  // Added for production integration
+  manufacturingSteps: [{
+    id: Number,
+    stepName: String,
+    description: String,
+    stepType: String,
+    employeeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Employee'
+    },
+    targetStartDate: Date,
+    targetDeadline: Date,
+    status: {
+      type: String,
+      default: 'pending'
+    },
+    subSteps: [{
+      id: Number,
+      name: String,
+      description: String,
+      status: {
+        type: String,
+        enum: ['pending', 'completed'],
+        default: 'pending'
+      }
+    }]
+  }],
+  jobBatches: [{
+    jobId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'JobCard'
+    },
+    jobNumber: String,
+    batchQty: Number,
+    status: {
+      type: String,
+      enum: ['Pending', 'InProgress', 'Completed'],
+      default: 'Pending'
+    }
+  }],
+  qcStatus: {
+    type: String,
+    enum: ['Pending', 'Passed', 'Failed'],
+    default: 'Pending'
   }
-}, { _id: false });
+}); // Removed _id: false to uniquely identify order items for JobCards
 
 const orderSchema = new mongoose.Schema({
   partyName: {
@@ -79,11 +124,33 @@ const orderSchema = new mongoose.Schema({
     enum: ['New', 'Confirmed', 'Processing', 'Completed', 'Cancelled'],
     default: 'New',
     index: true
+  },
+  orderStage: {
+    type: String,
+    enum: [
+      'New',
+      'Mapped',
+      'Assigned',
+      'Processing',
+      'MFGCompleted',
+      'FQC',
+      'Documentation',
+      'Packing',
+      'Dispatch',
+      'Completed',
+      'OnHold'
+    ],
+    default: 'New',
+    index: true
+  },
+  holdReason: {
+    type: String,
+    trim: true
   }
 }, { timestamps: true });
 
 // Pre-save hook to calculate totals
-orderSchema.pre('save', async function() {
+orderSchema.pre('save', async function () {
   try {
     this.totalQty = this.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
     this.totalAmount = this.items.reduce((sum, item) => sum + (item.amount || 0), 0);

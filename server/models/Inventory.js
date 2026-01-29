@@ -6,6 +6,10 @@ const inventorySchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    code: {
+        type: String,
+        trim: true
+    },
     qty: {
         type: Number,
         required: true,

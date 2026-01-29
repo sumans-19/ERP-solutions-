@@ -6,11 +6,26 @@ const partySchema = new mongoose.Schema({
     gstin: { type: String },
     phone: { type: String },
 
-    // GST & Address Tab
+    // Billing Details
     billingAddress: { type: String },
-    city: { type: String },
-    state: { type: String },
-    pincode: { type: String },
+    billingCity: { type: String },
+    billingState: { type: String },
+    billingPincode: { type: String },
+
+    // Shipping Details
+    shippingAddress: { type: String },
+    shippingCity: { type: String },
+    shippingState: { type: String },
+    shippingPincode: { type: String },
+
+    // Codes
+    vendorCode: { type: String },
+    customerCode: { type: String },
+
+    // Contact Details (Multiple)
+    contactNames: [{ type: String }],
+    phoneNumbers: [{ type: String }],
+    emails: [{ type: String }],
 
     // Credit & Balance Tab
     openingBalance: { type: Number, default: 0 },

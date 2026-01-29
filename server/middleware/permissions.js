@@ -30,7 +30,20 @@ const checkPermission = (requiredPermission) => {
 
     try {
       // 2. FETCH DYNAMIC PERMISSIONS
-      const roleConfig = await RolePermission.findOne({ role: userRole });
+      // Priority 1: Check for INDIVIDUAL overrides in Employee/Staff master
+      const Employee = require('../models/Employee');
+      const employee = await Employee.findById(req.user.id);
+
+      let roleConfig = null;
+      if (employee && employee.individualPermissions && employee.individualPermissions.length > 0) {
+        roleConfig = {
+          role: userRole,
+          permissions: employee.individualPermissions
+        };
+      } else {
+        // Priority 2: Standard ROLE-BASED permissions
+        roleConfig = await RolePermission.findOne({ role: userRole });
+      }
 
       if (!roleConfig) {
         return res.status(403).json({

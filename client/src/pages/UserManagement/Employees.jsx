@@ -5,8 +5,8 @@ import PartyFollowUpsPage from './PartyFollowUpsPage';
 import EmployeesPage from './EmployeesPage';
 import MappingPage from './MappingPage';
 
-const UserManagement = () => {
-    const [activeTab, setActiveTab] = useState('parties');
+const UserManagement = ({ initialTab = 'parties' }) => {
+    const [activeTab, setActiveTab] = useState(initialTab);
 
     const tabs = [
         { id: 'parties', label: 'Parties', icon: Users },
@@ -51,3 +51,4 @@ const UserManagement = () => {
 };
 
 export default UserManagement;
+

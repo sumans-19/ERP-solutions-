@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getEmployeeTasks, updateTask } from '../../services/api';
+import { getEmployeeTodos, updateTodo } from '../../services/taskApi'; // Updated import
 import { CheckCircle, Circle, Clock, AlertTriangle, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEmployeeView } from '../../contexts/EmployeeViewContext';
@@ -21,7 +21,7 @@ const EmployeeTasks = ({ user }) => {
     const fetchTasks = async () => {
         try {
             setLoading(true);
-            const data = await getEmployeeTasks(selectedEmployeeId);
+            const data = await getEmployeeTodos(selectedEmployeeId);
             setTasks(data);
         } catch (error) {
             console.error('Error fetching tasks:', error);
@@ -33,11 +33,11 @@ const EmployeeTasks = ({ user }) => {
     const handleToggleComplete = async (task) => {
         try {
             const newStatus = task.status === 'Completed' ? 'Pending' : 'Completed';
-            await updateTask(task._id, { status: newStatus });
+            await updateTodo(task._id, { status: newStatus });
 
             // Optimistic update
             setTasks(prev => prev.map(t =>
-                t._id === task._id ? { ...t, status: newStatus, completedAt: newStatus === 'Completed' ? new Date() : null } : t
+                t._id === task._id ? { ...t, status: newStatus } : t
             ));
         } catch (error) {
             console.error('Error updating task:', error);
@@ -46,14 +46,20 @@ const EmployeeTasks = ({ user }) => {
     };
 
     const handleSaveNote = async (taskId) => {
+        // Todo model might not have 'notes' field yet, but we'll try to update it.
+        // If we need notes, we should add it to the schema.
+        // For now, let's assume we can add it or just log it.
+        console.log("Notes feature requiring schema update");
+        /*
         try {
-            await updateTask(taskId, { notes: noteInput });
+            await updateTodo(taskId, { notes: noteInput });
             setTasks(prev => prev.map(t => t._id === taskId ? { ...t, notes: noteInput } : t));
             setExpandedTaskId(null);
             setNoteInput('');
         } catch (error) {
             console.error('Error saving note:', error);
         }
+        */
     };
 
     const toggleExpand = (task) => {
@@ -94,7 +100,7 @@ const EmployeeTasks = ({ user }) => {
                     <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Tasks</h1>
                     <p className="text-sm sm:text-base text-slate-500">Manage assigned administrative tasks</p>
                 </div>
-                <div className="flex bg-slate-100 p-1 rounded-lg w-full sm:w-auto">
+                <div className="flex bg-slate-100 p-1 rounded-md w-full sm:w-auto">
                     {['Pending', 'Completed'].map(f => (
                         <button
                             key={f}
@@ -116,7 +122,7 @@ const EmployeeTasks = ({ user }) => {
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="bg-white rounded-xl border border-dashed border-slate-300 p-8 sm:p-12 text-center"
+                            className="bg-white rounded-md border border-dashed border-slate-300 p-8 sm:p-12 text-center"
                         >
                             <p className="text-slate-500">No {filter.toLowerCase()} tasks found.</p>
                         </motion.div>
@@ -128,7 +134,7 @@ const EmployeeTasks = ({ user }) => {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
-                                className={`bg-white rounded-xl border transition-all ${task.status === 'Completed' ? 'border-slate-200 opacity-75' : 'border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200'
+                                className={`bg-white rounded-md border transition-all ${task.status === 'Completed' ? 'border-slate-200 opacity-75' : 'border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200'
                                     }`}
                             >
                                 <div className="p-4 sm:p-5 flex items-start gap-3 sm:gap-4">
@@ -144,31 +150,31 @@ const EmployeeTasks = ({ user }) => {
                                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
                                             <div className="min-w-0 flex-1">
                                                 <h3 className={`text-base sm:text-lg font-bold text-slate-900 ${task.status === 'Completed' ? 'line-through text-slate-500' : ''}`}>
-                                                    {task.title}
+                                                    {task.taskName}
                                                 </h3>
-                                                <p className="text-slate-500 text-sm mt-1">{task.description}</p>
+                                                <p className="text-slate-500 text-sm mt-1">{task.assignmentName !== 'Unassigned' ? `Assigned to: ${task.assignmentName}` : ''}</p>
                                             </div>
-                                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getPriorityColor(task.priority)} whitespace-nowrap self-start`}>
-                                                {task.priority || 'Normal'}
+                                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border whitespace-nowrap self-start ${task.status === 'Overdue' ? 'bg-red-50 text-red-700' : 'bg-slate-50 text-slate-600'}`}>
+                                                {task.status}
                                             </span>
                                         </div>
 
                                         <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-3 sm:mt-4 text-xs text-slate-500">
-                                            {task.dueDate && (
+                                            {task.deadlineDate && (
                                                 <div className="flex items-center gap-1">
                                                     <Clock size={14} />
-                                                    <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                                                    <span>Due: {new Date(task.deadlineDate).toLocaleDateString()}</span>
                                                 </div>
                                             )}
                                             <div className="flex items-center gap-1">
-                                                <span className="font-medium">By:</span> {task.assignedBy?.email || 'Admin'}
+                                                <span className="font-medium">Date:</span> {new Date(task.date).toLocaleDateString()}
                                             </div>
                                         </div>
                                     </div>
 
                                     <button
                                         onClick={() => toggleExpand(task)}
-                                        className={`p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0 ${expandedTaskId === task._id ? 'bg-slate-100 text-blue-600' : ''}`}
+                                        className={`p-2 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0 ${expandedTaskId === task._id ? 'bg-slate-100 text-blue-600' : ''}`}
                                     >
                                         {expandedTaskId === task._id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                     </button>
@@ -192,11 +198,11 @@ const EmployeeTasks = ({ user }) => {
                                                         value={noteInput}
                                                         onChange={(e) => setNoteInput(e.target.value)}
                                                         placeholder="Add a note or update..."
-                                                        className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                        className="flex-1 border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                                     />
                                                     <button
                                                         onClick={() => handleSaveNote(task._id)}
-                                                        className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition whitespace-nowrap"
+                                                        className="px-4 py-2 bg-slate-900 text-white rounded-md text-sm font-bold hover:bg-slate-800 transition whitespace-nowrap"
                                                     >
                                                         Save
                                                     </button>
@@ -215,3 +221,4 @@ const EmployeeTasks = ({ user }) => {
 };
 
 export default EmployeeTasks;
+

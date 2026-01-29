@@ -83,7 +83,7 @@ const ProfileSettings = () => {
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className={`mb-6 p-4 rounded-lg flex items-center gap-3 shadow-sm border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
+                    className={`mb-6 p-4 rounded-md flex items-center gap-3 shadow-sm border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
                         }`}
                 >
                     {message.type === 'success' ? <CheckCircle size={20} /> : <Shield size={20} />}
@@ -99,11 +99,11 @@ const ProfileSettings = () => {
                     transition={{ delay: 0.1 }}
                     className="lg:col-span-1"
                 >
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden sticky top-8">
+                    <div className="bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden sticky top-8">
                         <div className="h-32 bg-gradient-to-r from-blue-600 to-indigo-600 relative">
                             <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
                                 <div className="relative group cursor-pointer">
-                                    <div className="w-24 h-24 bg-white rounded-full p-1 shadow-lg">
+                                    <div className="w-24 h-24 bg-white rounded-full p-1 shadow-sm">
                                         <div className="w-full h-full bg-slate-100 rounded-full flex items-center justify-center text-3xl font-bold text-slate-600">
                                             {user.name?.[0]?.toUpperCase() || 'U'}
                                         </div>
@@ -140,7 +140,7 @@ const ProfileSettings = () => {
                 >
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Personal Info Section */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden">
                             <div className="p-6 border-b border-slate-100">
                                 <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                                     <User className="text-blue-600" size={20} />
@@ -158,7 +158,7 @@ const ProfileSettings = () => {
                                             name="companyName"
                                             value={formData.companyName}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-md text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
                                             placeholder="Enter your name"
                                             required
                                         />
@@ -172,7 +172,7 @@ const ProfileSettings = () => {
                                             name="email"
                                             value={formData.email}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-md text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
                                             placeholder="name@company.com"
                                             required
                                         />
@@ -182,7 +182,7 @@ const ProfileSettings = () => {
                         </div>
 
                         {/* Security Section */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden">
                             <div className="p-6 border-b border-slate-100">
                                 <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                                     <Lock className="text-blue-600" size={20} />
@@ -200,7 +200,7 @@ const ProfileSettings = () => {
                                             name="newPassword"
                                             value={formData.newPassword}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-md text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
                                             placeholder="Minimum 8 characters"
                                         />
                                     </div>
@@ -213,7 +213,7 @@ const ProfileSettings = () => {
                                             name="confirmPassword"
                                             value={formData.confirmPassword}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-md text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
                                             placeholder="Re-enter new password"
                                         />
                                     </div>
@@ -226,7 +226,7 @@ const ProfileSettings = () => {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition shadow-lg shadow-blue-200 disabled:bg-slate-300 disabled:shadow-none transform hover:-translate-y-0.5 active:translate-y-0"
+                                    className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700 transition shadow-sm shadow-blue-200 disabled:bg-slate-300 disabled:shadow-none transform hover:-translate-y-0.5 active:translate-y-0"
                                 >
                                     {loading ? (
                                         <>
@@ -250,3 +250,4 @@ const ProfileSettings = () => {
 };
 
 export default ProfileSettings;
+

@@ -2,6 +2,9 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
+// Personnel API
+export const getEmployees = async () => (await axios.get('/api/employees')).data;
+
 // Configure axios defaults
 axios.defaults.baseURL = API_URL;
 
@@ -143,6 +146,19 @@ export const deleteOrder = async (id) => {
   }
 };
 
+export const getOrderStateCounts = async () => (await axios.get('/api/orders/stats/stage-counts')).data;
+export const getOrdersByStage = async (stage) => (await axios.get(`/api/orders/stage/${stage}`)).data;
+
+export const getAllEmployees = async () => {
+  try {
+    const response = await axios.get('/api/employees');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+    throw error;
+  }
+};
+
 export const updateOrderStatus = async (id, status) => {
   try {
     const response = await axios.patch(`/api/orders/${id}/status`, { status });
@@ -153,7 +169,29 @@ export const updateOrderStatus = async (id, status) => {
   }
 };
 
-// Inventory API functions
+// Inventory V2 API functions
+export const getRawMaterials = async () => (await axios.get('/api/raw-materials')).data;
+export const createRawMaterial = async (data) => (await axios.post('/api/raw-materials', data)).data;
+export const updateRawMaterial = async (id, data) => (await axios.put(`/api/raw-materials/${id}`, data)).data;
+export const deleteRawMaterial = async (id) => (await axios.delete(`/api/raw-materials/${id}`)).data;
+
+export const getMaterialRequests = async () => (await axios.get('/api/material-requests')).data;
+export const getNextMRNumber = async () => (await axios.get('/api/material-requests/next-number')).data;
+export const createMaterialRequest = async (data) => (await axios.post('/api/material-requests', data)).data;
+
+export const getGRNs = async () => (await axios.get('/api/grn')).data;
+export const getNextGRNNumber = async () => (await axios.get('/api/grn/next-number')).data;
+export const createGRN = async (data) => (await axios.post('/api/grn', data)).data;
+
+export const getWIPStock = async () => (await axios.get('/api/wip-stock')).data;
+export const createWIPStock = async (data) => (await axios.post('/api/wip-stock', data)).data;
+
+export const getFinishedGoods = async () => (await axios.get('/api/finished-goods')).data;
+export const createFinishedGood = async (data) => (await axios.post('/api/finished-goods', data)).data;
+
+export const getRejectedGoods = async () => (await axios.get('/api/rejected-goods')).data;
+export const createRejectedGood = async (data) => (await axios.post('/api/rejected-goods', data)).data;
+
 export const getInventory = async () => {
   try {
     const response = await axios.get('/api/inventory');
@@ -309,6 +347,16 @@ export const getContacts = async () => {
   }
 };
 
+export const markMessagesAsRead = async (userId, contactId) => {
+  try {
+    const response = await axios.patch(`/api/chat/read/${userId}/${contactId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error marking messages as read:', error);
+    throw error;
+  }
+};
+
 // Bulletin API functions
 export const getBulletins = async () => {
   try {
@@ -351,9 +399,12 @@ export const getEmployeeWorkload = async () => {
   }
 };
 
+export const getStateCounts = async () => (await axios.get('/api/job-cards/stats/state-counts')).data;
+export const getItemsByState = async (state) => (await axios.get(`/api/job-cards/state/${state}`)).data;
+
 export const getAssignedJobs = async (employeeId) => {
   try {
-    const response = await axios.get(`/api/items/assigned/${employeeId}`);
+    const response = await axios.get(`/api/employees/${employeeId}/assignments`);
     return response.data;
   } catch (error) {
     console.error('Error fetching assigned jobs:', error);
@@ -381,6 +432,11 @@ export const completeStep = async (itemId, processStepId, notes) => {
   }
 };
 
+export const holdItem = async (itemId, reason) => (await axios.post(`/api/items/${itemId}/hold`, { reason })).data;
+export const resumeItem = async (itemId) => (await axios.post(`/api/items/${itemId}/resume`)).data;
+export const completeVerification = async (itemId) => (await axios.post(`/api/items/${itemId}/complete-verification`)).data;
+export const completeDocumentation = async (itemId, remarks) => (await axios.post(`/api/items/${itemId}/complete-documentation`, { remarks })).data;
+
 export const toggleSubstep = async (itemId, processStepId, subStepId, status) => {
   try {
     const response = await axios.post(`/api/items/${itemId}/toggle-substep`, { processStepId, subStepId, status });
@@ -401,3 +457,21 @@ export const saveStepNote = async (itemId, processStepId, notes, employeeId) => 
   }
 };
 
+// Job Card API functions
+export const getJobCards = async (filters) => (await axios.get('/api/job-cards', { params: filters })).data;
+export const getJobCardById = async (id) => (await axios.get(`/api/job-cards/${id}`)).data;
+export const getJobCardsByEmployee = async (employeeId) => (await axios.get(`/api/job-cards/employee/${employeeId}`)).data;
+
+export const toggleJobSubstep = async (jobCardId, stepId, subStepId, status) => {
+  try {
+    const response = await axios.patch(`/api/job-cards/${jobCardId}/steps/${stepId}/substeps/${subStepId}/toggle`, { status });
+    return response.data;
+  } catch (error) {
+    console.error('Error toggling job substep:', error);
+    throw error;
+  }
+};
+export const updateJobCardSteps = async (id, steps) => (await axios.patch(`/api/job-cards/${id}/steps`, { steps })).data;
+export const splitJobCard = async (id, splitQty) => (await axios.post(`/api/job-cards/${id}/split`, { splitQty })).data;
+
+export const getCalendarEvents = async (start, end) => (await axios.get('/api/calendar/events', { params: { start, end } })).data;

@@ -63,7 +63,7 @@ const AdminBulletins = () => {
 
                 {/* Creation Form - Consistent with Card styling */}
                 <div className="lg:col-span-1 flex flex-col space-y-6 overflow-y-auto pr-2 custom-scrollbar">
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <div className="bg-white rounded-md border border-slate-200 shadow-sm p-6">
                         <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
                             <Send size={20} className="text-blue-600" /> Create Broadcast
                         </h2>
@@ -76,7 +76,7 @@ const AdminBulletins = () => {
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     placeholder="Brief descriptive title..."
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-md text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                 />
                             </div>
 
@@ -88,7 +88,7 @@ const AdminBulletins = () => {
                                             key={p}
                                             type="button"
                                             onClick={() => setPriority(p)}
-                                            className={`py-2 px-4 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-2 ${priority === p
+                                            className={`py-2 px-4 rounded-md text-[10px] font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-2 ${priority === p
                                                     ? p === 'Urgent'
                                                         ? 'bg-red-600 border-red-600 text-white shadow-sm'
                                                         : 'bg-blue-600 border-blue-600 text-white shadow-sm'
@@ -109,14 +109,14 @@ const AdminBulletins = () => {
                                     onChange={(e) => setBulletinMessage(e.target.value)}
                                     placeholder="Write your message here..."
                                     rows="5"
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-all leading-relaxed"
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-md text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-all leading-relaxed"
                                 />
                             </div>
 
                             <button
                                 type="submit"
                                 disabled={!bulletinMessage.trim() || !title.trim() || isSubmitting}
-                                className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center gap-2"
+                                className="w-full py-3 bg-blue-600 text-white rounded-md font-bold text-sm hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center gap-2"
                             >
                                 {isSubmitting ? (
                                     <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
@@ -130,7 +130,7 @@ const AdminBulletins = () => {
                         </form>
                     </div>
 
-                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-5">
+                    <div className="bg-blue-50 border border-blue-100 rounded-md p-5">
                         <h4 className="text-xs font-bold text-blue-700 mb-2 flex items-center gap-2">
                             <Zap size={14} /> Usage Note
                         </h4>
@@ -141,7 +141,7 @@ const AdminBulletins = () => {
                 </div>
 
                 {/* Logs Area - Professional Table-like feel */}
-                <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+                <div className="lg:col-span-2 bg-white rounded-md border border-slate-200 shadow-sm flex flex-col overflow-hidden">
                     <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white flex-shrink-0">
                         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                             <History size={18} className="text-slate-400" /> Broadcast Logs
@@ -162,7 +162,7 @@ const AdminBulletins = () => {
                                 {bulletins.map((bulletin) => (
                                     <div
                                         key={bulletin._id}
-                                        className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm relative overflow-hidden group"
+                                        className="bg-white border border-slate-200 rounded-md p-5 shadow-sm relative overflow-hidden group"
                                     >
                                         <div className={`absolute top-0 left-0 w-1 h-full ${bulletin.priority === 'Urgent' ? 'bg-red-500' : 'bg-blue-600'}`}></div>
                                         <div className="flex justify-between items-start mb-3">
@@ -198,3 +198,4 @@ const AdminBulletins = () => {
 };
 
 export default AdminBulletins;
+

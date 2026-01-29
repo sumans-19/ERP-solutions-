@@ -9,19 +9,16 @@ const rawMaterialSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  itemId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Item',
+    default: null
+  },
   quantity: {
     type: String,
     default: ''
   },
   unit: {
-    type: String,
-    trim: true
-  },
-  costPerUnit: {
-    type: String,
-    default: ''
-  },
-  supplier: {
     type: String,
     trim: true
   },
@@ -35,7 +32,7 @@ const rawMaterialSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
-const inspectionCheckSchema = new mongoose.Schema({
+const stageInspectionCheckSchema = new mongoose.Schema({
   id: {
     type: Number,
     required: true
@@ -64,7 +61,7 @@ const inspectionCheckSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
-const finalInspectionSchema = new mongoose.Schema({
+const finalQualityCheckSchema = new mongoose.Schema({
   id: {
     type: Number,
     required: true
@@ -77,10 +74,6 @@ const finalInspectionSchema = new mongoose.Schema({
   tolerance: {
     type: String,
     trim: true,
-    default: ''
-  },
-  inspectionImage: {
-    type: String,
     default: ''
   },
   remarks: {
@@ -147,6 +140,16 @@ const itemSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true
+  },
+  itemType: {
+    type: String,
+    enum: ['raw-material', 'finished-good', 'semi-finished', 'consumable'],
+    default: 'finished-good'
+  },
+  generalNote: {
+    type: String,
+    trim: true,
+    default: ''
   },
   hsn: {
     type: String,
@@ -232,11 +235,19 @@ const itemSchema = new mongoose.Schema({
   // Raw Materials Section
   rawMaterials: [rawMaterialSchema],
 
-  // Inspection Check Section
-  inspectionChecks: [inspectionCheckSchema],
+  // Stage Inspection Check Section
+  stageInspectionChecks: [stageInspectionCheckSchema],
 
-  // Final Inspection Section
-  finalInspection: [finalInspectionSchema],
+  // Final Quality Check Section
+  finalQualityCheck: [finalQualityCheckSchema],
+
+  // Single image upload for Final Quality Check
+  qualityCheckImage: {
+    type: String,
+    default: ''
+  },
+
+
 
   // State Management - Item Lifecycle
   state: {
@@ -279,7 +290,7 @@ const itemSchema = new mongoose.Schema({
 itemSchema.methods.calculateState = function () {
   // Handle case where processes don't exist
   if (!this.processes || this.processes.length === 0) {
-    return 'New';
+    return this.state || 'New';
   }
 
   // Include both execution and testing steps
@@ -291,57 +302,54 @@ itemSchema.methods.calculateState = function () {
 
   const assignedEmployees = this.assignedEmployees || [];
 
+  // Count assigned steps
   const assignedCount = assignedEmployees.filter(a =>
     mfgSteps.some(s => s.id === a.processStepId)
   ).length;
+
+  // Count exactly how many steps are marked 'completed'
   const completedMfgSteps = assignedEmployees.filter(a =>
     a.status === 'completed' && mfgSteps.some(s => s.id === a.processStepId)
   ).length;
 
-  // Check if on hold
-  if (this.state === 'Hold') {
-    return 'Hold';
-  }
-
-  // New: No assignments
-  if (assignedCount === 0) {
-    return 'New';
-  }
-
-  // Assigned: All mfg steps assigned but none started
+  // Check if any step is 'in-progress'
   const inProgressCount = assignedEmployees.filter(a =>
-    a.status === 'in-progress' || a.status === 'completed'
+    a.status === 'in-progress'
   ).length;
-  if (assignedCount === mfgSteps.length && inProgressCount === 0) {
-    return 'Assigned';
-  }
 
-  // Manufacturing: At least one started, not all completed
-  if (completedMfgSteps < mfgSteps.length && inProgressCount > 0) {
-    return 'Manufacturing';
-  }
+  // 1. Hold State Override
+  if (this.state === 'Hold') return 'Hold';
 
-  // Verification: All mfg steps completed
-  if (completedMfgSteps === mfgSteps.length) {
-    const inspectionChecks = this.inspectionChecks || [];
-    const verificationDone = inspectionChecks.length > 0 && inspectionChecks.every(c => c.status === 'passed');
-    if (!verificationDone) {
-      return 'Verification';
-    }
+  // 2. New: No steps assigned yet
+  if (assignedCount === 0) return 'New';
 
-    // Documentation: Verification passed
-    const finalInspection = this.finalInspection || [];
-    const docDone = finalInspection.length > 0 &&
-      finalInspection.every(f => f.remarks);
-    if (!docDone) {
-      return 'Documentation';
-    }
+  // 3. Assigned: Steps assigned but none started or completed
+  if (completedMfgSteps === 0 && inProgressCount === 0) return 'Assigned';
 
-    // Completed: Everything done
+  // 4. Manufacturing: Work has started but not all steps are done
+  if (completedMfgSteps < mfgSteps.length) return 'Manufacturing';
+
+  // 5. Post-Production Transitions (Verification -> Documentation -> Completed)
+  if (completedMfgSteps >= mfgSteps.length) {
+    // Check if Verification is needed (if checks exist and aren't all passed)
+    const stageInspectionChecks = this.stageInspectionChecks || [];
+    const needsVerification = stageInspectionChecks.length > 0 &&
+      !stageInspectionChecks.every(c => c.status === 'passed');
+
+    if (needsVerification) return 'Verification';
+
+    // Check if Documentation is needed (if fields exist and aren't all filled)
+    const finalQualityCheck = this.finalQualityCheck || [];
+    const needsDocumentation = finalQualityCheck.length > 0 &&
+      !finalQualityCheck.every(f => f.remarks && f.remarks.trim() !== '');
+
+    if (needsDocumentation) return 'Documentation';
+
+    // 6. Final State
     return 'Completed';
   }
 
-  return this.state; // Fallback to current state
+  return this.state;
 };
 
 // Pre-save hook to auto-update state
@@ -351,7 +359,14 @@ itemSchema.pre('save', async function () {
   }
 
   // Auto-calculate state if not manually set to Hold
-  if (!this.isNew || this.isModified('assignedEmployees') || this.isModified('processes')) {
+  const shouldRecalculate =
+    this.isModified('assignedEmployees') ||
+    this.isModified('processes') ||
+    this.isModified('stageInspectionChecks') ||
+    this.isModified('finalQualityCheck') ||
+    this.isModified('state');
+
+  if (shouldRecalculate || this.isNew) {
     const newState = this.calculateState();
     if (newState !== this.state && this.state !== 'Hold') {
       this.stateHistory.push({

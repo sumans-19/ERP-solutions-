@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Item = require('../models/Item');
+const JobCard = require('../models/JobCard'); // Added for new tracking
 const Employee = require('../models/Employee');
 const Task = require('../models/Task');
 const authenticateToken = require('../middleware/auth');
@@ -14,13 +15,14 @@ router.get('/workload', authenticateToken, async (req, res) => {
         const employees = await Employee.find({}).lean();
         console.log(`Found ${employees.length} employees`);
 
-        // Get all items with their manufacturing process
-        const items = await Item.find({}).lean();
-        console.log(`Found ${items.length} items`);
+        // Get all JobCards (The new Single Source of Truth for production)
+        const jobCards = await JobCard.find({})
+            .populate('itemId', 'name code') // Populate item details
+            .lean();
+        console.log(`Found ${jobCards.length} job cards`);
 
         // Get all administrative tasks
         const adminTasks = await Task.find({}).lean();
-        console.log(`Found ${adminTasks.length} administrative tasks`);
 
         // Initialize workload map
         const workloadMap = {};
@@ -35,23 +37,27 @@ router.get('/workload', authenticateToken, async (req, res) => {
                 processingCount: 0,
                 doneCount: 0,
                 adminTaskCount: 0,
-                tasks: [] // Store detailed tasks (both jobs and admin tasks)
+                tasks: [] // Store detailed tasks
             };
         });
 
-        // Aggregate tasks from items
+        // 1. Aggregate tasks from JobCards
         let totalTasksFound = 0;
-        items.forEach(item => {
-            if (item.assignedEmployees && Array.isArray(item.assignedEmployees)) {
-                item.assignedEmployees.forEach(assignment => {
-                    const empId = assignment.employeeId ? assignment.employeeId.toString().trim() : null;
+        jobCards.forEach(job => {
+            if (job.steps && Array.isArray(job.steps)) {
+                job.steps.forEach(step => {
+                    const rawId = step.employeeId;
+                    const empId = rawId ? rawId.toString().trim() : null;
+
+                    // console.log(`Job ${job.jobNumber} Step ${step.stepName} Emp: ${empId}`); // verbose
+
                     if (empId && workloadMap[empId]) {
                         workloadMap[empId].totalAssignments++;
                         totalTasksFound++;
 
                         // Count by status
-                        const status = (assignment.status || '').toLowerCase();
-                        if (status === 'assigned' || status === 'pending' || status === '') {
+                        const status = (step.status || '').toLowerCase();
+                        if (status === 'pending' || status === 'assigned' || status === '') {
                             workloadMap[empId].pendingCount++;
                         } else if (status === 'in-progress' || status === 'processing') {
                             workloadMap[empId].processingCount++;
@@ -59,19 +65,19 @@ router.get('/workload', authenticateToken, async (req, res) => {
                             workloadMap[empId].doneCount++;
                         }
 
-                        // Find step name from item processes
-                        const step = item.processes?.find(p => p.id === assignment.processStepId);
-
                         // Add to tasks list
                         workloadMap[empId].tasks.push({
-                            itemId: item._id,
-                            itemName: item.name,
-                            itemCode: item.code,
-                            stepId: assignment.processStepId,
-                            stepName: step ? step.stepName : assignment.processStepName || 'Unknown Step',
-                            status: assignment.status,
-                            assignedAt: assignment.assignedAt,
-                            completedAt: assignment.completedAt
+                            type: 'Production',
+                            jobId: job._id,
+                            jobNumber: job.jobNumber,
+                            itemId: job.itemId?._id,
+                            itemName: job.itemId?.name || 'Unknown Item',
+                            itemCode: job.itemId?.code || job.jobNumber,
+                            stepId: step.stepId,
+                            stepName: step.stepName || 'Unknown Step',
+                            status: step.status,
+                            assignedAt: step.assignedAt || job.createdAt,
+                            completedAt: step.endTime
                         });
                     }
                 });

@@ -2,17 +2,20 @@
 
 /* Hide scrollbar while maintaining scroll functionality */
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;      /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;              /* Chrome, Safari and Opera */
+  display: none;
+  /* Chrome, Safari and Opera */
 }
 
 @layer base {
   body {
     @apply bg-slate-50 text-slate-800;
-    font-family: 'Inter', sans-serif;
+    font-family: Helvetica, Arial, sans-serif;
   }
 }

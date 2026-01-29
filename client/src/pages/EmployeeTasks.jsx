@@ -91,10 +91,10 @@ const EmployeeTasks = () => {
                             placeholder="Search by employee name..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                            className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                         />
                     </div>
-                    <div className="flex items-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-lg">
+                    <div className="flex items-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-md">
                         <Users className="text-slate-500" size={20} />
                         <span className="text-sm font-semibold text-slate-700">
                             {filteredTasks.length} Employee{filteredTasks.length !== 1 ? 's' : ''}
@@ -103,7 +103,7 @@ const EmployeeTasks = () => {
                 </div>
 
                 {/* Tasks Table */}
-                <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden">
                     <table className="w-full">
                         <thead className="bg-slate-50 border-b border-slate-200">
                             <tr>
@@ -194,7 +194,7 @@ const EmployeeTasks = () => {
                                             <td className="px-6 py-4 text-center">
                                                 <button
                                                     onClick={() => setExpandedEmpId(expandedEmpId === emp._id ? null : emp._id)}
-                                                    className={`p-2 rounded-lg transition-colors ${expandedEmpId === emp._id
+                                                    className={`p-2 rounded-md transition-colors ${expandedEmpId === emp._id
                                                         ? 'bg-blue-600 text-white'
                                                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                                         }`}
@@ -206,7 +206,7 @@ const EmployeeTasks = () => {
                                         {expandedEmpId === emp._id && (
                                             <tr key={`${emp._id}-details`} className="bg-slate-50">
                                                 <td colSpan="7" className="px-8 py-6">
-                                                    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+                                                    <div className="bg-white rounded-md border border-slate-200 overflow-hidden shadow-sm">
                                                         <div className="bg-slate-50/50 px-4 py-2 border-b border-slate-200">
                                                             <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Active Task Details</h3>
                                                         </div>
@@ -266,25 +266,25 @@ const EmployeeTasks = () => {
                 {/* Summary Cards */}
                 {filteredTasks.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                        <div className="bg-white rounded-lg p-4 border border-slate-200">
+                        <div className="bg-white rounded-md p-4 border border-slate-200">
                             <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Total Assignments</p>
                             <p className="text-2xl font-bold text-slate-900">
                                 {filteredTasks.reduce((sum, emp) => sum + (emp.totalAssignments || 0), 0)}
                             </p>
                         </div>
-                        <div className="bg-white rounded-lg p-4 border border-slate-200">
+                        <div className="bg-white rounded-md p-4 border border-slate-200">
                             <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Pending</p>
                             <p className="text-2xl font-bold text-slate-900">
                                 {filteredTasks.reduce((sum, emp) => sum + (emp.pendingCount || 0), 0)}
                             </p>
                         </div>
-                        <div className="bg-white rounded-lg p-4 border border-slate-200">
+                        <div className="bg-white rounded-md p-4 border border-slate-200">
                             <p className="text-xs font-semibold text-slate-500 uppercase mb-2">In Progress</p>
                             <p className="text-2xl font-bold text-blue-600">
                                 {filteredTasks.reduce((sum, emp) => sum + (emp.processingCount || 0), 0)}
                             </p>
                         </div>
-                        <div className="bg-white rounded-lg p-4 border border-slate-200">
+                        <div className="bg-white rounded-md p-4 border border-slate-200">
                             <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Completed</p>
                             <p className="text-2xl font-bold text-slate-900">
                                 {filteredTasks.reduce((sum, emp) => sum + (emp.doneCount || 0), 0)}
@@ -298,3 +298,4 @@ const EmployeeTasks = () => {
 };
 
 export default EmployeeTasks;
+

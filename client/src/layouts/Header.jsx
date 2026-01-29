@@ -1,14 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { LogOut, Menu, X } from 'lucide-react';
 
-const Header = ({ onLogout, onMenuToggle, user = {}, setActiveSection }) => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const navigate = React.useMemo(() => {
-    // We can't use useNavigate directly if this is not a child of Router, 
-    // but in this project the App is usually wrapped.
-    // However, setActiveSection is our primary driver for local view changes.
-    return null;
-  }, []);
+const Header = ({ onLogout, onMenuToggle, isMobileMenuOpen, user = {}, setActiveSection }) => {
+  // Removed local state isMobileMenuOpen to use global sidebar toggle
 
   const handleCreateItem = () => {
     if (setActiveSection) {
@@ -22,15 +16,17 @@ const Header = ({ onLogout, onMenuToggle, user = {}, setActiveSection }) => {
   };
 
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm print:hidden">
-      <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
+    <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm print:hidden h-14">
+      <div className="flex items-center justify-between h-full px-4 sm:px-6 lg:px-8">
         {/* Left Section - Title & Subtitle */}
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Welcome to Elints
+        <div className="flex-1 min-w-0 flex items-center gap-4">
+          <h1 className="text-lg font-bold text-slate-800 tracking-tight uppercase">
+            Elints <span className="text-slate-400 font-light hidden sm:inline">| Operations</span>
           </h1>
-          <p className="text-sm text-slate-500 hidden sm:block">
-            Logged in as: <span className="font-semibold">{user?.role || 'User'}</span>
+          <div className="h-4 w-px bg-slate-200 hidden sm:block"></div>
+          <p className="text-xs text-slate-500 hidden sm:block flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+            {user?.role ? user.role.toUpperCase() : 'USER'}
           </p>
         </div>
 
@@ -38,52 +34,27 @@ const Header = ({ onLogout, onMenuToggle, user = {}, setActiveSection }) => {
         <div className="flex items-center gap-3 ml-4 flex-shrink-0">
           <button
             onClick={handleCreateItem}
-            className="hidden md:flex px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition duration-200 whitespace-nowrap shadow-sm"
+            className="hidden md:flex px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700 transition duration-200 whitespace-nowrap shadow-sm border border-blue-600 items-center gap-1.5 uppercase tracking-wide"
           >
-            + Create Item
+            <span>+ New Item</span>
           </button>
 
           <button
             onClick={onLogout}
-            className="hidden md:flex px-4 py-2 border border-red-400 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-50 transition duration-200 items-center gap-2 whitespace-nowrap">
-            <LogOut size={16} />
+            className="hidden md:flex px-3 py-1.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-md hover:bg-slate-50 hover:text-red-600 hover:border-red-200 transition duration-200 items-center gap-2 whitespace-nowrap uppercase tracking-wide">
+            <LogOut size={14} />
             <span>Logout</span>
           </button>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile Menu Button - Wires to Global Sidebar */}
           <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 hover:bg-slate-100 rounded-lg transition"
+            onClick={onMenuToggle}
+            className="md:hidden p-2 hover:bg-slate-100 rounded-md transition"
           >
-            {isMobileMenuOpen ? (
-              <X size={20} className="text-slate-600" />
-            ) : (
-              <Menu size={20} className="text-slate-600" />
-            )}
+            {isMobileMenuOpen ? <X size={20} className="text-slate-600" /> : <Menu size={20} className="text-slate-600" />}
           </button>
         </div>
       </div>
-
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white">
-          <div className="p-4 space-y-2">
-            <button
-              onClick={handleCreateItem}
-              className="w-full px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition"
-            >
-              + Create Item
-            </button>
-            <button
-              onClick={onLogout}
-              className="w-full px-4 py-2 border border-red-400 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-50 transition flex items-center justify-center gap-2"
-            >
-              <LogOut size={16} />
-              Logout
-            </button>
-          </div>
-        </div>
-      )}
     </header>
   );
 };

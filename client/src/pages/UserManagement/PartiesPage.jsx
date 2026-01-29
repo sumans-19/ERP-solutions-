@@ -82,86 +82,101 @@ const PartiesPage = () => {
                 </div>
                 <button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
+                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wide rounded-md transition shadow-sm flex items-center gap-2 border border-blue-600"
                 >
-                    <PlusCircle size={18} />
+                    <PlusCircle size={16} />
                     Add Party
                 </button>
             </div>
 
             {/* Search */}
             <div className="mb-4 relative">
-                <Search className="absolute left-3 top-3 text-slate-400" size={18} />
+                <Search className="absolute left-3 top-3 text-slate-400" size={16} />
                 <input
                     type="text"
                     placeholder="Search parties..."
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                    className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500/20 focus:border-blue-500 outline-none shadow-sm"
                 />
             </div>
 
-            {/* Parties Grid */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Parties Grid - Professional Refactor */}
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                 {filteredParties.length === 0 ? (
-                    <div className="text-center py-12 text-slate-400">
-                        <User size={48} className="mx-auto mb-3 text-slate-300" />
-                        <p>No parties found</p>
+                    <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                        <div className="bg-slate-50 p-4 rounded-full mb-3 border border-slate-100">
+                            <User size={32} className="text-slate-300" />
+                        </div>
+                        <p className="font-medium text-sm">No parties found matching your search</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="flex flex-col gap-2">
                         {filteredParties.map(party => (
                             <div
                                 key={party._id}
-                                className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                                className="group bg-white border border-slate-200 rounded-md p-3 hover:border-blue-400 transition-all shadow-sm hover:shadow-md flex flex-col md:flex-row items-center gap-4"
                             >
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="flex-1">
-                                        <h3 className="font-semibold text-slate-800 text-lg">{party.name}</h3>
-                                        {party.gstin && (
-                                            <p className="text-xs text-slate-500 mt-0.5">GSTIN: {party.gstin}</p>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => handleEditParty(party)}
-                                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
-                                            title="Edit Party"
+                                {/* 1. Company Identity */}
+                                <div className="flex-1 w-full md:w-auto">
+                                    <div className="flex items-center gap-3 mb-1">
+                                        <h3 className="font-bold text-slate-800 text-base group-hover:text-blue-700 transition-colors uppercase tracking-tight">
+                                            {party.name}
+                                        </h3>
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border ${party.status === 'Active'
+                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                            : 'bg-slate-100 text-slate-500 border-slate-200'}`}
                                         >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <div className={`px-2 py-1 rounded text-xs font-medium ${party.status === 'Active'
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-slate-100 text-slate-600'
-                                            }`}>
                                             {party.status}
-                                        </div>
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
+                                        <span className="bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded text-slate-600 font-mono">
+                                            {party.customerCode || 'NO CODE'}
+                                        </span>
+                                        {party.gstin && (
+                                            <span className="flex items-center gap-1 text-slate-400">
+                                                <span className="text-[10px] font-bold uppercase">GST:</span>
+                                                <span className="text-slate-600 font-mono">{party.gstin}</span>
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 
-                                <div className="space-y-2 text-sm">
-                                    {party.phone && (
-                                        <div className="flex items-center gap-2 text-slate-600">
-                                            <Phone size={14} className="text-slate-400" />
-                                            {party.phone}
-                                        </div>
-                                    )}
-                                    {party.city && (
-                                        <div className="flex items-center gap-2 text-slate-600">
-                                            <MapPin size={14} className="text-slate-400" />
-                                            {party.city}{party.state ? `, ${party.state}` : ''}
-                                        </div>
-                                    )}
-                                    {party.currentBalance !== undefined && (
-                                        <div className="mt-3 pt-3 border-t border-slate-100">
-                                            <span className="text-xs font-medium text-slate-500">Balance: </span>
-                                            <span className={`text-sm font-bold ${party.currentBalance > 0 ? 'text-green-600' :
-                                                party.currentBalance < 0 ? 'text-red-600' : 'text-slate-600'
-                                                }`}>
-                                                ${Math.abs(party.currentBalance).toLocaleString()}
-                                            </span>
-                                        </div>
-                                    )}
+                                {/* 2. Contact Details */}
+                                <div className="w-full md:w-auto md:min-w-[220px] flex flex-col gap-1 text-xs border-l border-slate-100 pl-4 md:pl-4 md:border-l-0 lg:border-l">
+                                    <div className="flex items-center gap-2 text-slate-600">
+                                        <Phone size={12} className="text-slate-400" />
+                                        <span className="font-medium">{party.phone || 'No Phone'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-slate-500">
+                                        <MapPin size={12} className="text-slate-400" />
+                                        <span className="truncate max-w-[200px]">
+                                            {party.billingCity || 'No City'}{party.billingState ? `, ${party.billingState}` : ''}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* 3. Financial Summary */}
+                                <div className="w-full md:w-auto min-w-[150px] text-right pl-4 border-l border-slate-100 flex justify-between md:block items-center">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide mb-0.5">Balance</p>
+                                    <p className={`text-base font-bold font-mono tracking-tight ${party.currentBalance > 0 ? 'text-emerald-700' : party.currentBalance < 0 ? 'text-red-700' : 'text-slate-800'}`}>
+                                        ₹{(party.currentBalance || 0).toLocaleString()}
+                                        <span className="text-[10px] ml-1 opacity-50 font-normal uppercase text-slate-500">
+                                            {party.balanceType === 'toReceive' ? 'Dr' : 'Cr'}
+                                        </span>
+                                    </p>
+                                </div>
+
+                                {/* 4. Actions */}
+                                <div className="flex items-start pl-2">
+                                    <button
+                                        onClick={() => handleEditParty(party)}
+                                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-100 rounded-md transition-all"
+                                        title="Edit Party Details"
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -186,3 +201,4 @@ const PartiesPage = () => {
 };
 
 export default PartiesPage;
+

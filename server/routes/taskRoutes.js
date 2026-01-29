@@ -18,6 +18,23 @@ router.get('/employee/:employeeId', authenticateToken, async (req, res) => {
     }
 });
 
+// Get all tasks (Admin/Dev only)
+// Get all tasks (Admin Only)
+router.get('/', authenticateToken, checkPermission('manageUsers'), async (req, res) => {
+    try {
+        const tasks = await Task.find()
+            .populate('assignedBy', 'email role')
+            .sort({ createdAt: -1 });
+
+        // Since employeeId is a String pointing to either Employee or User, 
+        // we might want to manually fetch names if needed, but for now just returning IDs is safer than a failing populate.
+        res.json(tasks);
+    } catch (error) {
+        console.error('Error fetching all tasks:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // Create a new task (Admin only)
 router.post('/', authenticateToken, checkPermission('manageUsers'), async (req, res) => {
     try {

@@ -83,7 +83,7 @@ const EmployeesPage = () => {
                 </div>
                 <button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition shadow-sm flex items-center gap-2"
+                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition shadow-sm flex items-center gap-2"
                 >
                     <PlusCircle size={18} />
                     Add Employee
@@ -98,7 +98,7 @@ const EmployeesPage = () => {
                     placeholder="Search employees..."
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                 />
             </div>
 
@@ -110,70 +110,74 @@ const EmployeesPage = () => {
                         <p>No employees found</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="flex flex-col gap-4">
                         {filteredEmployees.map(emp => (
                             <div
                                 key={emp._id}
-                                className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                                className="bg-white border border-slate-200 rounded-md p-5 hover:shadow-sm transition-all flex items-center justify-between gap-6 group"
                             >
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
-                                            {emp.fullName.charAt(0)}
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-slate-800">{emp.fullName}</h3>
-                                            <p className="text-xs text-slate-500">{emp.employeeId}</p>
-                                        </div>
+                                {/* 1. Employee Identity */}
+                                <div className="min-w-[280px] w-1/4 flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-md bg-blue-600 flex items-center justify-center text-white font-black text-xl shadow-inner group-hover:scale-110 transition-transform">
+                                        {emp.fullName.charAt(0)}
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => handleEditEmployee(emp)}
-                                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
-                                            title="Edit Employee"
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <div className={`px-2 py-1 rounded text-xs font-medium ${emp.status === 'Active'
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-slate-100 text-slate-600'
-                                            }`}>
-                                            {emp.status}
+                                    <div>
+                                        <h3 className="font-bold text-slate-900 text-lg group-hover:text-blue-600 transition-colors line-clamp-1">{emp.fullName}</h3>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className="text-[10px] font-black px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-md uppercase tracking-wider">
+                                                {emp.employeeId}
+                                            </span>
+                                            <span className="text-[10px] font-black px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-md uppercase tracking-wider italic">
+                                                {emp.role || 'Unassigned'}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="space-y-2 text-sm">
-                                    {emp.email && (
-                                        <div className="flex items-center gap-2 text-slate-600">
-                                            <Mail size={14} className="text-slate-400" />
-                                            <span className="truncate">{emp.email}</span>
+                                {/* 2. Contact Details */}
+                                <div className="flex-1 max-w-[350px] border-l border-slate-100 pl-6 space-y-2">
+                                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                                        <div className="p-1.5 bg-blue-50 rounded-md">
+                                            <Mail size={14} className="text-blue-600" />
                                         </div>
-                                    )}
-                                    {emp.phone && (
-                                        <div className="flex items-center gap-2 text-slate-600">
+                                        <span className="font-semibold truncate">{emp.email || 'No Email'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-sm text-slate-500">
+                                        <div className="p-1.5 bg-slate-50 rounded-md">
                                             <Phone size={14} className="text-slate-400" />
-                                            {emp.phone}
                                         </div>
-                                    )}
-                                    {emp.role && (
-                                        <div className="flex items-center gap-2 text-slate-600">
-                                            <Briefcase size={14} className="text-slate-400" />
-                                            {emp.role}
-                                        </div>
-                                    )}
-                                    {emp.calculatedStatus && (
-                                        <div className="mt-3 pt-3 border-t border-slate-100">
-                                            <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${emp.calculatedStatus === 'Available'
-                                                ? 'bg-emerald-50 text-emerald-700'
-                                                : 'bg-amber-50 text-amber-700'
-                                                }`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${emp.calculatedStatus === 'Available' ? 'bg-emerald-500' : 'bg-amber-500'
-                                                    }`} />
-                                                {emp.calculatedStatus}
-                                            </span>
-                                        </div>
-                                    )}
+                                        <span className="font-medium">{emp.phone || 'No Phone'}</span>
+                                    </div>
+                                </div>
+
+                                {/* 3. Workload Status */}
+                                <div className="w-1/4 text-center border-x border-slate-100 px-6">
+                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.15em] mb-2">Workload Status</p>
+                                    <div className="inline-flex items-center gap-3">
+                                        <span className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${emp.calculatedStatus === 'Available'
+                                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                            : 'bg-amber-100 text-amber-700 border border-amber-200'
+                                            }`}>
+                                            <span className={`w-2 h-2 rounded-full animate-pulse ${emp.calculatedStatus === 'Available' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                            {emp.calculatedStatus || 'Unknown'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* 4. Status & Management */}
+                                <div className="flex items-center gap-4 min-w-[150px] justify-end">
+                                    <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${emp.status === 'Active'
+                                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                        : 'bg-slate-100 text-slate-500 border border-slate-200'}`}
+                                    >
+                                        {emp.status}
+                                    </div>
+                                    <button
+                                        onClick={() => handleEditEmployee(emp)}
+                                        className="p-3 bg-slate-50 text-slate-400 hover:text-white hover:bg-blue-600 rounded-md transition-all shadow-sm border border-slate-100"
+                                    >
+                                        <Edit2 size={18} />
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -198,3 +202,4 @@ const EmployeesPage = () => {
 };
 
 export default EmployeesPage;
+

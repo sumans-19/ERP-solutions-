@@ -217,14 +217,14 @@ router.get('/stats/state-counts', checkPermission('viewItems'), async (req, res)
 // Start working on a step
 router.post('/:id/start-step', checkPermission('editItems'), async (req, res) => {
   try {
-    const { processStepId } = req.body;
+    const processStepId = Number(req.body.processStepId);
     const item = await Item.findById(req.params.id);
 
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });
     }
 
-    const assignment = item.assignedEmployees.find(a => a.processStepId === processStepId);
+    const assignment = item.assignedEmployees.find(a => Number(a.processStepId) === processStepId);
     if (!assignment) {
       return res.status(404).json({ message: 'Assignment not found' });
     }
@@ -240,14 +240,14 @@ router.post('/:id/start-step', checkPermission('editItems'), async (req, res) =>
 // Complete a manufacturing step
 router.post('/:id/complete-step', checkPermission('editItems'), async (req, res) => {
   try {
-    const { processStepId } = req.body;
+    const processStepId = Number(req.body.processStepId);
     const item = await Item.findById(req.params.id);
 
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });
     }
 
-    const assignment = item.assignedEmployees.find(a => a.processStepId === processStepId);
+    const assignment = item.assignedEmployees.find(a => Number(a.processStepId) === processStepId);
     if (!assignment) {
       return res.status(404).json({ message: 'Assignment not found' });
     }
@@ -256,7 +256,7 @@ router.post('/:id/complete-step', checkPermission('editItems'), async (req, res)
     assignment.completedAt = new Date();
 
     // Update process step status
-    const processStep = item.processes.find(p => p.id === processStepId);
+    const processStep = item.processes.find(p => Number(p.id) === processStepId);
     if (processStep) {
       processStep.status = 'completed';
     }
@@ -271,14 +271,16 @@ router.post('/:id/complete-step', checkPermission('editItems'), async (req, res)
 // Toggle substep status
 router.post('/:id/toggle-substep', authenticateToken, checkPermission('editItems'), async (req, res) => {
   try {
-    const { processStepId, subStepId, status } = req.body;
+    const processStepId = Number(req.body.processStepId);
+    const subStepId = Number(req.body.subStepId);
+    const status = req.body.status;
     const item = await Item.findById(req.params.id);
     if (!item) return res.status(404).json({ message: 'Item not found' });
 
-    const processStep = item.processes.find(p => p.id === processStepId);
+    const processStep = item.processes.find(p => Number(p.id) === processStepId);
     if (!processStep) return res.status(404).json({ message: 'Process step not found' });
 
-    const subStep = processStep.subSteps.find(s => s.id === subStepId);
+    const subStep = processStep.subSteps.find(s => Number(s.id) === subStepId);
     if (!subStep) return res.status(404).json({ message: 'Substep not found' });
 
     subStep.status = status;
@@ -292,11 +294,12 @@ router.post('/:id/toggle-substep', authenticateToken, checkPermission('editItems
 // Save step note
 router.post('/:id/save-step-note', authenticateToken, checkPermission('editItems'), async (req, res) => {
   try {
-    const { processStepId, notes, employeeId } = req.body;
+    const processStepId = Number(req.body.processStepId);
+    const { notes, employeeId } = req.body;
     const item = await Item.findById(req.params.id);
     if (!item) return res.status(404).json({ message: 'Item not found' });
 
-    const assignment = item.assignedEmployees.find(a => a.processStepId === processStepId && a.employeeId === employeeId);
+    const assignment = item.assignedEmployees.find(a => Number(a.processStepId) === processStepId && a.employeeId === employeeId);
     if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
 
     assignment.notes = notes;
@@ -310,14 +313,15 @@ router.post('/:id/save-step-note', authenticateToken, checkPermission('editItems
 // Mark step as failed and put item on hold
 router.post('/:id/fail-step', checkPermission('editItems'), async (req, res) => {
   try {
-    const { processStepId, reason } = req.body;
+    const processStepId = Number(req.body.processStepId);
+    const { reason } = req.body;
     const item = await Item.findById(req.params.id);
 
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });
     }
 
-    const assignment = item.assignedEmployees.find(a => a.processStepId === processStepId);
+    const assignment = item.assignedEmployees.find(a => Number(a.processStepId) === processStepId);
     if (assignment) {
       assignment.status = 'failed';
     }
@@ -395,7 +399,7 @@ router.post('/:id/resume', checkPermission('editItems'), async (req, res) => {
   }
 });
 
-// Complete verification (pass all inspection checks)
+// Complete verification (pass all stage inspection checks)
 router.post('/:id/complete-verification', checkPermission('editItems'), async (req, res) => {
   try {
     const item = await Item.findById(req.params.id);
@@ -404,8 +408,8 @@ router.post('/:id/complete-verification', checkPermission('editItems'), async (r
       return res.status(404).json({ message: 'Item not found' });
     }
 
-    // Mark all inspection checks as passed
-    item.inspectionChecks.forEach(check => {
+    // Mark all stage inspection checks as passed
+    item.stageInspectionChecks.forEach(check => {
       check.status = 'passed';
     });
 
@@ -426,8 +430,8 @@ router.post('/:id/complete-documentation', checkPermission('editItems'), async (
       return res.status(404).json({ message: 'Item not found' });
     }
 
-    // Add remarks to all final inspection items
-    item.finalInspection.forEach(fi => {
+    // Add remarks to all final quality check items
+    item.finalQualityCheck.forEach(fi => {
       if (!fi.remarks) {
         fi.remarks = remarks || 'Documentation completed';
       }
@@ -444,10 +448,11 @@ router.post('/:id/complete-documentation', checkPermission('editItems'), async (
 // POST /:id/assign-step - Assign employee to a manufacturing step
 router.post('/:id/assign-step', authenticateToken, checkPermission('editItems'), async (req, res) => {
   try {
-    const { processStepId, employeeId, employeeName, expectedCompletionDate } = req.body;
+    const processStepId = Number(req.body.processStepId);
+    const { employeeId, employeeName, expectedCompletionDate } = req.body;
     console.log(`[AssignStep] Assigning step ${processStepId} of item ${req.params.id} to ${employeeName} (${employeeId})`);
 
-    if (!processStepId || !employeeId || !employeeName) {
+    if (isNaN(processStepId) || !employeeId || !employeeName) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
@@ -458,7 +463,7 @@ router.post('/:id/assign-step', authenticateToken, checkPermission('editItems'),
 
     // Check if step already assigned
     const existingAssignment = item.assignedEmployees.find(
-      a => a.processStepId === processStepId
+      a => Number(a.processStepId) === processStepId
     );
 
     if (existingAssignment) {
@@ -496,7 +501,7 @@ router.post('/:id/assign-step', authenticateToken, checkPermission('editItems'),
     // Update Employee model
     const employee = await Employee.findById(employeeId);
     if (employee) {
-      const stepDetails = item.processes.find(p => p.id === processStepId);
+      const stepDetails = item.processes.find(p => Number(p.id) === processStepId);
 
       employee.currentAssignments.push({
         orderId: item._id.toString(),

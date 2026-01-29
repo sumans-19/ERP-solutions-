@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getContacts, getChatMessages, sendMessage } from '../../services/api';
+import { getContacts, getChatMessages, sendMessage, markMessagesAsRead } from '../../services/api';
 import { Send, User, Search, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEmployeeView } from '../../contexts/EmployeeViewContext';
 
 const EmployeeChat = ({ user }) => {
-    const { selectedEmployeeId } = useEmployeeView();
+    const { selectedEmployeeId, employees } = useEmployeeView(); // Get employees from context
     const [contacts, setContacts] = useState([]);
     const [selectedContact, setSelectedContact] = useState(null);
     const [messages, setMessages] = useState([]);
@@ -17,12 +17,15 @@ const EmployeeChat = ({ user }) => {
     useEffect(() => {
         if (selectedEmployeeId) {
             fetchContacts();
+            const contactInterval = setInterval(fetchContacts, 10000);
+            return () => clearInterval(contactInterval);
         }
-    }, [selectedEmployeeId]);
+    }, [selectedEmployeeId, employees]); // Add employees to dependency
 
     useEffect(() => {
         if (selectedContact && selectedEmployeeId) {
             fetchMessages(selectedContact._id);
+            markMessagesAsRead(selectedEmployeeId, selectedContact._id);
             const interval = setInterval(() => fetchMessages(selectedContact._id), 5000);
             return () => clearInterval(interval);
         }
@@ -39,9 +42,31 @@ const EmployeeChat = ({ user }) => {
     const fetchContacts = async () => {
         try {
             setLoading(true);
-            const data = await getContacts();
-            const otherContacts = data.filter(c => c._id !== selectedEmployeeId);
-            setContacts(otherContacts);
+
+            // Use employees from context (guaranteed to be there if dropdown works)
+            const employeeContacts = employees
+                .filter(c => c._id !== selectedEmployeeId)
+                .map(e => ({
+                    ...e,
+                    type: 'Employee'
+                }));
+
+            // Try to fetch updated contacts (admins/users) from API
+            try {
+                const data = await getContacts();
+                // Filter out current selected employee from API data too
+                const apiContacts = data.filter(c => c._id !== selectedEmployeeId);
+
+                // Merge or prefer API contacts if available, but fallback to context employees
+                if (apiContacts.length > 0) {
+                    setContacts(apiContacts);
+                } else {
+                    setContacts(employeeContacts);
+                }
+            } catch (err) {
+                console.warn("API contacts fetch failed, using context employees", err);
+                setContacts(employeeContacts);
+            }
         } catch (error) {
             console.error('Error fetching contacts:', error);
         } finally {
@@ -53,6 +78,10 @@ const EmployeeChat = ({ user }) => {
         try {
             const data = await getChatMessages(selectedEmployeeId, contactId);
             setMessages(data);
+            const hasUnread = data.some(m => m.receiver === selectedEmployeeId && !m.read);
+            if (hasUnread) {
+                await markMessagesAsRead(selectedEmployeeId, contactId);
+            }
         } catch (error) {
             console.error('Error fetching messages:', error);
         }
@@ -93,7 +122,7 @@ const EmployeeChat = ({ user }) => {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 h-full overflow-hidden">
             {/* Contacts List */}
-            <div className="lg:col-span-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col max-h-[600px] lg:max-h-full">
+            <div className="lg:col-span-1 bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden flex flex-col max-h-[600px] lg:max-h-full">
                 <div className="p-3 sm:p-4 border-b border-slate-100 bg-slate-50 flex-shrink-0">
                     <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
                         <MessageSquare size={20} className="text-blue-600" /> Contacts
@@ -105,7 +134,7 @@ const EmployeeChat = ({ user }) => {
                             placeholder="Search contacts..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         />
                     </div>
                 </div>
@@ -127,7 +156,18 @@ const EmployeeChat = ({ user }) => {
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className="font-bold text-slate-900 text-sm truncate">{contact.name}</p>
-                                        <p className="text-xs text-slate-500 truncate">{contact.email}</p>
+                                        {contact.lastMessage ? (
+                                            <div className="flex justify-between items-center mt-0.5">
+                                                <p className={`text-[11px] sm:text-xs truncate max-w-[70%] ${!contact.isLastMsgRead ? 'font-bold text-slate-800' : 'text-slate-500'}`}>
+                                                    {contact.lastMessage}
+                                                </p>
+                                                <span className="text-[10px] text-slate-400 flex-shrink-0">
+                                                    {new Date(contact.lastMessageTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-slate-500 truncate">{contact.email}</p>
+                                        )}
                                     </div>
                                 </div>
                             </button>
@@ -137,7 +177,7 @@ const EmployeeChat = ({ user }) => {
             </div>
 
             {/* Chat Area */}
-            <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden max-h-[600px] lg:max-h-full">
+            <div className="lg:col-span-2 bg-white rounded-md border border-slate-200 shadow-sm flex flex-col overflow-hidden max-h-[600px] lg:max-h-full">
                 {selectedContact ? (
                     <>
                         {/* Chat Header */}
@@ -168,7 +208,7 @@ const EmployeeChat = ({ user }) => {
                                                 animate={{ opacity: 1, y: 0 }}
                                                 className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}
                                             >
-                                                <div className={`max-w-[85%] sm:max-w-[70%] px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl ${isSent
+                                                <div className={`max-w-[85%] sm:max-w-[70%] px-3 sm:px-4 py-2 sm:py-2.5 rounded-md ${isSent
                                                     ? 'bg-blue-600 text-white rounded-br-sm'
                                                     : 'bg-white border border-slate-200 text-slate-900 rounded-bl-sm'
                                                     }`}>
@@ -193,12 +233,12 @@ const EmployeeChat = ({ user }) => {
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     placeholder="Type a message..."
-                                    className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
                                 <button
                                     type="submit"
                                     disabled={!newMessage.trim()}
-                                    className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                 >
                                     <Send size={16} />
                                     <span className="hidden sm:inline">Send</span>
@@ -220,3 +260,4 @@ const EmployeeChat = ({ user }) => {
 };
 
 export default EmployeeChat;
+

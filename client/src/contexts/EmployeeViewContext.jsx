@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getContacts } from '../services/api';
+import { getEmployees } from '../services/employeeApi';
 
 const EmployeeViewContext = createContext();
 
@@ -33,13 +33,18 @@ export const EmployeeViewProvider = ({ children }) => {
     const fetchEmployees = async () => {
         try {
             setLoading(true);
-            const data = await getContacts();
-            const emps = data.filter(c => c.type === 'Employee');
-            setEmployees(emps);
+            const data = await getEmployees();
+            // Map validation to ensure we have the correct structure
+            const mappedEmployees = data.map(emp => ({
+                ...emp,
+                name: emp.fullName || emp.name,
+                role: emp.designation || emp.role
+            }));
+            setEmployees(mappedEmployees);
 
             // Auto-select first employee if none selected
-            if (!selectedEmployeeId && emps.length > 0) {
-                setSelectedEmployeeId(emps[0]._id);
+            if (!selectedEmployeeId && mappedEmployees.length > 0) {
+                setSelectedEmployeeId(mappedEmployees[0]._id);
             }
         } catch (error) {
             console.error('Error fetching employees:', error);

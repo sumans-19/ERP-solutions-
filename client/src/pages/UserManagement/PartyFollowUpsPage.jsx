@@ -131,7 +131,7 @@ const PartyFollowUpsPage = () => {
 
             <div className="flex-1 grid grid-cols-2 gap-6 min-h-0">
                 {/* Left: New Follow Up */}
-                <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col">
+                <div className="bg-white border border-slate-200 rounded-md shadow-sm flex flex-col">
                     <div className="p-4 border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
                         <h3 className="font-semibold text-slate-800">New Follow Up</h3>
                     </div>
@@ -148,7 +148,7 @@ const PartyFollowUpsPage = () => {
                                             const party = parties.find(p => p._id === e.target.value);
                                             setSelectedParty(party);
                                         }}
-                                        className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white"
+                                        className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white"
                                     >
                                         <option value="">-- Choose a Party --</option>
                                         {parties.map(party => (
@@ -173,7 +173,7 @@ const PartyFollowUpsPage = () => {
                                                 fetchEmployeeAssignments(emp._id);
                                             }
                                         }}
-                                        className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white"
+                                        className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white"
                                     >
                                         <option value="">-- Choose Employee --</option>
                                         {employees.map(emp => (
@@ -193,7 +193,7 @@ const PartyFollowUpsPage = () => {
                                     required
                                     value={meetingDate}
                                     onChange={e => setMeetingDate(e.target.value)}
-                                    className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                    className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                                 />
                             </div>
 
@@ -206,7 +206,7 @@ const PartyFollowUpsPage = () => {
                                     placeholder="Enter meeting notes..."
                                     value={remarks}
                                     onChange={e => setRemarks(e.target.value)}
-                                    className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none resize-none"
+                                    className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none resize-none"
                                 />
                             </div>
 
@@ -216,7 +216,7 @@ const PartyFollowUpsPage = () => {
                                 <select
                                     value={flag}
                                     onChange={e => setFlag(e.target.value)}
-                                    className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white"
+                                    className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white"
                                 >
                                     <option value="neutral">Neutral</option>
                                     <option value="positive">Positive</option>
@@ -227,7 +227,7 @@ const PartyFollowUpsPage = () => {
                             <button
                                 type="submit"
                                 disabled={submitting || !selectedParty}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-md transition shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                                 <Save size={18} />
                                 {submitting ? 'Saving...' : 'Save Follow Up'}
@@ -237,7 +237,7 @@ const PartyFollowUpsPage = () => {
                 </div>
 
                 {/* Right: History/Tracking Content */}
-                <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col">
+                <div className="bg-white border border-slate-200 rounded-md shadow-sm flex flex-col">
                     <div className="p-4 border-b border-slate-100 bg-slate-50/50 rounded-t-xl flex justify-between items-center">
                         <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                             {selectedParty ? (
@@ -284,7 +284,7 @@ const PartyFollowUpsPage = () => {
                                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Party History - {selectedParty.name}</span>
                                         </div>
                                         {followUps.length === 0 ? (
-                                            <div className="text-center py-4 bg-white/50 rounded-lg border border-dashed border-slate-200 text-slate-400 text-xs italic">
+                                            <div className="text-center py-4 bg-white/50 rounded-md border border-dashed border-slate-200 text-slate-400 text-xs italic">
                                                 No history recorded yet for this party.
                                             </div>
                                         ) : (
@@ -294,7 +294,7 @@ const PartyFollowUpsPage = () => {
                                                         fu.flag === 'negative' ? 'bg-red-500' : 'bg-slate-400'
                                                         }`} />
 
-                                                    <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-sm">
+                                                    <div className="bg-white p-3 rounded-md border border-slate-200 shadow-sm text-sm">
                                                         <div className="flex justify-between items-start mb-1">
                                                             <div className="font-semibold text-slate-700 flex items-center gap-2">
                                                                 {new Date(fu.meetingDateTime).toLocaleDateString()}
@@ -329,12 +329,12 @@ const PartyFollowUpsPage = () => {
                                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Employee Work Tracking - {selectedEmployee.fullName}</span>
                                         </div>
                                         {employeeAssignments.length === 0 ? (
-                                            <div className="text-center py-4 bg-white/50 rounded-lg border border-dashed border-slate-200 text-slate-400 text-xs italic">
+                                            <div className="text-center py-4 bg-white/50 rounded-md border border-dashed border-slate-200 text-slate-400 text-xs italic">
                                                 No active assignments for this employee.
                                             </div>
                                         ) : (
                                             employeeAssignments.map((as, idx) => (
-                                                <div key={idx} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                                <div key={idx} className="bg-white p-3 rounded-md border border-slate-200 shadow-sm">
                                                     <div className="flex justify-between items-start mb-2">
                                                         <div>
                                                             <h4 className="font-bold text-slate-800 text-xs">{as.itemName}</h4>
@@ -379,3 +379,4 @@ const PartyFollowUpsPage = () => {
 };
 
 export default PartyFollowUpsPage;
+

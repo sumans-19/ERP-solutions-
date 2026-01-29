@@ -71,3 +71,4 @@ const CommunicationHub = ({ activeSection, setActiveSection, user }) => {
 };
 
 export default CommunicationHub;
+

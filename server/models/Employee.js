@@ -36,6 +36,25 @@ const employeeSchema = new mongoose.Schema({
         default: 'Available'
     },
 
+    // Individual Permissions (Overrides role-based if present)
+    individualPermissions: [{
+        section: String,
+        visibility: { type: Boolean, default: true },
+        actions: {
+            create: { type: Boolean, default: false },
+            read: { type: Boolean, default: true },
+            update: { type: Boolean, default: false },
+            delete: { type: Boolean, default: false }
+        }
+    }],
+
+    // Work Shift / Time Settings
+    workShift: {
+        startTime: { type: String, default: '09:00' },
+        endTime: { type: String, default: '18:00' },
+        breakTime: { type: String, default: '13:00' }
+    },
+
     // Metadata
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }

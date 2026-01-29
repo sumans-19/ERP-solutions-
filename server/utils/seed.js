@@ -46,6 +46,14 @@ const seedPermissions = async () => {
       }))
     },
     {
+      role: 'development',
+      permissions: sections.map(s => ({
+        section: s,
+        visibility: true,
+        actions: { create: true, read: true, update: true, delete: true }
+      }))
+    },
+    {
       role: 'employee',
       permissions: sections.map(s => ({
         section: s,

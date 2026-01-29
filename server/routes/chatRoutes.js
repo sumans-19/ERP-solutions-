@@ -5,28 +5,81 @@ const Employee = require('../models/Employee');
 const User = require('../models/User');
 const authenticateToken = require('../middleware/auth');
 
-// Get all contacts (employees for admin, admins for employee)
+// Get all contacts with last message preview
 router.get('/contacts/all', authenticateToken, async (req, res) => {
     try {
+        const userId = req.user.id;
+
         // Get all employees and users
         const employees = await Employee.find({}, 'fullName employeeId designation role');
         const users = await User.find({ role: { $in: ['admin', 'development'] } }, 'email role');
 
-        // Format response
-        const contacts = [
+        // Basic contacts list
+        let contacts = [
             ...employees.map(emp => ({
                 _id: emp._id.toString(),
                 name: emp.fullName,
                 role: emp.designation || emp.role || 'Employee',
-                type: 'Employee'
+                type: 'Employee',
+                email: emp.email // specific to employee model usually
             })),
             ...users.map(user => ({
                 _id: user._id.toString(),
-                name: user.email,
+                name: user.email, // Users often use email as name if no name field
                 role: user.role,
-                type: 'User'
+                type: 'User',
+                email: user.email
             }))
         ];
+
+        // Aggregate last messages for this user
+        const lastMessages = await Message.aggregate([
+            {
+                $match: {
+                    $or: [
+                        { sender: userId.toString() },
+                        { receiver: userId.toString() }
+                    ]
+                }
+            },
+            {
+                $sort: { timestamp: -1 }
+            },
+            {
+                $group: {
+                    _id: {
+                        $cond: [{ $eq: ["$sender", userId.toString()] }, "$receiver", "$sender"]
+                    },
+                    content: { $first: "$content" },
+                    timestamp: { $first: "$timestamp" },
+                    sender: { $first: "$sender" },
+                    read: { $first: "$read" }
+                }
+            }
+        ]);
+
+        // Map messages to contacts
+        const msgMap = {};
+        lastMessages.forEach(msg => {
+            msgMap[msg._id] = msg;
+        });
+
+        contacts = contacts.map(c => {
+            const lastMsg = msgMap[c._id];
+            return {
+                ...c,
+                lastMessage: lastMsg ? lastMsg.content : null,
+                lastMessageTime: lastMsg ? lastMsg.timestamp : null,
+                isLastMsgRead: lastMsg ? (lastMsg.sender === userId ? true : lastMsg.read) : true
+            };
+        });
+
+        // Sort: Contacts with recent messages first
+        contacts.sort((a, b) => {
+            const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+            const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+            return timeB - timeA;
+        });
 
         res.json(contacts);
     } catch (error) {

@@ -45,7 +45,7 @@ const EmployeeBulletins = () => {
                 {/* Bulletins List */}
                 <div className="space-y-6">
                     {bulletins.length === 0 ? (
-                        <div className="bg-white rounded-xl border-2 border-dashed border-slate-200 p-20 text-center">
+                        <div className="bg-white rounded-md border-2 border-dashed border-slate-200 p-20 text-center">
                             <Bell size={48} className="text-slate-200 mx-auto mb-4" />
                             <h3 className="text-lg font-bold text-slate-900">No New Notifications</h3>
                             <p className="text-slate-500 font-medium max-w-xs mx-auto mt-1">Updates from the administration will appear here.</p>
@@ -58,7 +58,7 @@ const EmployeeBulletins = () => {
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.05 }}
-                                    className={`bg-white rounded-xl border shadow-sm p-6 relative overflow-hidden group transition-all hover:shadow-md ${bulletin.priority === 'Urgent' ? 'border-red-200' : 'border-slate-200'
+                                    className={`bg-white rounded-md border shadow-sm p-6 relative overflow-hidden group transition-all hover:shadow-md ${bulletin.priority === 'Urgent' ? 'border-red-200' : 'border-slate-200'
                                         }`}
                                 >
                                     <div className={`absolute top-0 left-0 w-1 h-full ${bulletin.priority === 'Urgent' ? 'bg-red-500' : 'bg-blue-600'
@@ -66,7 +66,7 @@ const EmployeeBulletins = () => {
 
                                     <div className="flex flex-col sm:flex-row gap-6">
                                         {/* Priority Indicator Icon */}
-                                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${bulletin.priority === 'Urgent' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'
+                                        <div className={`w-12 h-12 rounded-md flex items-center justify-center flex-shrink-0 ${bulletin.priority === 'Urgent' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'
                                             }`}>
                                             {bulletin.priority === 'Urgent' ? <AlertTriangle size={24} /> : <Bell size={24} />}
                                         </div>
@@ -108,3 +108,4 @@ const EmployeeBulletins = () => {
 };
 
 export default EmployeeBulletins;
+

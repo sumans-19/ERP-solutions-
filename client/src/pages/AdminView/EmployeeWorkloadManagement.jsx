@@ -61,12 +61,12 @@ const EmployeeWorkloadManagement = () => {
                                 placeholder="Search employees..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-9 pr-4 py-2 bg-slate-100 border-none rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full md:w-64"
+                                className="pl-9 pr-4 py-2 bg-slate-100 border-none rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full md:w-64"
                             />
                         </div>
                         <button
                             onClick={fetchWorkload}
-                            className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                         >
                             <Clock size={20} />
                         </button>
@@ -101,7 +101,7 @@ const EmployeeWorkloadManagement = () => {
                                     className={`w-full p-4 flex items-center gap-4 text-left transition-all hover:bg-slate-50 ${selectedEmployee?._id === emp._id ? 'bg-blue-50 ring-1 ring-inset ring-blue-500/10' : ''
                                         }`}
                                 >
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${emp.totalAssignments > 0 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'
+                                    <div className={`w-12 h-12 rounded-md flex items-center justify-center font-bold text-lg ${emp.totalAssignments > 0 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'
                                         }`}>
                                         {emp.employeeName[0]}
                                     </div>
@@ -130,26 +130,26 @@ const EmployeeWorkloadManagement = () => {
                         <div className="max-w-4xl mx-auto space-y-6">
                             {/* Stats Overview */}
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                <div className="bg-white p-4 rounded-md border border-slate-200 shadow-sm">
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total</p>
                                     <p className="text-2xl font-black text-slate-900">{selectedEmployee.totalAssignments}</p>
                                 </div>
-                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                <div className="bg-white p-4 rounded-md border border-slate-200 shadow-sm">
                                     <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">Processing</p>
                                     <p className="text-2xl font-black text-blue-600">{selectedEmployee.processingCount}</p>
                                 </div>
-                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                <div className="bg-white p-4 rounded-md border border-slate-200 shadow-sm">
                                     <p className="text-xs font-bold text-amber-500 uppercase tracking-wider mb-1">Pending</p>
                                     <p className="text-2xl font-black text-amber-600">{selectedEmployee.pendingCount}</p>
                                 </div>
-                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                <div className="bg-white p-4 rounded-md border border-slate-200 shadow-sm">
                                     <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">Completed</p>
                                     <p className="text-2xl font-black text-emerald-600">{selectedEmployee.doneCount}</p>
                                 </div>
                             </div>
 
                             {/* Detailed Workload List */}
-                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
                                 <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                                     <h3 className="font-bold text-slate-900">Current Workload Details</h3>
                                 </div>
@@ -164,7 +164,7 @@ const EmployeeWorkloadManagement = () => {
                                             <div key={idx} className="p-4 sm:p-5 hover:bg-slate-50 transition-colors">
                                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                                     <div className="flex items-start gap-3">
-                                                        <div className={`mt-0.5 p-1.5 rounded-lg ${task.type === 'Administrative' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'
+                                                        <div className={`mt-0.5 p-1.5 rounded-md ${task.type === 'Administrative' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'
                                                             }`}>
                                                             {task.type === 'Administrative' ? <ClipboardCheck size={18} /> : <Briefcase size={18} />}
                                                         </div>
@@ -206,3 +206,4 @@ const EmployeeWorkloadManagement = () => {
 };
 
 export default EmployeeWorkloadManagement;
+
