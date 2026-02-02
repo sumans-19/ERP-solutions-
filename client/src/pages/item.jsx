@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { createItem, getItemById, updateItem, getAllItems, deleteItem, completeItem, getInventory } from "../services/api";
+import { createItem, getItemById, updateItem, getAllItems, deleteItem, completeItem, getInventory, getRawMaterials } from "../services/api";
 import { canCreate, canEdit, canDelete, canExportReports } from "../utils/permissions";
-import { Package, X } from "lucide-react";
+import { Package, X, Trash2 } from "lucide-react";
 
 const defaultForm = () => ({
   type: "product",
@@ -13,7 +13,8 @@ const defaultForm = () => ({
   unit: "",
   category: "",
   code: "",
-  imageBase64: "",
+  imageBase64: "", // Kept for backward compatibility or main thumbnail
+  images: [], // New field for multiple files
 
   // Pricing
   salePrice: "",
@@ -36,6 +37,7 @@ const defaultForm = () => ({
       id: 1,
       stepName: "",
       description: "",
+      timeToComplete: "",
       subSteps: [],
       stepType: "execution",
       status: "pending"
@@ -55,30 +57,27 @@ const defaultForm = () => ({
     },
   ],
 
-  // Stage Inspection Checks
-  stageInspectionChecks: [
-    {
-      id: 1,
-      checkName: "",
-      description: "",
-      checkType: "visual",
-      acceptanceCriteria: "",
-      status: "pending"
-    },
-  ],
+
 
   // Final Quality Check
   finalQualityCheck: [
     {
       id: 1,
       parameter: "",
-      tolerance: "",
+      notation: "",
+      positiveTolerance: "",
+      negativeTolerance: "",
+      valueType: "alphanumeric",
+      actualValue: "",
       remarks: ""
     },
   ],
 
-  // Single image for Final Quality Check
-  qualityCheckImage: ""
+  // Multiple images for Final Quality Check
+  finalQualityCheckImages: [],
+
+  // Number of required samples
+  finalQualityCheckSampleSize: 1
 });
 
 export default function ItemPage() {
@@ -129,6 +128,7 @@ export default function ItemPage() {
   const [copySearchQuery, setCopySearchQuery] = useState("");
 
   const fileInputRef = useRef(null);
+  const qcFileInputRef = useRef(null);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -259,12 +259,12 @@ export default function ItemPage() {
         setItems(Array.isArray(response) ? response : response.data || []);
       }
 
-      // Always fetch inventory items to populate raw materials dropdown
+      // Always fetch raw materials from the master list to populate dropdowns
       try {
-        const inventoryResponse = await getInventory();
+        const inventoryResponse = await getRawMaterials();
         setInventoryItems(Array.isArray(inventoryResponse) ? inventoryResponse : []);
       } catch (invErr) {
-        console.error("Failed to load inventory:", invErr);
+        console.error("Failed to load raw materials master:", invErr);
       }
     } catch (err) {
       console.error("Failed to load items:", err);
@@ -322,7 +322,9 @@ export default function ItemPage() {
                 ? data.stageInspectionChecks
                 : f.stageInspectionChecks,
             finalQualityCheck: data.finalQualityCheck || f.finalQualityCheck,
-            qualityCheckImage: data.qualityCheckImage || ""
+            qualityCheckImage: data.qualityCheckImage || "",
+            images: data.images || [],
+            finalQualityCheckSampleSize: data.finalQualityCheckSampleSize || 1
           }));
           // Initialize search fields
           setItemNameSearch(data.name || "");
@@ -535,6 +537,7 @@ export default function ItemPage() {
                 <th>Step No.</th>
                 <th>Step Name</th>
                 <th>Type</th>
+                <th>Time</th>
                 <th>Description</th>
                 <th>Sub-Steps</th>
               </tr>
@@ -543,6 +546,7 @@ export default function ItemPage() {
                   <td>${index + 1}</td>
                   <td>${process.stepName}</td>
                   <td>${process.stepType === 'testing' ? 'Testing' : 'Execution'}</td>
+                  <td>${process.timeToComplete || '-'}</td>
                   <td>${process.description || '-'}</td>
                   <td>
                     ${process.subSteps && process.subSteps.length > 0
@@ -685,7 +689,9 @@ export default function ItemPage() {
       stageInspectionChecks: JSON.parse(JSON.stringify(item.stageInspectionChecks || [])).map(c => ({ ...c, status: 'pending' })),
       finalQualityCheck: JSON.parse(JSON.stringify(item.finalQualityCheck || [])),
       imageBase64: item.imageBase64 || "",
-      qualityCheckImage: item.qualityCheckImage || ""
+      images: item.images ? [...item.images] : [],
+      finalQualityCheckImages: item.finalQualityCheckImages ? [...item.finalQualityCheckImages] : [],
+      finalQualityCheckSampleSize: item.finalQualityCheckSampleSize || 1
     });
 
     setItemNameSearch(`Copy of ${item.name}`);
@@ -697,13 +703,25 @@ export default function ItemPage() {
   };
 
   const handleImageSelect = (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      updateField("imageBase64", reader.result);
-    };
-    reader.readAsDataURL(file);
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const promises = files.map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(promises).then(results => {
+      // If it's the first image and no main image exists, set the first one as main
+      if (!form.imageBase64 && results.length > 0) {
+        updateField("imageBase64", results[0]);
+      }
+      // Add all to images array
+      updateField("images", [...form.images, ...results]);
+    });
   };
 
   const validate = () => {
@@ -750,7 +768,9 @@ export default function ItemPage() {
         rawMaterials: form.rawMaterials,
         stageInspectionChecks: form.stageInspectionChecks,
         finalQualityCheck: form.finalQualityCheck,
-        qualityCheckImage: form.qualityCheckImage
+        qualityCheckImage: form.qualityCheckImage,
+        images: form.images,
+        finalQualityCheckSampleSize: form.finalQualityCheckSampleSize
       };
 
       if (id) {
@@ -1106,6 +1126,11 @@ export default function ItemPage() {
                                 >
                                   {process.stepType === 'testing' ? '🧪 Testing' : '⚙️ Execution'}
                                 </span>
+                                {process.timeToComplete && (
+                                  <span className="px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-700 flex items-center gap-1">
+                                    ⏱️ {process.timeToComplete}
+                                  </span>
+                                )}
                                 <span
                                   className={`px-2 py-1 rounded text-xs font-medium ${process.status === 'completed'
                                     ? 'bg-green-100 text-green-700'
@@ -1480,32 +1505,8 @@ export default function ItemPage() {
                   </div>
                 </div>
 
-                {/* Row 1.5: Item Type and General Note */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm text-slate-600 mb-1.5">
-                      Item Type
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        list="item-type-options"
-                        value={form.itemType}
-                        onChange={(e) => updateField("itemType", e.target.value)}
-                        placeholder="Type or select item type"
-                        className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      <datalist id="item-type-options">
-                        <option value="Finished Good" />
-                        <option value="Raw Material" />
-                        <option value="Semi-Finished" />
-                        <option value="Consumable" />
-                        <option value="Sub-Assembly" />
-                        <option value="Service" />
-                      </datalist>
-                    </div>
-                  </div>
-
+                {/* Row 1.5: General Note */}
+                <div className="mb-4">
                   <div>
                     <label className="block text-sm text-slate-600 mb-1.5">
                       General Note
@@ -1567,39 +1568,66 @@ export default function ItemPage() {
                     </div>
                   </div>
 
-                  <div>
+                  <div className="col-span-3">
                     <label className="block text-sm text-slate-600 mb-1.5">
-                      Add Image
+                      Item Images / Files
                     </label>
-                    <button
-                      className="w-full bg-blue-100 text-blue-600 px-4 py-2 rounded text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                      onClick={() =>
-                        fileInputRef.current && fileInputRef.current.click()
-                      }
-                    >
-                      <span>+ Add Item Image</span>
-                    </button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageSelect}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-center">
-                    {form.imageBase64 ? (
-                      <img
-                        src={form.imageBase64}
-                        alt="preview"
-                        className="w-24 h-24 object-cover rounded border border-slate-300"
-                      />
-                    ) : (
-                      <div className="w-24 h-24 border-2 border-dashed border-slate-300 rounded flex items-center justify-center">
-                        <span className="text-slate-400 text-xs">No image</span>
+                    <div className="p-4 border-2 border-dashed border-slate-300 rounded-md bg-slate-50">
+                      <div className="flex flex-col items-center justify-center mb-4">
+                        <button
+                          className="bg-blue-100 text-blue-600 px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 hover:bg-blue-200"
+                          onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                        >
+                          <span>+ Upload Files</span>
+                        </button>
+                        <p className="text-xs text-slate-500 mt-2">Supports Images and PDFs</p>
                       </div>
-                    )}
+
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,.pdf"
+                        multiple
+                        className="hidden"
+                        onChange={handleImageSelect}
+                      />
+
+                      {form.images && form.images.length > 0 && (
+                        <div className="flex flex-wrap gap-4 mt-4">
+                          {form.images.map((img, idx) => (
+                            <div key={idx} className="relative group w-24 h-24">
+                              {img.startsWith('data:application/pdf') ? (
+                                <div className="w-full h-full flex items-center justify-center bg-red-50 border border-red-200 rounded text-red-500 font-bold text-xs p-2 text-center">
+                                  PDF Document
+                                </div>
+                              ) : (
+                                <img
+                                  src={img}
+                                  alt={`Item ${idx}`}
+                                  className="w-full h-full object-cover rounded border border-slate-300"
+                                />
+                              )}
+
+                              <button
+                                onClick={() => {
+                                  const newImages = form.images.filter((_, i) => i !== idx);
+                                  updateField("images", newImages);
+                                  // If we removed the main image (imageBase64 matches this one), update it
+                                  if (form.imageBase64 === img) {
+                                    // Set new main image to first available, or empty
+                                    updateField("imageBase64", newImages.length > 0 ? newImages[0] : "");
+                                  }
+                                }}
+                                className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                type="button"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1644,15 +1672,7 @@ export default function ItemPage() {
                     >
                       Raw Materials
                     </button>
-                    <button
-                      onClick={() => setActiveTab("stageInspectionCheck")}
-                      className={`pb-3 text-sm font-medium transition-all ${activeTab === "stageInspectionCheck"
-                        ? "border-b-2 border-red-500 text-red-600"
-                        : "text-slate-600 hover:text-slate-800"
-                        }`}
-                    >
-                      Stage Inspection Check
-                    </button>
+
                     <button
                       onClick={() => setActiveTab("finalQualityCheck")}
                       className={`pb-3 text-sm font-medium transition-all ${activeTab === "finalQualityCheck"
@@ -1969,6 +1989,21 @@ export default function ItemPage() {
                                 </button>
                               </div>
 
+                              {/* Outward Process Checkbox */}
+                              <label className="flex items-center gap-2 cursor-pointer ml-3 bg-slate-50 px-3 py-1 rounded-full border border-slate-200 hover:bg-slate-100 transition-colors">
+                                <input
+                                  type="checkbox"
+                                  checked={process.isOutward || false}
+                                  onChange={(e) => {
+                                    const newProcesses = [...form.processes];
+                                    newProcesses[index].isOutward = e.target.checked;
+                                    updateField("processes", newProcesses);
+                                  }}
+                                  className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                                />
+                                <span className="text-xs font-semibold text-purple-700 select-none">Outward</span>
+                              </label>
+
                               {/* Visual Badge */}
                               <span
                                 className={`px-2 py-1 rounded text-xs font-medium ${process.stepType === "testing"
@@ -2015,7 +2050,23 @@ export default function ItemPage() {
                               />
                             </div>
 
-                            <div className="col-span-2">
+                            <div className="col-span-1">
+                              <label className="block text-sm text-slate-600 mb-1.5">
+                                Time to Complete
+                              </label>
+                              <input
+                                value={process.timeToComplete}
+                                onChange={(e) => {
+                                  const newProcesses = [...form.processes];
+                                  newProcesses[index].timeToComplete = e.target.value;
+                                  updateField("processes", newProcesses);
+                                }}
+                                placeholder="e.g., 2 hours, 30 mins"
+                                className="w-full h-12 border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+
+                            <div className="col-span-1">
                               <label className="block text-sm text-slate-600 mb-1.5">
                                 Description
                               </label>
@@ -2170,6 +2221,7 @@ export default function ItemPage() {
                               id: Date.now(),
                               stepName: "",
                               description: "",
+                              timeToComplete: "",
                               subSteps: [],
                               stepType: "execution",
                               status: "pending"
@@ -2250,7 +2302,7 @@ export default function ItemPage() {
                                         ...newMaterials[index],
                                         itemId: selectedItem._id,
                                         materialName: selectedItem.name,
-                                        unit: selectedItem.unit || ""
+                                        unit: selectedItem.unit || selectedItem.uom || ""
                                       };
                                     } else {
                                       newMaterials[index] = {
@@ -2551,43 +2603,88 @@ export default function ItemPage() {
 
                   {activeTab === "finalQualityCheck" && (
                     <div>
+                      {/* Sample Size Section */}
+                      <div className="mb-6 bg-white p-4 rounded-md border border-slate-200">
+                        <label className="block text-sm font-bold text-slate-700 mb-2">
+                          Number of Required Samples
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={form.finalQualityCheckSampleSize}
+                          onChange={(e) => updateField("finalQualityCheckSampleSize", parseInt(e.target.value) || 1)}
+                          className="w-full md:w-1/3 border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-700"
+                        />
+                      </div>
+
                       <div className="mb-6">
-                        {/* Single Image Upload Section - Restored as per user preference */}
-                        <div className="mb-6 bg-blue-50 p-4 rounded-md border border-blue-200">
+                        {/* Multiple Image Upload Section */}
+                        <div className="mb-6">
                           <label className="block text-sm font-medium text-blue-700 mb-2">
-                            Upload Quality Check Document/Image
+                            Upload Quality Check Documents/Images
                           </label>
-                          <div className="flex items-center gap-4">
-                            <div className="flex-1">
-                              <input
-                                type="file"
-                                onChange={(e) => {
-                                  const file = e.target.files && e.target.files[0];
-                                  if (file) {
-                                    const reader = new FileReader();
-                                    reader.onload = () => updateField("qualityCheckImage", reader.result);
-                                    reader.readAsDataURL(file);
-                                  }
-                                }}
-                                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
-                                accept="image/*,.pdf"
-                              />
+                          <div className="p-4 border-2 border-dashed border-slate-300 rounded-md bg-slate-50">
+                            <div className="flex flex-col items-center justify-center mb-4">
+                              <button
+                                className="bg-blue-100 text-blue-600 px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 hover:bg-blue-200"
+                                onClick={() => qcFileInputRef.current && qcFileInputRef.current.click()}
+                              >
+                                <span>+ Upload Files</span>
+                              </button>
+                              <p className="text-xs text-slate-500 mt-2">Supports Images and PDFs</p>
                             </div>
-                            {form.qualityCheckImage && (
-                              <div className="relative group">
-                                <img
-                                  src={form.qualityCheckImage}
-                                  alt="Quality Check"
-                                  className="h-20 w-20 object-cover rounded border border-slate-300"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => updateField("qualityCheckImage", "")}
-                                  className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  title="Remove image"
-                                >
-                                  ✕
-                                </button>
+
+                            <input
+                              ref={qcFileInputRef}
+                              type="file"
+                              multiple
+                              onChange={(e) => {
+                                const files = Array.from(e.target.files || []);
+                                if (files.length > 0) {
+                                  const promises = files.map(file => {
+                                    return new Promise((resolve) => {
+                                      const reader = new FileReader();
+                                      reader.onload = () => resolve(reader.result);
+                                      reader.readAsDataURL(file);
+                                    });
+                                  });
+                                  Promise.all(promises).then(images => {
+                                    updateField("finalQualityCheckImages", [...form.finalQualityCheckImages, ...images]);
+                                  });
+                                }
+                              }}
+                              className="hidden"
+                              accept="image/*,.pdf"
+                            />
+
+                            {form.finalQualityCheckImages && form.finalQualityCheckImages.length > 0 && (
+                              <div className="flex flex-wrap gap-4 mt-4">
+                                {form.finalQualityCheckImages.map((img, idx) => (
+                                  <div key={idx} className="relative group w-24 h-24">
+                                    {img.startsWith('data:application/pdf') ? (
+                                      <div className="w-full h-full flex items-center justify-center bg-red-50 border border-red-200 rounded text-red-500 font-bold text-xs p-2 text-center">
+                                        PDF Document
+                                      </div>
+                                    ) : (
+                                      <img
+                                        src={img}
+                                        alt={`QC ${idx + 1}`}
+                                        className="w-full h-full object-cover rounded border border-slate-300 shadow-sm"
+                                      />
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newImages = form.finalQualityCheckImages.filter((_, i) => i !== idx);
+                                        updateField("finalQualityCheckImages", newImages);
+                                      }}
+                                      className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                      title="Remove image"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>
@@ -2611,8 +2708,11 @@ export default function ItemPage() {
                                     {
                                       id: newId,
                                       parameter: "",
-                                      tolerance: "",
-
+                                      notation: "",
+                                      positiveTolerance: "",
+                                      negativeTolerance: "",
+                                      valueType: "alphanumeric",
+                                      actualValue: "",
                                       remarks: ""
                                     },
                                   ]
@@ -2630,11 +2730,11 @@ export default function ItemPage() {
                           form.finalQualityCheck.map((inspection, index) => (
                             <div
                               key={inspection.id}
-                              className="mb-6 p-4 border border-slate-200 rounded-md bg-slate-50"
+                              className="mb-6 p-6 border border-slate-200 rounded-lg bg-slate-50 shadow-sm relative group"
                             >
-                              <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-sm font-medium text-slate-700">
-                                  Inspection #{inspection.id}
+                              <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-200">
+                                <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">
+                                  Inspection Point #{index + 1}
                                 </h4>
                                 {canEdit() && form.finalQualityCheck.length > 1 && (
                                   <button
@@ -2647,79 +2747,159 @@ export default function ItemPage() {
                                         )
                                       });
                                     }}
-                                    className="text-red-600 hover:text-red-700 text-xs font-medium transition-colors"
+                                    className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded"
+                                    title="Remove Check"
                                   >
-                                    Remove
+                                    <Trash2 size={16} />
                                   </button>
                                 )}
                               </div>
 
-                              {/* Parameter and Tolerance */}
                               <div className="grid grid-cols-2 gap-4 mb-4">
+                                {/* Parameter & Notation */}
                                 <div>
-                                  <label className="block text-sm text-slate-600 mb-1.5">
-                                    Parameter
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                    Parameter Name
                                   </label>
                                   <input
                                     value={inspection.parameter || ""}
                                     onChange={(e) => {
                                       const updated = [...form.finalQualityCheck];
-                                      updated[index] = {
-                                        ...updated[index],
-                                        parameter: e.target.value
-                                      };
+                                      updated[index] = { ...updated[index], parameter: e.target.value };
                                       updateField("finalQualityCheck", updated);
                                     }}
-                                    placeholder="Enter parameter"
-                                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="e.g. Diameter Check"
+                                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                    Notation / Code
+                                  </label>
+                                  <input
+                                    value={inspection.notation || ""}
+                                    onChange={(e) => {
+                                      const updated = [...form.finalQualityCheck];
+                                      updated[index] = { ...updated[index], notation: e.target.value };
+                                      updateField("finalQualityCheck", updated);
+                                    }}
+                                    placeholder="e.g. DIA-001"
+                                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 font-mono"
                                   />
                                 </div>
 
+                                {/* Tolerance & Value Type */}
                                 <div>
-                                  <label className="block text-sm text-slate-600 mb-1.5">
-                                    Tolerance
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                    Positive Tolerance (+)
                                   </label>
                                   <input
-                                    value={inspection.tolerance || ""}
+                                    value={inspection.positiveTolerance || ""}
                                     onChange={(e) => {
                                       const updated = [...form.finalQualityCheck];
-                                      updated[index] = {
-                                        ...updated[index],
-                                        tolerance: e.target.value
-                                      };
+                                      updated[index] = { ...updated[index], positiveTolerance: e.target.value };
                                       updateField("finalQualityCheck", updated);
                                     }}
-                                    placeholder="Enter tolerance"
-                                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="e.g. 0.05mm"
+                                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                                   />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                    Negative Tolerance (-)
+                                  </label>
+                                  <input
+                                    value={inspection.negativeTolerance || ""}
+                                    onChange={(e) => {
+                                      const updated = [...form.finalQualityCheck];
+                                      updated[index] = { ...updated[index], negativeTolerance: e.target.value };
+                                      updateField("finalQualityCheck", updated);
+                                    }}
+                                    placeholder="e.g. 0.02mm"
+                                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                    Value Accepted Type
+                                  </label>
+                                  <select
+                                    value={inspection.valueType || "alphanumeric"}
+                                    onChange={(e) => {
+                                      const updated = [...form.finalQualityCheck];
+                                      updated[index] = { ...updated[index], valueType: e.target.value };
+                                      updateField("finalQualityCheck", updated);
+                                    }}
+                                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                                  >
+                                    <option value="number">Number (Numeric)</option>
+                                    <option value="alphanumeric">Alphanumeric</option>
+                                    <option value="alphabet">Alphabet Only</option>
+                                    <option value="boolean">Pass/Fail (Boolean)</option>
+                                  </select>
                                 </div>
                               </div>
 
-                              {/* Remarks */}
+                              {/* Standard Value & Remarks */}
+                              <div className="mb-4">
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                  Standard / Expected Value (Actual Value)
+                                </label>
+                                <input
+                                  value={inspection.actualValue || ""}
+                                  onChange={(e) => {
+                                    const updated = [...form.finalQualityCheck];
+                                    updated[index] = { ...updated[index], actualValue: e.target.value };
+                                    updateField("finalQualityCheck", updated);
+                                  }}
+                                  placeholder="Enter the expected value or standard"
+                                  className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 font-medium"
+                                />
+                              </div>
+
                               <div className="mb-0">
-                                <label className="block text-sm text-slate-600 mb-1.5">
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
                                   Remarks
                                 </label>
                                 <textarea
                                   value={inspection.remarks || ""}
                                   onChange={(e) => {
                                     const updated = [...form.finalQualityCheck];
-                                    updated[index] = {
-                                      ...updated[index],
-                                      remarks: e.target.value
-                                    };
+                                    updated[index] = { ...updated[index], remarks: e.target.value };
                                     updateField("finalQualityCheck", updated);
                                   }}
-                                  placeholder="Enter any remarks or notes"
-                                  rows="3"
-                                  className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  placeholder="Any additional notes or instructions..."
+                                  rows="2"
+                                  className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 resize-none"
                                 />
                               </div>
                             </div>
                           ))
                         ) : (
-                          <div className="text-center py-8 text-slate-500 text-sm">
-                            No inspections added yet. Click "+ Add Inspection" to add one.
+                          <div className="text-center py-12 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50">
+                            <p className="text-slate-500 text-sm mb-2">No final quality checks defined.</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setForm({
+                                  ...form,
+                                  finalQualityCheck: [
+                                    {
+                                      id: 1,
+                                      parameter: "",
+                                      notation: "",
+                                      tolerance: "",
+                                      valueType: "alphanumeric",
+                                      actualValue: "",
+                                      remarks: ""
+                                    },
+                                  ]
+                                });
+                              }}
+                              className="text-blue-600 hover:underline text-sm font-medium"
+                            >
+                              Click here to add the first check
+                            </button>
                           </div>
                         )}
                       </div>
@@ -2859,6 +3039,11 @@ export default function ItemPage() {
                                     <div className="flex items-center gap-2 mb-2">
                                       <span className="text-xs font-semibold text-green-800">Step {index + 1}:</span>
                                       <span className="text-sm font-medium text-slate-900">{process.stepName}</span>
+                                      {process.timeToComplete && (
+                                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 flex items-center gap-1">
+                                          ⏱️ {process.timeToComplete}
+                                        </span>
+                                      )}
                                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${process.stepType === 'testing' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
                                         }`}>
                                         {process.stepType === 'testing' ? '🧪 Testing' : '⚙️ Execution'}
@@ -3074,6 +3259,11 @@ export default function ItemPage() {
                                   <p className="text-sm text-slate-600 mt-1">{process.description}</p>
                                 )}
                               </div>
+                              {process.timeToComplete && (
+                                <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 flex items-center gap-1">
+                                  ⏱️ {process.timeToComplete}
+                                </span>
+                              )}
                               <span className={`px-3 py-1 rounded-full text-xs font-medium ${process.stepType === 'testing'
                                 ? 'bg-green-100 text-green-700'
                                 : 'bg-blue-100 text-blue-700'

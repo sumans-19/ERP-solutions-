@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import axios from 'axios';
 import {
     Package,
     Factory,
@@ -16,19 +17,30 @@ import {
     Settings,
     Trash2,
     Edit2,
-    ArrowRight
+    ArrowRight,
+    Eye,
+    RefreshCcw,
+    Database,
+    ChevronDown,
+    ChevronUp,
+    ChevronRight
 } from 'lucide-react';
+
+const COMMON_UOMS = [
+    'kg', 'meters', 'liters', 'SqMtr', 'pcs', 'rolls', 'sets', 'boxes', 'packets', 'sheets'
+];
 import {
     getRawMaterials, createRawMaterial, updateRawMaterial, deleteRawMaterial,
-    getMaterialRequests, createMaterialRequest, getNextMRNumber,
-    getGRNs, createGRN, getNextGRNNumber,
-    getWIPStock, createWIPStock,
-    getFinishedGoods, createFinishedGood,
-    getRejectedGoods, createRejectedGood
+    getMaterialRequests, createMaterialRequest, updateMaterialRequest, deleteMaterialRequest, getNextMRNumber,
+    getGRNs, createGRN, updateGRN, deleteGRN, getNextGRNNumber,
+    getWIPStock, createWIPStock, updateWIPStock, deleteWIPStock,
+    getFinishedGoods, createFinishedGood, updateFinishedGood, deleteFinishedGood,
+    getRejectedGoods, createRejectedGood, updateRejectedGood, deleteRejectedGood,
+    recalculateRMStock
 } from '../services/api';
 
 const Inventory = () => {
-    const [activeTab, setActiveTab] = useState('raw-material-master');
+    const [activeTab, setActiveTab] = useState('material-request');
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -41,6 +53,20 @@ const Inventory = () => {
     const [wipStock, setWipStock] = useState([]);
     const [finishedGoods, setFinishedGoods] = useState([]);
     const [rejectedGoods, setRejectedGoods] = useState([]);
+    const [inventoryLogs, setInventoryLogs] = useState([]);
+    const [selectedRMDetails, setSelectedRMDetails] = useState(null);
+
+    // Centralized Notification & Remark State
+    const [alert, setAlert] = useState(null); // { type, message }
+    const [remarkModal, setRemarkModal] = useState(null); // { type, action, id, data }
+
+    const showAlert = (message, type = 'success') => {
+        setAlert({ message, type });
+        // Auto-close after 3 seconds for success
+        if (type === 'success') {
+            setTimeout(() => setAlert(null), 3000);
+        }
+    };
 
     useEffect(() => {
         fetchData();
@@ -50,7 +76,7 @@ const Inventory = () => {
         try {
             setLoading(true);
             switch (activeTab) {
-                case 'raw-material-master':
+                case 'raw-materials':
                     const rm = await getRawMaterials();
                     setRawMaterials(rm || []);
                     break;
@@ -61,6 +87,8 @@ const Inventory = () => {
                 case 'grn':
                     const g = await getGRNs();
                     setGrns(g || []);
+                    const rmList = await getRawMaterials();
+                    setRawMaterials(rmList || []);
                     break;
                 case 'wip':
                     const wip = await getWIPStock();
@@ -83,14 +111,31 @@ const Inventory = () => {
     };
 
     const handleAddOrEdit = async (data) => {
+        // Client-side duplicate check for new items
+        if (!editingItem && activeTab === 'raw-materials') {
+            const exists = rawMaterials.some(rm => rm.code === data.code);
+            if (exists) {
+                showAlert(`Error: Item Code "${data.code}" already exists in the master list. Please use a unique code.`, 'error');
+                return;
+            }
+        }
+
         try {
             if (editingItem) {
-                if (activeTab === 'raw-material-master') {
-                    await updateRawMaterial(editingItem._id, data);
+                // Clean data of metadata that might cause Mongoose errors
+                const { _id, createdAt, updatedAt, __v, ...cleanData } = data;
+
+                switch (activeTab) {
+                    case 'raw-materials': await updateRawMaterial(editingItem._id, cleanData); break;
+                    case 'material-request': await updateMaterialRequest(editingItem._id, cleanData); break;
+                    case 'grn': await updateGRN(editingItem._id, cleanData); break;
+                    case 'wip': await updateWIPStock(editingItem._id, cleanData); break;
+                    case 'finished': await updateFinishedGood(editingItem._id, cleanData); break;
+                    case 'rejected': await updateRejectedGood(editingItem._id, cleanData); break;
                 }
             } else {
                 switch (activeTab) {
-                    case 'raw-material-master': await createRawMaterial(data); break;
+                    case 'raw-materials': await createRawMaterial(data); break;
                     case 'material-request': await createMaterialRequest(data); break;
                     case 'grn': await createGRN(data); break;
                     case 'wip': await createWIPStock(data); break;
@@ -100,37 +145,80 @@ const Inventory = () => {
             }
             setIsAddModalOpen(false);
             setEditingItem(null);
-            fetchData();
+            await fetchData();
+            showAlert("✓ Success: Saved successfully!");
         } catch (error) {
             console.error("Operation failed", error);
-            alert("Failed to save. Please try again.");
+            const errMsg = error.response?.data?.message || "Failed to save. Please try again.";
+            showAlert(errMsg, "error");
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this?")) return;
-        try {
-            if (activeTab === 'raw-material-master') {
-                await deleteRawMaterial(id);
-                fetchData();
+        setRemarkModal({
+            action: 'Delete',
+            onConfirm: async (remark) => {
+                try {
+                    if (activeTab === 'raw-materials') {
+                        await deleteRawMaterial(id, { remark });
+                    } else if (activeTab === 'grn') {
+                        await deleteGRN(id, remark);
+                    } else if (activeTab === 'material-request') {
+                        await deleteMaterialRequest(id, remark);
+                    } else if (activeTab === 'wip') {
+                        await deleteWIPStock(id, remark);
+                    } else if (activeTab === 'finished') {
+                        await deleteFinishedGood(id, remark);
+                    } else if (activeTab === 'rejected') {
+                        await deleteRejectedGood(id, remark);
+                    }
+                    showAlert("Item deleted successfully!");
+                    fetchData();
+                } catch (error) {
+                    console.error("Delete failed", error);
+                    showAlert(error.response?.data?.message || "Delete failed", "error");
+                }
             }
+        });
+    };
+
+    const handleSyncStock = async () => {
+        try {
+            setLoading(true);
+            await recalculateRMStock();
+            await fetchData();
+            showAlert("Stock levels synchronized with GRNs successfully!");
         } catch (error) {
-            console.error("Delete failed", error);
+            console.error("Sync failed", error);
+            showAlert("Failed to sync stock.", "error");
+        } finally {
+            setLoading(false);
         }
+    };
+
+    const handleMRStatusUpdate = async (mrId, status) => {
+        setRemarkModal({
+            action: 'Status Change',
+            onConfirm: async (remark) => {
+                try {
+                    const userData = JSON.parse(localStorage.getItem('user'));
+                    await axios.patch(`/api/material-requests/${mrId}/status`, {
+                        status,
+                        remark,
+                        updatedBy: userData.name || userData.username
+                    });
+                    showAlert(`MR ${status} successfully!`);
+                    fetchData();
+                } catch (error) {
+                    console.error("Status update failed", error);
+                    showAlert(error.response?.data?.message || "Status update failed", "error");
+                }
+            }
+        });
     };
 
     // Tab configuration
     const tabs = [
-        {
-            id: 'raw-material-master',
-            label: 'Raw Material Master',
-            icon: Package,
-            style: {
-                activeBg: 'bg-blue-100',
-                activeText: 'text-blue-600',
-                indicator: 'bg-blue-500'
-            }
-        },
         {
             id: 'material-request',
             label: 'Material Request',
@@ -149,6 +237,16 @@ const Inventory = () => {
                 activeBg: 'bg-orange-100',
                 activeText: 'text-orange-600',
                 indicator: 'bg-orange-500'
+            }
+        },
+        {
+            id: 'raw-materials',
+            label: 'Raw Materials',
+            icon: Package,
+            style: {
+                activeBg: 'bg-blue-100',
+                activeText: 'text-blue-600',
+                indicator: 'bg-blue-500'
             }
         },
         {
@@ -188,18 +286,31 @@ const Inventory = () => {
             <div className="bg-white border-b border-slate-200 px-8 py-6">
                 <div className="flex justify-between items-start mb-6">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Inventory Management</h1>
-                        <p className="text-slate-500 mt-1">Comprehensive material tracking and control</p>
+                        <div className="flex items-center gap-3 mb-1">
+                            <h1 className="text-2xl font-bold text-slate-900">Inventory Management</h1>
+                        </div>
+                        <p className="text-slate-500 font-medium tracking-tight">Comprehensive material tracking and control</p>
                     </div>
-                    {activeTab !== 'wip' && activeTab !== 'finished' && (
+
+                    <div className="flex gap-3">
                         <button
-                            onClick={() => { setEditingItem(null); setIsAddModalOpen(true); }}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors shadow-sm"
+                            onClick={handleSyncStock}
+                            className="flex items-center gap-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-4 py-2 rounded-md font-bold transition-colors border border-indigo-200"
                         >
-                            <Plus size={18} />
-                            <span>Add {tabs.find(t => t.id === activeTab)?.label}</span>
+                            <RefreshCcw size={18} className={loading ? 'animate-spin' : ''} />
+                            <span>Sync All stock</span>
                         </button>
-                    )}
+
+                        {activeTab !== 'wip' && activeTab !== 'finished' && (
+                            <button
+                                onClick={() => { setEditingItem(null); setIsAddModalOpen(true); }}
+                                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors shadow-sm"
+                            >
+                                <Plus size={18} />
+                                <span>Add {tabs.find(t => t.id === activeTab)?.label}</span>
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -242,12 +353,32 @@ const Inventory = () => {
                             exit={{ opacity: 0, x: -10 }}
                             transition={{ duration: 0.2 }}
                         >
-                            {activeTab === 'raw-material-master' && <RawMaterialMasterView data={rawMaterials} onEdit={(item) => { setEditingItem(item); setIsAddModalOpen(true); }} onDelete={handleDelete} />}
-                            {activeTab === 'material-request' && <MaterialRequestView data={materialRequests} />}
-                            {activeTab === 'grn' && <GRNView data={grns} />}
-                            {activeTab === 'wip' && <WIPView data={wipStock} />}
-                            {activeTab === 'finished' && <FinishedGoodsView data={finishedGoods} />}
-                            {activeTab === 'rejected' && <RejectedGoodsView data={rejectedGoods} />}
+                            {activeTab === 'raw-materials' && (
+                                <RawMaterialView
+                                    data={rawMaterials}
+                                    onEdit={(item) => { setEditingItem(item); setIsAddModalOpen(true); }}
+                                    onDelete={handleDelete}
+                                    onSelect={setSelectedRMDetails}
+                                />
+                            )}
+                            {activeTab === 'material-request' && (
+                                <MaterialRequestView
+                                    data={materialRequests}
+                                    onStatusUpdate={handleMRStatusUpdate}
+                                    onEdit={mr => { setEditingItem(mr); setIsAddModalOpen(true); }}
+                                    onDelete={handleDelete}
+                                />
+                            )}
+                            {activeTab === 'grn' && (
+                                <GRNView
+                                    data={grns}
+                                    onEdit={(item) => { setEditingItem(item); setIsAddModalOpen(true); }}
+                                    onDelete={handleDelete}
+                                />
+                            )}
+                            {activeTab === 'wip' && <WIPView data={wipStock} onEdit={(item) => { setEditingItem(item); setIsAddModalOpen(true); }} onDelete={handleDelete} />}
+                            {activeTab === 'finished' && <FinishedGoodsView data={finishedGoods} onEdit={(item) => { setEditingItem(item); setIsAddModalOpen(true); }} onDelete={handleDelete} />}
+                            {activeTab === 'rejected' && <RejectedGoodsView data={rejectedGoods} onEdit={(item) => { setEditingItem(item); setIsAddModalOpen(true); }} onDelete={handleDelete} />}
                         </motion.div>
                     </AnimatePresence>
                 )}
@@ -258,9 +389,88 @@ const Inventory = () => {
                     <InventoryModal
                         type={activeTab}
                         item={editingItem}
+                        rawMaterialsList={rawMaterials}
                         onClose={() => setIsAddModalOpen(false)}
                         onSubmit={handleAddOrEdit}
                     />
+                )}
+            </AnimatePresence>
+
+            {/* Centralized Centered Alert */}
+            <AnimatePresence>
+                {alert && (
+                    <div className="fixed inset-0 flex items-center justify-center z-[100] pointer-events-none">
+                        <motion.div
+                            initial={{ scale: 0.8, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.8, opacity: 0, y: 20 }}
+                            className={`
+                                pointer-events-auto px-8 py-4 rounded-xl shadow-2xl border-2 flex items-center gap-4 min-w-[300px]
+                                ${alert.type === 'error' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-emerald-100 text-emerald-800'}
+                            `}
+                        >
+                            <div className={`p-2 rounded-full ${alert.type === 'error' ? 'bg-red-100' : 'bg-emerald-100'}`}>
+                                {alert.type === 'error' ? <AlertTriangle size={24} /> : <CheckCircle2 size={24} />}
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-bold uppercase text-xs tracking-widest mb-0.5">{alert.type === 'error' ? 'Error' : 'Success'}</h4>
+                                <p className="font-medium">{alert.message}</p>
+                            </div>
+                            {alert.type === 'error' && (
+                                <button onClick={() => setAlert(null)} className="p-1 hover:bg-red-100 rounded-full transition">
+                                    <X size={18} />
+                                </button>
+                            )}
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Center Remark Modal for Deletes/Adjustments */}
+            <AnimatePresence>
+                {remarkModal && (
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                        >
+                            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-red-100 text-red-600 rounded-lg">
+                                        <Trash2 size={20} />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-slate-900">Mandatory Remark</h3>
+                                </div>
+                                <button onClick={() => setRemarkModal(null)} className="text-slate-400 hover:text-slate-600 transition"><X size={24} /></button>
+                            </div>
+                            <div className="p-8">
+                                <p className="text-slate-600 mb-6 font-medium">Please provide a reason or remark for this action. This will be logged for audit purposes.</p>
+                                <textarea
+                                    autoFocus
+                                    className="w-full p-4 border-2 border-slate-100 rounded-xl focus:border-blue-500 focus:ring-0 transition-all outline-none text-slate-700 font-medium"
+                                    rows="4"
+                                    placeholder="Enter your remark here..."
+                                    value={remarkModal.remark || ''}
+                                    onChange={(e) => setRemarkModal({ ...remarkModal, remark: e.target.value })}
+                                />
+                            </div>
+                            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+                                <button onClick={() => setRemarkModal(null)} className="flex-1 px-6 py-3 border-2 border-slate-200 rounded-xl hover:bg-white transition text-slate-600 font-bold">Cancel</button>
+                                <button
+                                    disabled={!remarkModal.remark?.trim()}
+                                    onClick={() => {
+                                        remarkModal.onConfirm(remarkModal.remark);
+                                        setRemarkModal(null);
+                                    }}
+                                    className="flex-1 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition font-bold shadow-lg shadow-red-200 disabled:opacity-50 disabled:shadow-none"
+                                >
+                                    Confirm Action
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
         </div>
@@ -269,61 +479,318 @@ const Inventory = () => {
 
 // --- View Components ---
 
-const RawMaterialMasterView = ({ data, onEdit, onDelete }) => (
-    <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
+const RMLineItem = ({ item, onEdit, onDelete, onSelect }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [grnHistory, setGrnHistory] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    const toggleExpand = async (e) => {
+        e.stopPropagation();
+        const nextState = !isExpanded;
+        setIsExpanded(nextState);
+
+        if (nextState && grnHistory.length === 0) {
+            try {
+                setLoading(true);
+                const response = await axios.get(`/api/raw-materials/${item.code}/grn-history`);
+                setGrnHistory(response.data);
+            } catch (err) {
+                console.error("Failed to fetch batch info", err);
+            } finally {
+                setLoading(false);
+            }
+        }
+    };
+
+    return (
+        <>
+            <tr className={`hover:bg-blue-50/30 transition-colors group ${isExpanded ? 'bg-blue-50/50' : ''}`}>
+                <td className="px-6 py-4 cursor-pointer" onClick={toggleExpand}>
+                    <div className="flex items-center gap-2">
+                        {isExpanded ? <ChevronUp size={14} className="text-blue-500" /> : <ChevronDown size={14} className="text-slate-400" />}
+                        <div>
+                            <div className="font-bold text-slate-900 group-hover:text-blue-700">{item.name}</div>
+                            <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{item.code}</div>
+                            {item.hsn && <div className="text-[10px] text-blue-500 font-black mt-1 uppercase tracking-tight">HSN: {item.hsn} | GST: {item.gstRate || 0}%</div>}
+                        </div>
+                    </div>
+                </td>
+                <td className="px-6 py-4 cursor-pointer" onClick={toggleExpand}>
+                    <span className="bg-slate-100 px-2 py-1 rounded text-slate-600 font-medium">{item.category || 'Uncategorized'}</span>
+                </td>
+                <td className="px-6 py-4 text-right cursor-pointer" onClick={toggleExpand}>
+                    <span className={`font-black text-lg ${item.qty > 0 ? 'text-blue-600' : 'text-slate-300'}`}>{item.qty}</span>
+                </td>
+                <td className="px-6 py-4 cursor-pointer" onClick={toggleExpand}>
+                    <span className="text-slate-500 font-bold">{item.uom}</span>
+                </td>
+                <td className="px-6 py-4">
+                    <div className="flex justify-center gap-2">
+                        <button onClick={() => onSelect(item)} title="View History Modal" className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition"><Eye size={16} /></button>
+                        <button onClick={() => onEdit(item)} title="Edit Details" className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-md transition"><Edit2 size={16} /></button>
+                        <button onClick={() => onDelete(item._id)} title="Delete RM" className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition"><Trash2 size={16} /></button>
+                    </div>
+                </td>
+            </tr>
+            <AnimatePresence>
+                {isExpanded && (
+                    <tr>
+                        <td colSpan="5" className="px-6 py-0 bg-blue-50/20">
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden"
+                            >
+                                <div className="py-4 pl-10 pr-6 border-l-4 border-blue-400 my-2">
+                                    <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                        <Database size={12} /> Batch Breakdown (Current Receipts)
+                                    </h4>
+                                    {loading ? (
+                                        <div className="flex items-center gap-2 text-slate-400 py-2">
+                                            <RefreshCcw size={14} className="animate-spin" />
+                                            <span className="text-xs font-bold uppercase">Loading batch data...</span>
+                                        </div>
+                                    ) : grnHistory.length > 0 ? (
+                                        <div className="flex flex-col gap-2">
+                                            {grnHistory.map((grn) => {
+                                                const grnItem = grn.items.find(i =>
+                                                    i.itemCode?.trim().toUpperCase() === item.code?.trim().toUpperCase()
+                                                );
+                                                return (
+                                                    <div key={grn._id} className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm flex flex-row items-center justify-between gap-4 hover:border-blue-300 transition-all">
+                                                        <div className="flex-1">
+                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">GRN NUMBER / BATCH</div>
+                                                            <div className="font-bold text-blue-700 text-sm">
+                                                                {grn.grnNumber}
+                                                                <span className="ml-2 px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-black uppercase tracking-widest">{grnItem?.batchCode || 'No Batch'}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex-1 border-l border-slate-100 pl-4 hidden md:block">
+                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Received Date</div>
+                                                            <div className="text-xs font-bold text-slate-700">{new Date(grn.receivedDate).toLocaleDateString()}</div>
+                                                        </div>
+
+                                                        <div className="flex-1 border-l border-slate-100 pl-4 hidden lg:block">
+                                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">MFG / EXP</div>
+                                                            <div className="text-[10px] font-bold text-slate-500">
+                                                                {grnItem?.mfgDate ? new Date(grnItem.mfgDate).toLocaleDateString() : '-'} /
+                                                                <span className="text-red-500">{grnItem?.expDate ? new Date(grnItem.expDate).toLocaleDateString() : '-'}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="w-32 text-right bg-blue-50/50 p-2 rounded-md">
+                                                            <div className="text-[10px] font-black text-blue-400 uppercase tracking-tighter">Stock Qty</div>
+                                                            <div className="font-black text-blue-900 text-base">{grnItem?.qty} <span className="text-[10px] font-normal text-slate-400 uppercase">{item.uom}</span></div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="py-4 text-slate-400 italic text-xs">No active batches or GRN history found for this item.</div>
+                                    )}
+                                </div>
+                            </motion.div>
+                        </td>
+                    </tr>
+                )}
+            </AnimatePresence>
+        </>
+    );
+};
+
+const RawMaterialView = ({ data, onEdit, onDelete, onSelect }) => (
+    <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden text-[13px]">
         <table className="w-full text-left">
             <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Code & Name</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Specs (Thick/Finish/Color)</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Type & Size</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">Qty (UOM)</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Category</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">Current Stock Qty</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">UOM</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Actions</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
                 {data.map((item) => (
-                    <tr key={item._id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
-                            <div className="font-medium text-slate-900">{item.name}</div>
-                            <div className="text-xs text-slate-500">{item.code}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                            <div className="text-sm text-slate-700">{item.thickness || 'N/A'} / {item.finish || 'N/A'} / {item.colour || 'N/A'}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                            <div className="text-sm text-slate-700">{item.type || 'N/A'} / {item.size || 'N/A'}</div>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                            <span className="font-bold text-slate-900">{item.qty}</span> <span className="text-slate-500 text-sm">{item.uom}</span>
-                        </td>
-                        <td className="px-6 py-4">
-                            <div className="flex justify-center gap-2">
-                                <button onClick={() => onEdit(item)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={16} /></button>
-                                <button onClick={() => onDelete(item._id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
-                            </div>
-                        </td>
-                    </tr>
+                    <RMLineItem
+                        key={item._id}
+                        item={item}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onSelect={onSelect}
+                    />
                 ))}
             </tbody>
         </table>
     </div>
 );
 
-const MaterialRequestView = ({ data }) => (
+const RMDetailsModal = ({ item, onClose }) => {
+    const [grnHistory, setGrnHistory] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchHistory = async () => {
+            try {
+                const response = await axios.get(`/api/raw-materials/${item.code}/grn-history`);
+                setGrnHistory(response.data);
+            } catch (err) {
+                console.error("Failed to fetch GRN history", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchHistory();
+    }, [item.code]);
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[85vh]">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <div>
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-xl font-bold text-slate-900">{item.name}</h2>
+                            <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full font-black uppercase">{item.code}</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">Stock Details & Goods Receipt History</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition shadow-sm border border-slate-200"><X size={20} className="text-slate-500" /></button>
+                </div>
+
+                <div className="flex-1 overflow-auto p-8">
+                    <div className="grid grid-cols-3 gap-6 mb-8">
+                        <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
+                            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Available Quantity</p>
+                            <p className="text-3xl font-black text-blue-700">{item.qty} <span className="text-sm font-bold text-blue-400 uppercase">{item.uom}</span></p>
+                        </div>
+                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Category</p>
+                            <p className="text-xl font-bold text-slate-700">{item.category || 'N/A'}</p>
+                        </div>
+                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">HSN Code</p>
+                            <p className="text-xl font-bold text-slate-700">{item.hsn || 'N/A'}</p>
+                        </div>
+                    </div>
+
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Truck size={16} className="text-blue-500" /> Linked GRN History
+                    </h3>
+
+                    {loading ? (
+                        <div className="py-12 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>
+                    ) : grnHistory.length > 0 ? (
+                        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                            <table className="w-full text-left text-[12px]">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-200">
+                                        <th className="px-6 py-4 font-black text-slate-500 uppercase">GRN No</th>
+                                        <th className="px-6 py-4 font-black text-slate-500 uppercase">Date</th>
+                                        <th className="px-6 py-4 font-black text-slate-500 uppercase">Supplier</th>
+                                        <th className="px-6 py-4 font-black text-slate-500 uppercase text-right">Received Qty</th>
+                                        <th className="px-6 py-4 font-black text-slate-500 uppercase">Batch / Mfg / Exp</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {grnHistory.map((grn) => {
+                                        const grnItem = grn.items.find(i =>
+                                            i.itemCode?.trim().toUpperCase() === item.code?.trim().toUpperCase()
+                                        );
+                                        return (
+                                            <tr key={grn._id} className="hover:bg-slate-50/50">
+                                                <td className="px-6 py-4 font-bold text-blue-600">{grn.grnNumber}</td>
+                                                <td className="px-6 py-4 text-slate-500">{new Date(grn.receivedDate).toLocaleDateString()}</td>
+                                                <td className="px-6 py-4 font-medium text-slate-700">{grn.supplierName}</td>
+                                                <td className="px-6 py-4 text-right font-black text-slate-900">{grnItem?.qty}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="text-[10px] space-y-0.5">
+                                                        <div className="font-bold text-indigo-600">B: {grnItem?.batchCode || 'N/A'}</div>
+                                                        <div className="text-slate-400">M: {grnItem?.mfgDate ? new Date(grnItem.mfgDate).toLocaleDateString() : '-'}</div>
+                                                        <div className="text-slate-400">E: {grnItem?.expDate ? new Date(grnItem.expDate).toLocaleDateString() : '-'}</div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="p-12 text-center bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                            <p className="text-slate-400 font-bold">No receipt history found for this material.</p>
+                        </div>
+                    )}
+                </div>
+            </motion.div>
+        </div>
+    );
+};
+
+const MaterialRequestView = ({ data, onStatusUpdate, onEdit, onDelete }) => (
     <div className="space-y-6">
         {data.map((mr) => (
-            <div key={mr._id} className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
+            <div key={mr._id} className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden text-[13px]">
                 <div className="bg-slate-50 px-6 py-4 flex justify-between items-center border-b border-slate-200">
                     <div className="flex items-center gap-4">
                         <span className="text-lg font-bold text-slate-900">{mr.mrNo}</span>
-                        <span className="text-sm text-slate-500 flex items-center gap-1">
+                        <span className="text-xs text-slate-500 flex items-center gap-1">
                             <Calendar size={14} /> {new Date(mr.requestDate).toLocaleDateString()}
                         </span>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${mr.status === 'Pending' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-green-100 text-green-700 border border-green-200'}`}>
-                        {mr.status}
-                    </span>
+                    <div className="flex items-center gap-4">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${mr.status === 'Approved' ? 'bg-green-100 text-green-700 border border-green-200' :
+                            mr.status === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
+                                mr.status === 'On Hold' ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' :
+                                    'bg-amber-100 text-amber-700 border border-amber-200'
+                            }`}>
+                            {mr.status}
+                        </span>
+
+                        <div className="flex gap-2">
+                            {mr.status !== 'Approved' && (
+                                <button
+                                    onClick={() => onStatusUpdate(mr._id, 'Approved')}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-md text-[10px] font-black uppercase transition shadow-sm"
+                                >
+                                    Approve
+                                </button>
+                            )}
+                            {mr.status !== 'On Hold' && (
+                                <button
+                                    onClick={() => onStatusUpdate(mr._id, 'On Hold')}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md text-[10px] font-black uppercase transition shadow-sm"
+                                >
+                                    Hold
+                                </button>
+                            )}
+                            {mr.status !== 'Rejected' && (
+                                <button
+                                    onClick={() => onStatusUpdate(mr._id, 'Rejected')}
+                                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-md text-[10px] font-black uppercase transition shadow-sm"
+                                >
+                                    Reject
+                                </button>
+                            )}
+                            {mr.status !== 'Pending' && (
+                                <button
+                                    onClick={() => onStatusUpdate(mr._id, 'Pending')}
+                                    className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-md text-[10px] font-black uppercase transition shadow-sm"
+                                >
+                                    Revoke
+                                </button>
+                            )}
+                        </div>
+
+                        <button onClick={() => onEdit(mr)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition ml-2" title="Edit MR">
+                            <Edit2 size={16} />
+                        </button>
+                        <button onClick={() => onDelete(mr._id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition ml-1" title="Delete MR">
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
                 </div>
                 <div className="p-0">
                     <table className="w-full text-left text-sm">
@@ -369,8 +836,8 @@ const MaterialRequestView = ({ data }) => (
     </div>
 );
 
-const GRNView = ({ data }) => (
-    <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
+const GRNView = ({ data, onEdit, onDelete }) => (
+    <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden text-[13px]">
         <table className="w-full text-left">
             <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
@@ -378,6 +845,7 @@ const GRNView = ({ data }) => (
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Supplier & PO</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">IQC & Transport</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">Items Detail</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Actions</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -406,69 +874,11 @@ const GRNView = ({ data }) => (
                                 {grn.items.map(i => i.itemName).join(", ")}
                             </div>
                         </td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
-    </div>
-);
-
-const WIPView = ({ data }) => (
-    <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
-        <table className="w-full text-left">
-            <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Job No</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Part Details</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Thickness</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">Qty</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-                {data.map((wip) => (
-                    <tr key={wip._id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 font-mono text-sm text-blue-600 font-bold">{wip.jobNo}</td>
-                        <td className="px-6 py-4">
-                            <div className="font-medium text-slate-900">{wip.partName}</div>
-                            <div className="text-xs text-slate-500">{wip.partNo}</div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-700">{wip.thickness}</td>
-                        <td className="px-6 py-4 text-right font-bold">{wip.qty}</td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
-    </div>
-);
-
-const FinishedGoodsView = ({ data }) => (
-    <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
-        <table className="w-full text-left">
-            <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Item No & Name</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Qty</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Dates (Mfg/Exp)</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Refs (PO/Inv)</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-                {data.map((fg) => (
-                    <tr key={fg._id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
-                            <div className="font-bold text-slate-900">{fg.partName}</div>
-                            <div className="text-xs text-slate-500 font-mono">PN: {fg.partNo}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                            <span className="font-black text-emerald-600">{fg.qty}</span>
-                        </td>
-                        <td className="px-6 py-4 text-xs">
-                            <div><span className="text-slate-400">Mfg:</span> {new Date(fg.mfgDate).toLocaleDateString()}</div>
-                            {fg.expDate && <div><span className="text-slate-400">Exp:</span> {new Date(fg.expDate).toLocaleDateString()}</div>}
-                        </td>
-                        <td className="px-6 py-4 text-xs">
-                            <div className="text-slate-600 font-medium">PO: {fg.poNo || 'N/A'}</div>
-                            <div className="text-slate-400">Inv: {fg.invoiceNo || 'N/A'}</div>
+                        <td className="px-6 py-4 text-center">
+                            <div className="flex justify-center gap-2">
+                                <button onClick={() => onEdit(grn)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition"><Edit2 size={16} /></button>
+                                <button onClick={() => onDelete(grn._id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition"><Trash2 size={16} /></button>
+                            </div>
                         </td>
                     </tr>
                 ))}
@@ -477,51 +887,307 @@ const FinishedGoodsView = ({ data }) => (
     </div>
 );
 
-const RejectedGoodsView = ({ data }) => (
-    <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
-        <table className="w-full text-left">
-            <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Part Details</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">Rejected Qty</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Reason</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">PO / Invoice</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-                {data.map((rej) => (
-                    <tr key={rej._id} className="hover:bg-red-50/30 transition-colors">
-                        <td className="px-6 py-4">
-                            <div className="font-medium text-slate-900">{rej.partName}</div>
-                            <div className="text-xs text-red-500">{rej.partNo}</div>
-                        </td>
-                        <td className="px-6 py-4 text-right font-bold text-red-600">{rej.qty}</td>
-                        <td className="px-6 py-4 text-sm text-slate-700">{rej.reason || 'Not Specified'}</td>
-                        <td className="px-6 py-4 font-mono text-xs text-slate-500">
-                            PO: {rej.poNo || 'N/A'}<br />Inv: {rej.invoiceNo || 'N/A'}
-                        </td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
+const WIPView = ({ data, onEdit, onDelete }) => {
+    const [expandedPO, setExpandedPO] = useState({});
+    const [expandedItem, setExpandedItem] = useState({});
+
+    const groupedData = React.useMemo(() => {
+        const tree = {};
+        data.forEach(item => {
+            const po = item.poNo || 'Internal / No PO';
+            if (!tree[po]) tree[po] = {};
+            const part = item.partName || 'Unknown Item';
+            if (!tree[po][part]) tree[po][part] = [];
+            tree[po][part].push(item);
+        });
+        return tree;
+    }, [data]);
+
+    return (
+        <div className="space-y-3">
+            {Object.entries(groupedData).map(([poNo, itemsByPart]) => (
+                <div key={poNo} className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm transition-all hover:shadow-md">
+                    <div
+                        onClick={() => setExpandedPO(prev => ({ ...prev, [poNo]: !prev[poNo] }))}
+                        className="bg-slate-50/80 px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-slate-100 transition-colors border-b border-slate-200"
+                    >
+                        {expandedPO[poNo] ? <ChevronDown size={20} className="text-slate-500" /> : <ChevronRight size={20} className="text-slate-500" />}
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">PO NUMBER</span>
+                            <span className="font-black text-slate-800 text-lg uppercase tracking-tight">{poNo}</span>
+                        </div>
+                        <div className="ml-auto flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-slate-200">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Items:</span>
+                            <span className="text-xs font-black text-slate-600">{Object.keys(itemsByPart).length}</span>
+                        </div>
+                    </div>
+
+                    {expandedPO[poNo] && (
+                        <div className="bg-white">
+                            {Object.entries(itemsByPart).map(([partName, jobs]) => {
+                                const itemKey = `${poNo}-${partName}`;
+                                return (
+                                    <div key={partName} className="border-b border-slate-100 last:border-0">
+                                        <div
+                                            onClick={() => setExpandedItem(prev => ({ ...prev, [itemKey]: !prev[itemKey] }))}
+                                            className="px-6 py-3 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                                        >
+                                            {expandedItem[itemKey] ? <ChevronDown size={18} className="text-slate-400" /> : <ChevronRight size={18} className="text-slate-400" />}
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center">
+                                                    <Package size={16} className="text-blue-500" />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-0.5">ITEM NAME</span>
+                                                    <span className="font-bold text-slate-700 text-sm tracking-tight">{partName}</span>
+                                                </div>
+                                            </div>
+                                            <div className="ml-auto text-[10px] font-black text-slate-400 uppercase bg-slate-100/50 px-2 py-1 rounded">
+                                                {jobs.length} JOBS ACTIVATED
+                                            </div>
+                                        </div>
+
+                                        {expandedItem[itemKey] && (
+                                            <div className="bg-slate-50/30 px-6 pb-4 pt-1 space-y-2">
+                                                {jobs.map(job => (
+                                                    <div key={job._id} className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex justify-between items-center group hover:border-blue-400 hover:ring-2 hover:ring-blue-50 transition-all ml-8">
+                                                        <div className="flex gap-8">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[9px] font-black text-blue-500 uppercase tracking-tighter mb-1">JOB NUMBER</span>
+                                                                <span className="font-mono font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">{job.jobNo}</span>
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">CURRENT MFG STEO</span>
+                                                                <span className="text-xs font-black text-slate-700 uppercase">{job.currentStage || 'Processing'}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-8">
+                                                            <div className="flex items-center gap-4 border-l border-slate-100 pl-8">
+                                                                <div className="text-right">
+                                                                    <div className="flex items-center gap-3 mb-1">
+                                                                        <div className="flex items-center gap-1">
+                                                                            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]"></span>
+                                                                            <span className="text-[10px] font-black text-emerald-600 uppercase">PASS: {job.processedQty || job.qty}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1">
+                                                                            <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_5px_rgba(244,63,94,0.5)]"></span>
+                                                                            <span className="text-[10px] font-black text-rose-600 uppercase">FAIL: {job.rejectedQty || 0}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="w-32 bg-slate-100 h-1.5 rounded-full overflow-hidden border border-slate-200">
+                                                                        <div
+                                                                            className="bg-emerald-500 h-full rounded-full transition-all duration-700 ease-out"
+                                                                            style={{ width: `${Math.min(100, (((job.processedQty || job.qty) + (job.rejectedQty || 0)) / (job.initialQty || job.qty)) * 100)}%` }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex gap-1">
+                                                                    <button onClick={() => onEdit(job)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><Edit2 size={16} /></button>
+                                                                    <button onClick={() => onDelete(job._id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={16} /></button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            ))}
+            {data.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-24 bg-white border-2 border-dashed border-slate-200 rounded-2xl text-slate-400">
+                    <Factory size={48} className="text-slate-200 mb-4" />
+                    <p className="font-bold text-lg">No active work in progress</p>
+                    <p className="text-sm">Newly started jobs will appear here automatically.</p>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const FinishedGoodsView = ({ data, onEdit, onDelete }) => (
+    <div className="space-y-4">
+        {data.map((fg) => (
+            <div key={fg._id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group hover:border-emerald-400 hover:shadow-md transition-all">
+                <div className="flex items-center gap-8">
+                    <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shadow-inner">
+                        <CheckCircle2 size={32} className="text-emerald-500" />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">TRACEABILITY IDENTIFIER</span>
+                            <span className="text-base font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-100 shadow-sm font-mono">
+                                JOB: {fg.jobNo}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Batch Info:</span>
+                            <span className="text-xs font-black text-slate-600 uppercase tracking-tighter">{fg.batchCode || 'No Batch'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-16">
+                    <div className="flex gap-12">
+                        <div className="text-center">
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">TOTAL STARTED</div>
+                            <div className="text-xl font-black text-slate-500 line-through decoration-rose-300 decoration-2">{fg.initialQty || fg.qty}</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">LEFT AFTER FINAL QC</div>
+                            <div className="text-3xl font-black text-emerald-600 tracking-tighter">
+                                {fg.qty} <span className="text-xs font-bold text-emerald-400 tracking-normal ml-0.5 uppercase">UNITS READY</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <button onClick={() => onEdit(fg)} className="p-2.5 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all border border-transparent hover:border-blue-100"><Edit2 size={20} /></button>
+                        <button onClick={() => onDelete(fg._id)} className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100"><Trash2 size={20} /></button>
+                    </div>
+                </div>
+            </div>
+        ))}
+        {data.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-24 bg-white border-2 border-dashed border-slate-200 rounded-3xl text-slate-300">
+                <CheckCircle2 size={64} className="text-slate-100 mb-4" strokeWidth={1} />
+                <p className="font-black text-xl text-slate-400 uppercase tracking-widest">No Finished Goods available</p>
+                <p className="text-sm font-medium">Completed jobs will appear here after final QC approval.</p>
+            </div>
+        )}
     </div>
 );
+
+const RejectedGoodsView = ({ data, onEdit, onDelete }) => {
+    // Group by Part Name
+    const groupedData = React.useMemo(() => {
+        const groups = {};
+        data.forEach(item => {
+            const name = item.partName || 'Unknown Item';
+            if (!groups[name]) groups[name] = { totalQty: 0, items: [] };
+            groups[name].totalQty += (item.qty || 0);
+            groups[name].items.push(item);
+        });
+        return groups;
+    }, [data]);
+
+    return (
+        <div className="space-y-4">
+            {Object.entries(groupedData).map(([partName, group], idx) => (
+                <RejectedItemCard
+                    key={idx}
+                    partName={partName}
+                    totalQty={group.totalQty}
+                    items={group.items}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                />
+            ))}
+        </div>
+    );
+};
+
+const RejectedItemCard = ({ partName, totalQty, items, onEdit, onDelete }) => {
+    const [isExpanded, setIsExpanded] = React.useState(false);
+
+    return (
+        <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
+            <div
+                onClick={() => setIsExpanded(!isExpanded)}
+                className={`px-6 py-4 flex justify-between items-center cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'bg-slate-50' : ''}`}
+            >
+                <div className="flex items-center gap-3">
+                    {isExpanded ? <ChevronUp size={16} className="text-blue-500" /> : <ChevronDown size={16} className="text-slate-400" />}
+                    <div>
+                        <h4 className="font-bold text-slate-900">{partName}</h4>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{items.length} Rejection Events</p>
+                    </div>
+                </div>
+                <div className="text-right">
+                    <span className="block font-black text-xl text-red-600">{totalQty}</span>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold">Total Rejected</span>
+                </div>
+            </div>
+
+            <AnimatePresence>
+                {isExpanded && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="border-t border-slate-100"
+                    >
+                        <table className="w-full text-left text-xs bg-slate-50/30">
+                            <thead>
+                                <tr className="border-b border-slate-100 text-slate-500">
+                                    <th className="px-6 py-3 font-bold uppercase">Job / Step</th>
+                                    <th className="px-6 py-3 font-bold uppercase">Rejected By</th>
+                                    <th className="px-6 py-3 font-bold uppercase text-right">Qty</th>
+                                    <th className="px-6 py-3 font-bold uppercase">Reason & Date</th>
+                                    <th className="px-6 py-3 font-bold uppercase text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {items.map((rej, i) => (
+                                    <tr key={rej._id || i} className="hover:bg-red-50/20 transition-colors border-b border-slate-50 last:border-none">
+                                        <td className="px-6 py-3">
+                                            <div className="font-black text-blue-600 uppercase">{rej.jobNo || 'N/A'}</div>
+                                            <div className="text-[10px] font-bold text-slate-500 mt-0.5">{rej.stepName || 'Unknown Step'}</div>
+                                        </td>
+                                        <td className="px-6 py-3">
+                                            <div className="font-bold text-slate-700">{rej.employeeName || 'Admin'}</div>
+                                        </td>
+                                        <td className="px-6 py-3 text-right">
+                                            <span className="font-black text-red-600 text-sm">{rej.qty}</span>
+                                        </td>
+                                        <td className="px-6 py-3">
+                                            <div className="italic text-slate-600">{rej.reason}</div>
+                                            <div className="text-[10px] text-slate-400 mt-1 uppercase font-bold">{new Date(rej.mfgDate || rej.createdAt).toLocaleDateString()}</div>
+                                        </td>
+                                        <td className="px-6 py-3 text-center">
+                                            <div className="flex justify-center gap-2">
+                                                <button onClick={(e) => { e.stopPropagation(); onEdit(rej); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition"><Edit2 size={14} /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); onDelete(rej._id); }} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition"><Trash2 size={14} /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
 
 // --- Modal Component ---
 
-const InventoryModal = ({ type, item, onClose, onSubmit }) => {
+const InventoryModal = ({ type, item, rawMaterialsList = [], onClose, onSubmit }) => {
     const [formData, setFormData] = useState(item || {});
+    const [saving, setSaving] = useState(false);
 
     const updateField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        onSubmit(formData);
+        if (saving) return;
+        try {
+            setSaving(true);
+            await onSubmit(formData);
+        } finally {
+            setSaving(false);
+        }
     };
 
     const renderForm = () => {
         switch (type) {
-            case 'raw-material-master':
+            case 'raw-materials':
                 return (
                     <div className="grid grid-cols-2 gap-4">
                         <div className="col-span-2">
@@ -529,23 +1195,33 @@ const InventoryModal = ({ type, item, onClose, onSubmit }) => {
                             <input required className="w-full p-2 border rounded" value={formData.name || ''} onChange={e => updateField('name', e.target.value)} />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Item Code</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Item Code (Unique)</label>
                             <input required className="w-full p-2 border rounded" value={formData.code || ''} onChange={e => updateField('code', e.target.value)} />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">UOM</label>
-                            <input required className="w-full p-2 border rounded" value={formData.uom || ''} onChange={e => updateField('uom', e.target.value)} placeholder="kg, meters, etc" />
+                            <input
+                                required
+                                list="uom-list"
+                                className="w-full p-2 border rounded"
+                                value={formData.uom || ''}
+                                onChange={e => updateField('uom', e.target.value)}
+                                placeholder="Select or type UOM"
+                            />
+                            <datalist id="uom-list">
+                                {COMMON_UOMS.map(uom => <option key={uom} value={uom} />)}
+                            </datalist>
+                        </div>
+                        <div className="col-span-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Category</label>
+                            <input className="w-full p-2 border rounded" value={formData.category || ''} onChange={e => updateField('category', e.target.value)} placeholder="e.g. Chemicals, Metals, Packaging" />
                         </div>
                         <div className="col-span-2">
                             <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Description</label>
-                            <input className="w-full p-2 border rounded" value={formData.description || ''} onChange={e => updateField('description', e.target.value)} />
+                            <textarea rows="3" className="w-full p-2 border rounded" value={formData.description || ''} onChange={e => updateField('description', e.target.value)} />
                         </div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Thickness</label><input className="w-full p-2 border rounded" value={formData.thickness || ''} onChange={e => updateField('thickness', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Finish</label><input className="w-full p-2 border rounded" value={formData.finish || ''} onChange={e => updateField('finish', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Colour</label><input className="w-full p-2 border rounded" value={formData.colour || ''} onChange={e => updateField('colour', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Type</label><input className="w-full p-2 border rounded" value={formData.type || ''} onChange={e => updateField('type', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Size</label><input className="w-full p-2 border rounded" value={formData.size || ''} onChange={e => updateField('size', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Expiry Date</label><input type="date" className="w-full p-2 border rounded" value={formData.expDate ? formData.expDate.slice(0, 10) : ''} onChange={e => updateField('expDate', e.target.value)} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">HSN Code</label><input className="w-full p-2 border rounded" value={formData.hsn || ''} onChange={e => updateField('hsn', e.target.value)} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">GST Rate (%)</label><input type="number" className="w-full p-2 border rounded" value={formData.gstRate || ''} onChange={e => updateField('gstRate', parseFloat(e.target.value) || 0)} /></div>
                     </div>
                 );
             case 'material-request':
@@ -579,46 +1255,57 @@ const InventoryModal = ({ type, item, onClose, onSubmit }) => {
                             </button>
                         </div>
                         <div className="col-span-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Item Name *</label>
-                            <input required className="w-full p-2 border rounded" value={firstItem.itemName || ''} onChange={e => updateFirstItem('itemName', e.target.value)} />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Item Code</label>
-                            <input className="w-full p-2 border rounded" value={firstItem.itemCode || ''} onChange={e => updateFirstItem('itemCode', e.target.value)} />
+                            <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Select Raw Material *</label>
+                            <select
+                                required
+                                className="w-full p-2 border rounded"
+                                value={firstItem.itemCode || ''}
+                                onChange={e => {
+                                    const selectedCode = e.target.value;
+                                    const selectedRM = rawMaterialsList.find(rm => rm.code === selectedCode);
+                                    if (selectedRM) {
+                                        const newItems = [...formData.items];
+                                        newItems[0] = {
+                                            ...newItems[0],
+                                            itemCode: selectedRM.code,
+                                            itemName: selectedRM.name,
+                                            uom: selectedRM.uom
+                                        };
+                                        updateField('items', newItems);
+                                    }
+                                }}
+                            >
+                                <option value="">-- Select Material --</option>
+                                {rawMaterialsList.map(rm => (
+                                    <option key={rm._id} value={rm.code}>{rm.name} ({rm.code})</option>
+                                ))}
+                            </select>
                         </div>
                         <div>
                             <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Qty (Number) *</label>
-                            <input required type="number" className="w-full p-2 border rounded" value={firstItem.qty || ''} onChange={e => updateFirstItem('qty', e.target.value)} />
+                            <input required type="number" className="w-full p-2 border rounded" value={firstItem.qty || ''} onChange={e => updateFirstItem('qty', parseFloat(e.target.value) || 0)} />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">UOM *</label>
-                            <input required className="w-full p-2 border rounded" value={firstItem.uom || ''} onChange={e => updateFirstItem('uom', e.target.value)} placeholder="kg, meters, etc" />
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">UOM</label>
+                            <input readOnly className="w-full p-2 border rounded bg-slate-50 font-medium" value={firstItem.uom || ''} placeholder="Auto-filled" />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Exp Date</label>
-                            <input type="date" className="w-full p-2 border rounded" value={firstItem.expDate ? firstItem.expDate.slice(0, 10) : ''} onChange={e => updateFirstItem('expDate', e.target.value)} />
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Required Date</label>
+                            <input type="date" className="w-full p-2 border rounded" value={formData.requiredDate ? formData.requiredDate.slice(0, 10) : ''} onChange={e => updateField('requiredDate', e.target.value)} />
                         </div>
                         <div className="col-span-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Description</label>
-                            <input className="w-full p-2 border rounded" value={firstItem.description || ''} onChange={e => updateFirstItem('description', e.target.value)} />
-                        </div>
-                        <div className="col-span-2 grid grid-cols-3 gap-3 p-3 bg-slate-50 rounded-md border border-slate-100 mt-2">
-                            <h4 className="col-span-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Specifications</h4>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Thickness</label><input className="w-full p-1.5 text-sm border rounded" value={firstItem.thickness || ''} onChange={e => updateFirstItem('thickness', e.target.value)} /></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Finish</label><input className="w-full p-1.5 text-sm border rounded" value={firstItem.finish || ''} onChange={e => updateFirstItem('finish', e.target.value)} /></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Colour</label><input className="w-full p-1.5 text-sm border rounded" value={firstItem.colour || ''} onChange={e => updateFirstItem('colour', e.target.value)} /></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Type</label><input className="w-full p-1.5 text-sm border rounded" value={firstItem.type || ''} onChange={e => updateFirstItem('type', e.target.value)} /></div>
-                            <div className="col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Size</label><input className="w-full p-1.5 text-sm border rounded" value={firstItem.size || ''} onChange={e => updateFirstItem('size', e.target.value)} /></div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Purpose / Remarks</label>
+                            <textarea rows="2" className="w-full p-2 border rounded" value={formData.purpose || ''} onChange={e => updateField('purpose', e.target.value)} placeholder="Why is this requested?" />
                         </div>
                     </div>
                 );
             case 'grn':
                 if (!formData.items) {
-                    formData.items = [{ itemCode: '', itemName: '', qty: 0, uom: '', mfgDate: '', expDate: '' }];
+                    formData.items = [{ itemCode: '', itemName: '', qty: 0, uom: '', mfgDate: '', expDate: '', costPerUnit: 0, hsn: '', gstRate: 0 }];
                 }
 
                 const addItem = () => {
-                    const newItems = [...formData.items, { itemCode: '', itemName: '', qty: 0, uom: '', mfgDate: '', expDate: '' }];
+                    const newItems = [...formData.items, { itemCode: '', itemName: '', qty: 0, uom: '', mfgDate: '', expDate: '', costPerUnit: 0, hsn: '', gstRate: 0 }];
                     updateField('items', newItems);
                 };
 
@@ -703,32 +1390,76 @@ const InventoryModal = ({ type, item, onClose, onSubmit }) => {
                                             <X size={14} />
                                         </button>
                                     )}
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                        <div className="col-span-2 md:col-span-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Item Name</label>
-                                            <input className="w-full p-2 text-sm border rounded" value={item.itemName || ''} onChange={e => updateItem(index, 'itemName', e.target.value)} />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Item Code</label>
-                                            <input className="w-full p-2 text-sm border rounded" value={item.itemCode || ''} onChange={e => updateItem(index, 'itemCode', e.target.value)} />
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <div className="flex-1">
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Qty</label>
-                                                <input type="number" className="w-full p-2 text-sm border rounded" value={item.qty || ''} onChange={e => updateItem(index, 'qty', e.target.value)} />
+                                    <div className="flex flex-col gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                                            <div className="md:col-span-5">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Select Raw Material Item *</label>
+                                                <select
+                                                    required
+                                                    className="w-full p-2.5 text-xs border rounded-lg bg-white focus:border-blue-500 ring-offset-2 ring-blue-50 focus:ring-2 outline-none transition-all shadow-sm"
+                                                    value={item.itemCode || ''}
+                                                    onChange={e => {
+                                                        const selectedCode = e.target.value;
+                                                        const selectedRM = rawMaterialsList.find(rm => rm.code === selectedCode);
+                                                        if (selectedRM) {
+                                                            const newItems = [...formData.items];
+                                                            newItems[index] = {
+                                                                ...newItems[index],
+                                                                itemCode: selectedRM.code,
+                                                                itemName: selectedRM.name,
+                                                                uom: selectedRM.uom,
+                                                                hsn: selectedRM.hsn || '',
+                                                                gstRate: selectedRM.gstRate || 0
+                                                            };
+                                                            updateField('items', newItems);
+                                                        }
+                                                    }}
+                                                >
+                                                    <option value="">-- Select RM --</option>
+                                                    {rawMaterialsList.map(rm => (
+                                                        <option key={rm._id} value={rm.code}>
+                                                            {rm.name} ({rm.code})
+                                                        </option>
+                                                    ))}
+                                                </select>
                                             </div>
-                                            <div className="w-20">
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">UOM</label>
-                                                <input className="w-full p-2 text-sm border rounded" value={item.uom || ''} onChange={e => updateItem(index, 'uom', e.target.value)} />
+                                            <div className="md:col-span-3">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Batch Code / No</label>
+                                                <input placeholder="BATCH NUMBER" className="w-full p-2.5 text-xs border rounded-lg uppercase bg-slate-50/50 focus:bg-white focus:border-blue-500 outline-none transition-all shadow-sm" value={item.batchCode || ''} onChange={e => updateItem(index, 'batchCode', e.target.value)} />
+                                            </div>
+                                            <div className="md:col-span-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Recv Qty</label>
+                                                <div className="relative">
+                                                    <input required type="number" step="any" placeholder="0.00" className="w-full p-2.5 text-xs border rounded-lg font-bold text-blue-700 bg-white focus:border-blue-500 outline-none transition-all shadow-sm" value={item.qty || ''} onChange={e => updateItem(index, 'qty', parseFloat(e.target.value) || 0)} />
+                                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-300 uppercase">{item.uom || '-'}</div>
+                                                </div>
+                                            </div>
+                                            <div className="md:col-span-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Cost/Unit</label>
+                                                <div className="relative">
+                                                    <input required type="number" step="any" placeholder="0.00" className="w-full p-2.5 text-xs border rounded-lg font-bold text-emerald-700 bg-white focus:border-emerald-500 outline-none transition-all shadow-sm" value={item.costPerUnit || ''} onChange={e => updateItem(index, 'costPerUnit', parseFloat(e.target.value) || 0)} />
+                                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300">₹</div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Mfg Date</label>
-                                            <input type="date" className="w-full p-2 text-sm border rounded" value={item.mfgDate ? item.mfgDate.slice(0, 10) : ''} onChange={e => updateItem(index, 'mfgDate', e.target.value)} />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Exp Date</label>
-                                            <input type="date" className="w-full p-2 text-sm border rounded" value={item.expDate ? item.expDate.slice(0, 10) : ''} onChange={e => updateItem(index, 'expDate', e.target.value)} />
+
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2 border-t border-slate-50">
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Manufacturing Date</label>
+                                                <input type="date" className="w-full p-2.5 text-xs border rounded-lg bg-white focus:border-blue-500 outline-none transition-all shadow-sm" value={item.mfgDate ? item.mfgDate.slice(0, 10) : ''} onChange={e => updateItem(index, 'mfgDate', e.target.value)} />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Expiry / Best Before</label>
+                                                <input type="date" className="w-full p-2.5 text-xs border rounded-lg bg-white focus:border-red-500 outline-none transition-all shadow-sm" value={item.expDate ? item.expDate.slice(0, 10) : ''} onChange={e => updateItem(index, 'expDate', e.target.value)} />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">HSN Code (RM)</label>
+                                                <input readOnly className="w-full p-2.5 text-xs border rounded-lg bg-slate-100 text-slate-500 font-mono" value={item.hsn || 'N/A'} />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">GST Rate (%)</label>
+                                                <input readOnly className="w-full p-2.5 text-xs border rounded-lg bg-slate-100 text-slate-500 font-bold" value={item.gstRate ? `${item.gstRate}%` : '0%'} />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -740,32 +1471,38 @@ const InventoryModal = ({ type, item, onClose, onSubmit }) => {
             case 'wip':
                 return (
                     <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Job No</label><input className="w-full p-2 border rounded" onChange={e => updateField('jobNo', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Part No</label><input className="w-full p-2 border rounded" onChange={e => updateField('partNo', e.target.value)} /></div>
-                        <div className="col-span-2"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Part Name</label><input className="w-full p-2 border rounded" onChange={e => updateField('partName', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Thickness</label><input className="w-full p-2 border rounded" onChange={e => updateField('thickness', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Qty</label><input type="number" className="w-full p-2 border rounded" onChange={e => updateField('qty', e.target.value)} /></div>
+                        <div className="col-span-2"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">WIP Item / Part Name</label><input required className="w-full p-2 border rounded" value={formData.partName || ''} onChange={e => updateField('partName', e.target.value)} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Job No / Batch No</label><input required className="w-full p-2 border rounded bg-blue-50/50" value={formData.jobNo || ''} onChange={e => updateField('jobNo', e.target.value)} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Current Stage</label><input required className="w-full p-2 border rounded" value={formData.currentStage || ''} onChange={e => updateField('currentStage', e.target.value)} placeholder="e.g. Printing, Cutting" /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Quantity</label><input required type="number" className="w-full p-2 border rounded font-bold text-blue-600" value={formData.qty || ''} onChange={e => updateField('qty', parseFloat(e.target.value) || 0)} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">UOM</label><input className="w-full p-2 border rounded" value={formData.uom || ''} onChange={e => updateField('uom', e.target.value)} placeholder="kg, meters, etc" /></div>
                     </div>
                 );
             case 'finished':
                 return (
                     <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Part No</label><input className="w-full p-2 border rounded" onChange={e => updateField('partNo', e.target.value)} /></div>
-                        <div className="col-span-2"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Part Name</label><input className="w-full p-2 border rounded" onChange={e => updateField('partName', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Qty</label><input type="number" className="w-full p-2 border rounded" onChange={e => updateField('qty', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Mfg Date</label><input type="date" className="w-full p-2 border rounded" onChange={e => updateField('mfgDate', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">PO No</label><input className="w-full p-2 border rounded" onChange={e => updateField('poNo', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Invoice No</label><input className="w-full p-2 border rounded" onChange={e => updateField('invoiceNo', e.target.value)} /></div>
+                        <div className="col-span-2"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Finished Part Name</label><input required className="w-full p-2 border rounded" value={formData.partName || ''} onChange={e => updateField('partName', e.target.value)} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Job / PO Number</label><input required className="w-full p-2 border rounded" value={formData.jobNo || ''} onChange={e => updateField('jobNo', e.target.value)} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Batch Code</label><input required className="w-full p-2 border rounded bg-emerald-50/50" value={formData.batchCode || ''} onChange={e => updateField('batchCode', e.target.value)} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Finished Qty</label><input required type="number" className="w-full p-2 border rounded font-black text-emerald-600" value={formData.qty || ''} onChange={e => updateField('qty', parseFloat(e.target.value) || 0)} /></div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">QC Status</label>
+                            <select className="w-full p-2 border rounded font-bold" value={formData.qcStatus || 'OK'} onChange={e => updateField('qcStatus', e.target.value)}>
+                                <option value="OK">OK ✅</option>
+                                <option value="HELD">HELD ⚠️</option>
+                            </select>
+                        </div>
                     </div>
                 );
             case 'rejected':
                 return (
                     <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Part No</label><input className="w-full p-2 border rounded" onChange={e => updateField('partNo', e.target.value)} /></div>
-                        <div className="col-span-2"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Part Name</label><input className="w-full p-2 border rounded" onChange={e => updateField('partName', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Rejected Qty</label><input type="number" className="w-full p-2 border rounded text-red-600 font-bold" onChange={e => updateField('qty', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Mfg Date</label><input type="date" className="w-full p-2 border rounded" onChange={e => updateField('mfgDate', e.target.value)} /></div>
-                        <div className="col-span-2"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Reason for Rejection</label><textarea rows="3" className="w-full p-2 border rounded" onChange={e => updateField('reason', e.target.value)} /></div>
+                        <div className="col-span-2"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Rejected Item Name</label><input required className="w-full p-2 border rounded" value={formData.partName || ''} onChange={e => updateField('partName', e.target.value)} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Job / Step Ref</label><input required className="w-full p-2 border rounded" value={formData.jobNo || ''} onChange={e => updateField('jobNo', e.target.value)} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Employee / Inspector</label><input required className="w-full p-2 border rounded" value={formData.employee || ''} onChange={e => updateField('employee', e.target.value)} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Rejected Qty</label><input required type="number" className="w-full p-2 border rounded text-red-600 font-bold" value={formData.qty || ''} onChange={e => updateField('qty', parseFloat(e.target.value) || 0)} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Rejection Date</label><input type="date" className="w-full p-2 border rounded" value={formData.mfgDate ? formData.mfgDate.slice(0, 10) : ''} onChange={e => updateField('mfgDate', e.target.value)} /></div>
+                        <div className="col-span-2"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Why was it rejected? (Mandatory)</label><textarea required rows="3" className="w-full p-2 border rounded" value={formData.reason || ''} onChange={e => updateField('reason', e.target.value)} /></div>
                     </div>
                 );
             default: return null;
@@ -786,8 +1523,14 @@ const InventoryModal = ({ type, item, onClose, onSubmit }) => {
                     {renderForm()}
                 </form>
                 <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3 justify-end">
-                    <button type="button" onClick={onClose} className="px-6 py-2 border rounded-md hover:bg-white transition text-slate-600 font-medium">Cancel</button>
-                    <button onClick={handleSubmit} className="px-10 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-bold shadow-sm shadow-blue-200">Save {type.replace('-', ' ')}</button>
+                    <button type="button" onClick={onClose} disabled={saving} className="px-6 py-2 border rounded-md hover:bg-white transition text-slate-600 font-medium disabled:opacity-50">Cancel</button>
+                    <button
+                        onClick={handleSubmit}
+                        disabled={saving}
+                        className="px-10 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-bold shadow-sm shadow-blue-200 disabled:bg-slate-400"
+                    >
+                        {saving ? 'Saving...' : `Save ${type.replace(/-/g, ' ')}`}
+                    </button>
                 </div>
             </motion.div>
         </div>

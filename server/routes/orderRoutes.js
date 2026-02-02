@@ -4,6 +4,8 @@ const Order = require('../models/Order');
 const Item = require('../models/Item');
 const JobCard = require('../models/JobCard');
 const Employee = require('../models/Employee');
+const RawMaterial = require('../models/RawMaterial');
+const WIPStock = require('../models/WIPStock');
 const authenticateToken = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permissions');
 const Counter = require('../models/Counter');
@@ -90,7 +92,7 @@ router.get('/tree-view', checkPermission('viewOrders'), async (req, res) => {
             orderId: order._id,
             orderItemId: item._id
           }).populate({
-            path: 'steps.employeeId',
+            path: 'steps.assignedEmployees.employeeId',
             select: 'fullName'
           }).lean();
 
@@ -110,7 +112,13 @@ router.get('/tree-view', checkPermission('viewOrders'), async (req, res) => {
               quantity: j.quantity,
               status: j.status,
               stage: j.stage,
-              steps: j.steps
+              steps: j.steps.map(s => ({
+                ...s,
+                // Map first assigned employee to employeeId for frontend compatibility
+                employeeId: (s.assignedEmployees && s.assignedEmployees.length > 0 && s.assignedEmployees[0].employeeId)
+                  ? s.assignedEmployees[0].employeeId
+                  : null
+              }))
             }))
           });
         }
@@ -221,6 +229,11 @@ router.post('/', checkPermission('createOrders'), async (req, res) => {
           ...step,
           targetStartDate: step.targetStartDate ? new Date(step.targetStartDate) : null,
           targetDeadline: step.targetDeadline ? new Date(step.targetDeadline) : null
+        })),
+        rmRequirements: (item.rmRequirements || []).map(rm => ({
+          ...rm,
+          required: parseFloat(rm.required) || 0,
+          itemCode: rm.itemCode || rm.code || ''
         }))
       };
     });
@@ -237,73 +250,6 @@ router.post('/', checkPermission('createOrders'), async (req, res) => {
     });
 
     const savedOrder = await newOrder.save();
-
-    // Auto-generate Job Cards immediately for New orders too
-    console.log(`🚀 Generatng Job Cards for New Order: ${savedOrder._id}`);
-    for (const orderItem of savedOrder.items) {
-      const jobNumber = await getNextJobNo();
-      const newJobCard = new JobCard({
-        jobNumber,
-        orderId: savedOrder._id,
-        orderItemId: orderItem._id,
-        itemId: orderItem.item,
-        quantity: orderItem.quantity,
-        priority: orderItem.priority,
-        deliveryDate: orderItem.deliveryDate,
-        stage: 'New',
-        stageHistory: [{ stage: 'New', changedAt: new Date(), description: 'Initial Creation' }],
-        status: 'Created',
-        steps: (orderItem.manufacturingSteps || []).map(s => ({
-          stepId: s.id,
-          stepName: s.stepName,
-          employeeId: s.employeeId,
-          targetStartDate: s.targetStartDate,
-          targetDeadline: s.targetDeadline,
-          status: 'pending',
-          subSteps: (s.subSteps || []).map(ss => ({
-            id: ss.id,
-            name: ss.name,
-            description: ss.description,
-            status: 'pending'
-          }))
-        }))
-      });
-
-      const calculatedStage = newJobCard.calculateStage();
-      newJobCard.stage = calculatedStage;
-      if (calculatedStage !== 'New') {
-        newJobCard.stageHistory.push({ stage: calculatedStage, changedAt: new Date(), description: 'Auto-calculated at creation' });
-      }
-
-      const savedJob = await newJobCard.save();
-
-      orderItem.jobBatches.push({
-        jobId: savedJob._id,
-        jobNumber: savedJob.jobNumber,
-        batchQty: savedJob.quantity,
-        status: 'Pending'
-      });
-
-      if (newJobCard.steps) {
-        for (const step of newJobCard.steps) {
-          if (step.employeeId) {
-            await Employee.findByIdAndUpdate(step.employeeId, {
-              $push: {
-                currentAssignments: {
-                  orderId: savedOrder._id,
-                  processName: step.stepName,
-                  assignedAt: new Date()
-                }
-              },
-              $set: { calculatedStatus: 'Busy' }
-            });
-          }
-        }
-      }
-    }
-
-    await savedOrder.save();
-    await savedOrder.populate('items.item', 'name code unit salePrice');
 
     res.status(201).json({
       message: 'Order created successfully',
@@ -357,6 +303,11 @@ router.put('/:id', checkPermission('editOrders'), async (req, res) => {
           ...step,
           targetStartDate: step.targetStartDate ? new Date(step.targetStartDate) : null,
           targetDeadline: step.targetDeadline ? new Date(step.targetDeadline) : null
+        })),
+        rmRequirements: (item.rmRequirements || []).map(rm => ({
+          ...rm,
+          required: parseFloat(rm.required) || 0,
+          itemCode: rm.itemCode || rm.code || ''
         }))
       }));
     }
@@ -410,71 +361,9 @@ router.patch('/:id/status', checkPermission('editOrders'), async (req, res) => {
     const oldStatus = order.status;
     order.status = status;
 
-    // Trigger Job Card generation if status moved to 'Confirmed' or 'Processing'
-    // This allows production planning to start as soon as the order is confirmed
-    if ((status === 'Confirmed' || status === 'Processing') && !order.items.some(i => i.jobBatches && i.jobBatches.length > 0)) {
-      console.log(`🚀 Generating Job Cards for Order: ${order._id} (Status: ${status})`);
-
-      for (const orderItem of order.items) {
-        // Skip if job card already exists for this item (simplified check)
-        if (orderItem.jobBatches && orderItem.jobBatches.length > 0) continue;
-
-        const jobNumber = await getNextJobNo();
-
-        const newJobCard = new JobCard({
-          jobNumber,
-          orderId: order._id,
-          orderItemId: orderItem._id,
-          itemId: orderItem.item,
-          quantity: orderItem.quantity,
-          priority: orderItem.priority,
-          deliveryDate: orderItem.deliveryDate,
-          steps: orderItem.manufacturingSteps.map(s => ({
-            stepId: s.id,
-            stepName: s.stepName,
-            employeeId: s.employeeId,
-            targetStartDate: s.targetStartDate,
-            targetDeadline: s.targetDeadline,
-            status: 'pending',
-            subSteps: (s.subSteps || []).map(ss => ({
-              id: ss.id,
-              name: ss.name,
-              description: ss.description,
-              status: 'pending'
-            }))
-          }))
-        });
-
-        const savedJob = await newJobCard.save();
-
-        // Sync with Employee model for each assigned step
-        for (const step of orderItem.manufacturingSteps) {
-          if (step.employeeId) {
-            try {
-              await Employee.findByIdAndUpdate(step.employeeId, {
-                $push: {
-                  currentAssignments: {
-                    orderId: order._id,
-                    processName: step.stepName,
-                    assignedAt: new Date()
-                  }
-                },
-                $set: { calculatedStatus: 'Busy' }
-              });
-              console.log(`✅ Synced assignment for Employee: ${step.employeeId}`);
-            } catch (empErr) {
-              console.error(`❌ Failed to sync assignment for Employee ${step.employeeId}:`, empErr);
-            }
-          }
-        }
-
-        orderItem.jobBatches.push({
-          jobId: savedJob._id,
-          jobNumber: savedJob.jobNumber,
-          batchQty: savedJob.quantity,
-          status: 'Pending'
-        });
-      }
+    // Automatic stage transition when pushing to production
+    if (status === 'Processing' && order.orderStage === 'New') {
+      order.orderStage = 'Processing';
     }
 
     await order.save();
@@ -563,44 +452,151 @@ router.patch('/:id/items/:itemId/qc', checkPermission('editOrders'), async (req,
   }
 });
 
-// Split Batch / Partial Manufacturing API
-router.post('/:id/items/:itemId/split-batch', checkPermission('editOrders'), async (req, res) => {
+// Plan Production / Create Job Card API
+router.post('/:id/items/:itemId/plan-production', checkPermission('editOrders'), async (req, res) => {
   try {
-    const { splitQty } = req.body;
+    console.log('--- PLAN PRODUCTION REQUEST ---');
+    console.log('Params:', req.params);
+    console.log('Body:', req.body);
+
+    const { batchQty, extraQty, customSteps } = req.body;
     const order = await Order.findById(req.params.id);
     const item = order.items.id(req.params.itemId);
 
-    if (!item) return res.status(404).json({ message: 'Item not found' });
-
-    const totalOrdered = item.quantity;
-    const currentBatched = (item.jobBatches || []).reduce((sum, b) => sum + (b.batchQty || 0), 0);
-    const remaining = totalOrdered - currentBatched;
-
-    if (splitQty > remaining) {
-      return res.status(400).json({ message: `Split quantity (${splitQty}) exceeds remaining quantity (${remaining})` });
+    if (!item) {
+      console.error('❌ Item not found in order');
+      return res.status(404).json({ message: 'Item not found' });
     }
 
-    // Create new Job Card for the split batch
+    const totalOrdered = item.quantity;
+    const currentPlanned = (item.jobBatches || []).reduce((sum, b) => sum + (b.batchQty || 0), 0);
+    const remaining = totalOrdered - currentPlanned;
+
+    console.log(`📊 Qty Check: Batch=${batchQty}, Extra=${extraQty}, Total=${totalOrdered}, Planned=${currentPlanned}, Remaining=${remaining}`);
+
+    const qty = Number(batchQty);
+    const extra = Number(extraQty) || 0;
+
+    if (isNaN(qty) || qty <= 0) {
+      console.error('❌ Invalid Batch Qty:', batchQty);
+      return res.status(400).json({ message: 'Batch quantity must be greater than 0' });
+    }
+
+    if (qty > remaining) {
+      console.error(`❌ Batch Qty Exceeds Remaining: ${qty} > ${remaining}`);
+      return res.status(400).json({ message: `Batch quantity (${qty}) exceeds remaining quantity (${remaining})` });
+    }
+
+    // 1. Production Mode Validation
+    if (item.productionMode === 'hold') {
+      return res.status(400).json({ message: 'Production for this item is currently ON HOLD due to raw material shortage.' });
+    }
+
+    // Generate Job Number only at this stage
     const jobNumber = await getNextJobNo();
+
+    // 2. Determine steps & Append Mandatory FQC
+    const stepsToUse = (customSteps && customSteps.length > 0) ? [...customSteps] : [...(item.manufacturingSteps || [])];
+
+    // Fetch master item to get actual FQC config
+    const masterItem = await Item.findById(item.item);
+    if (masterItem && masterItem.finalQualityCheck?.length > 0) {
+      // Auto-add FQC Step if not already present
+      const hasFQC = stepsToUse.some(s => s.stepName?.toLowerCase().includes('qc') || s.stepType === 'testing');
+      if (!hasFQC || true) { // Requirement says "Automatically add +1 FQC step"
+        stepsToUse.push({
+          id: stepsToUse.length + 1,
+          stepName: 'Final Quality Check',
+          description: 'System mandatory final inspection',
+          stepType: 'testing',
+          timeToComplete: '1h',
+          isMandatoryFQC: true // Flag to identify it
+        });
+      }
+    }
+
+    // Validate that we have at least one step
+    if (!stepsToUse || stepsToUse.length === 0) {
+      console.error('❌ No manufacturing steps defined for item');
+      return res.status(400).json({ message: 'No manufacturing steps defined. Please add steps to the order item first.' });
+    }
+
     const newJobCard = new JobCard({
       jobNumber,
       orderId: order._id,
       orderItemId: item._id,
       itemId: item.item,
-      quantity: splitQty,
+      quantity: qty + extra, // Total quantity for the job
+      extraQty: extra, // Track explicitly how much was extra
       priority: item.priority,
       deliveryDate: item.deliveryDate,
-      steps: (item.manufacturingSteps || []).map(s => ({
-        stepId: s.id,
+      status: 'Created',
+      stage: 'Assigned',
+      // Store RM snapshot for this batch (base + extra)
+      rmRequirements: (() => {
+        if (item.rmRequirements && item.rmRequirements.length > 0) {
+          return item.rmRequirements.map(rm => ({
+            ...rm,
+            itemCode: rm.itemCode || rm.code || '',
+            required: (rm.required / item.quantity) * (qty + extra)
+          }));
+        } else if (masterItem && masterItem.rawMaterials && masterItem.rawMaterials.length > 0) {
+          console.log('[PlanProduction] Using Master BOM Fallback for RM requirements');
+          return masterItem.rawMaterials.map(rm => ({
+            itemCode: rm.itemCode,
+            name: rm.materialName,
+            uom: rm.unit,
+            required: (rm.consumptionPerUnit || 0) * (qty + extra)
+          }));
+        }
+        return [];
+      })(),
+      requiredSamples: masterItem?.finalQualityCheckSampleSize || 1,
+      fqcParameters: (masterItem?.finalQualityCheck || []).map(p => ({
+        parameterName: p.parameter,
+        notation: p.notation,
+        tolerance: p.tolerance,
+        valueType: p.valueType,
+        standardValue: p.standardValue,
+        samples: Array.from({ length: masterItem.finalQualityCheckSampleSize || 1 }, (_, i) => ({
+          sampleNumber: i + 1,
+          reading: ''
+        }))
+      })),
+      steps: stepsToUse.map(s => ({
+        stepId: s.id || s.stepId,
         stepName: s.stepName,
-        employeeId: s.employeeId,
-        status: 'pending'
+        description: s.description,
+        stepType: s.stepType === 'testing' ? 'testing' : (s.stepType || 'execution'),
+        // Support for new assignment logic
+        assignedEmployees: (s.assignedEmployees || []).map(ae => ({
+          employeeId: ae.employeeId,
+          assignedAt: ae.assignedAt || new Date()
+        })).concat((s.employeeId && s.employeeId !== '' && (!s.assignedEmployees || s.assignedEmployees.length === 0)) ? [{ employeeId: s.employeeId, assignedAt: new Date() }] : []),
+        isOpenJob: !!s.isOpenJob,
+        isOutward: !!s.isOutward,
+        outwardDetails: s.outwardDetails || {},
+        quantities: {
+          received: 0,
+          processed: 0,
+          rejected: 0
+        },
+        status: 'pending',
+        timeToComplete: s.timeToComplete,
+        targetStartDate: s.targetStartDate ? new Date(s.targetStartDate) : null,
+        targetDeadline: s.targetDeadline ? new Date(s.targetDeadline) : null,
+        subSteps: (s.subSteps || []).map(ss => ({
+          id: ss.id,
+          name: ss.name,
+          description: ss.description,
+          status: 'pending'
+        }))
       }))
     });
 
     const savedJob = await newJobCard.save();
 
-    // Add to item jobBatches
+    // Add to item jobBatches and update plannedQty
     item.jobBatches.push({
       jobId: savedJob._id,
       jobNumber: savedJob.jobNumber,
@@ -608,9 +604,108 @@ router.post('/:id/items/:itemId/split-batch', checkPermission('editOrders'), asy
       status: 'Pending'
     });
 
+    item.plannedQty = (item.plannedQty || 0) + batchQty;
+
+    // Sync assignments to employees (Handling multiple employees per step)
+    for (const step of newJobCard.steps) {
+      if (step.assignedEmployees && step.assignedEmployees.length > 0) {
+        for (const assignment of step.assignedEmployees) {
+          await Employee.findByIdAndUpdate(assignment.employeeId, {
+            $push: {
+              currentAssignments: {
+                orderId: order._id,
+                jobCardId: savedJob._id, // Note: Added to Employee model if missing, or ignored if not in schema
+                processName: step.stepName,
+                assignedAt: new Date()
+              }
+            },
+            $set: { calculatedStatus: 'Busy' }
+          });
+        }
+
+      }
+    }
+
+    // --- AUTOMATIC RM DEDUCTION & WIP CREATION ---
+    try {
+      // 1. Deduct Raw Material
+      const rmReqs = savedJob.rmRequirements || [];
+      const rmUsageLog = [];
+
+      console.log(`\n========== RM DEDUCTION START for Job ${savedJob.jobNumber} ==========`);
+      console.log(`Total RM Requirements: ${rmReqs.length}`);
+
+      for (const rm of rmReqs) {
+        console.log(`\n--- Processing RM: ${rm.name} ---`);
+        console.log(`  Code: ${rm.itemCode || rm.code || 'N/A'}`);
+        console.log(`  Required Qty: ${rm.required} ${rm.uom || ''}`);
+
+        if (rm.required > 0) {
+          // Robust Deduction Logic: Try exact Code match first, then Name
+          let deduced = await RawMaterial.findOneAndUpdate(
+            { code: rm.itemCode || rm.code },
+            { $inc: { qty: -rm.required } },
+            { new: true }
+          );
+
+          if (!deduced && rm.name) {
+            // Fallback: Try by Name if Code failed
+            console.log(`  ⚠️  Code match failed, trying by Name: "${rm.name}"`);
+            deduced = await RawMaterial.findOneAndUpdate(
+              { name: rm.name },
+              { $inc: { qty: -rm.required } },
+              { new: true }
+            );
+          }
+
+          if (deduced) {
+            rmUsageLog.push(`${rm.required} ${rm.uom || ''} (${deduced.code})`);
+            console.log(`  ✅ SUCCESS: Deducted ${rm.required} ${deduced.uom} of '${deduced.name}' (Code: ${deduced.code})`);
+            console.log(`  📊 New Stock Level: ${deduced.qty} ${deduced.uom}`);
+          } else {
+            console.error(`  ❌ FAILED: Material not found in RawMaterial collection`);
+            console.error(`     Searched by Code: "${rm.itemCode || rm.code}" and Name: "${rm.name}"`);
+            rmUsageLog.push(`FAILED: ${rm.name}`);
+          }
+        } else {
+          console.log(`  ⏭️  Skipped (required qty is 0)`);
+        }
+      }
+
+      console.log(`\n========== RM DEDUCTION END ==========\n`);
+
+      // 2. Create WIP Entry (Initial Stock)
+      await WIPStock.create({
+        jobNo: savedJob.jobNumber,
+        partNo: masterItem?.code || 'Unknown',
+        partName: masterItem?.name || 'Unknown Part',
+        qty: savedJob.quantity,
+        initialQty: savedJob.quantity, // Set initial quantity same as starting batch size
+        uom: masterItem?.uom || 'Unit',
+        currentStage: savedJob.steps[0]?.stepName || 'Planning',
+        status: 'In Progress',
+        batchCode: savedJob.jobNumber,
+        rmConsumed: rmUsageLog.join(', ') || 'None' // Save RM details
+      });
+      console.log(`[JobCreation] Created WIP Entry for Job ${savedJob.jobNumber}`);
+
+    } catch (metricErr) {
+      console.error('Error processing metrics (RM/WIP) during job creation:', metricErr);
+    }
+
+    // Update order stage if it was New/Confirmed
+    if (order.orderStage === 'New' || order.orderStage === 'Confirmed') {
+      order.orderStage = 'Processing';
+    }
+
     await order.save();
-    res.json({ message: 'Batch split successfully', order });
+    res.json({
+      message: 'Production planned and Job Card generated successfully',
+      order,
+      jobCard: savedJob
+    });
   } catch (err) {
+    console.error('Plan production error:', err);
     res.status(500).json({ message: err.message });
   }
 });

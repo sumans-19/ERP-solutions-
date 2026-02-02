@@ -25,6 +25,7 @@ const employeeSchema = new mongoose.Schema({
     // Work tracking
     currentAssignments: [{
         orderId: String,
+        jobCardId: { type: mongoose.Schema.Types.ObjectId, ref: 'JobCard' },
         processName: String,
         assignedAt: Date
     }],

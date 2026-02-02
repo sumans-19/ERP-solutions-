@@ -44,6 +44,7 @@ app.use('/api/todos', require('./routes/todoRoutes'));
 app.use('/api/role-permissions', require('./routes/rolePermissionRoutes'));
 app.use('/api/bulletins', require('./routes/bulletinRoutes'));
 app.use('/api/job-cards', require('./routes/jobCardRoutes'));
+app.use('/api/production-execution', require('./routes/productionExecutionRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/calendar', require('./routes/calendarRoutes'));
 app.use('/api/tasks', require('./routes/taskRoutes'));

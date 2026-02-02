@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit2, Trash2, Calendar, Package, ShoppingCart, User, ChevronDown, Settings, X, Layers, List, Search, Filter, ArrowUpRight, Ban, CheckCircle2, CheckCircle, Activity, PlayCircle } from 'lucide-react';
-import { getAllItems, getAllOrders, createOrder, updateOrder, deleteOrder, updateOrderStatus, getAllParties, getEmployees } from '../services/api';
+import { Plus, Edit2, Trash2, Calendar, Package, ShoppingCart, User, ChevronDown, Settings, X, Layers, List, Search, Filter, ArrowUpRight, Ban, CheckCircle2, CheckCircle, Activity, PlayCircle, FileText } from 'lucide-react';
+import { getAllItems, getAllOrders, createOrder, updateOrder, deleteOrder, updateOrderStatus, getAllParties, getEmployees, getRawMaterials } from '../services/api';
 import axios from 'axios';
 import OrderTreeView from './Orders/OrderTreeView';
 import OrderStageGate from './Orders/OrderStageGate';
@@ -27,6 +27,7 @@ export default function Orders() {
   const [items, setItems] = useState([]);
   const [parties, setParties] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [rawMaterialsMap, setRawMaterialsMap] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
@@ -36,6 +37,7 @@ export default function Orders() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [stageUpdating, setStageUpdating] = useState(null);
+  const [productionConfirmOrder, setProductionConfirmOrder] = useState(null);
 
   // Form states
   const [partyName, setPartyName] = useState('');
@@ -45,25 +47,30 @@ export default function Orders() {
   const [itemRows, setItemRows] = useState([createNewItemRow()]);
   const [notes, setNotes] = useState('');
 
+  const fetchData = async () => {
+    try {
+      const [itemsRes, ordersRes, partiesRes, employeesRes, rmRes] = await Promise.all([
+        getAllItems(),
+        getAllOrders(),
+        getAllParties(),
+        getEmployees(),
+        getRawMaterials()
+      ]);
+      setItems(Array.isArray(itemsRes) ? itemsRes : itemsRes.data || []);
+      setOrders(Array.isArray(ordersRes) ? ordersRes : ordersRes.data || []);
+      setParties(Array.isArray(partiesRes) ? partiesRes : partiesRes.data || []);
+      setEmployees(Array.isArray(employeesRes) ? employeesRes : employeesRes.data || []);
+      setRawMaterialsMap(Array.isArray(rmRes) ? rmRes : rmRes.data || []);
+      return { items: Array.isArray(itemsRes) ? itemsRes : itemsRes.data || [] };
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('Failed to load data');
+      return { items: [] };
+    }
+  };
+
   // Fetch items, orders and parties
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [itemsRes, ordersRes, partiesRes, employeesRes] = await Promise.all([
-          getAllItems(),
-          getAllOrders(),
-          getAllParties(),
-          getEmployees()
-        ]);
-        setItems(Array.isArray(itemsRes) ? itemsRes : itemsRes.data || []);
-        setOrders(Array.isArray(ordersRes) ? ordersRes : ordersRes.data || []);
-        setParties(Array.isArray(partiesRes) ? partiesRes : partiesRes.data || []);
-        setEmployees(Array.isArray(employeesRes) ? employeesRes : employeesRes.data || []);
-      } catch (err) {
-        console.error('Error loading data:', err);
-        setError('Failed to load data');
-      }
-    };
     fetchData();
   }, []);
 
@@ -72,23 +79,52 @@ export default function Orders() {
     const row = newRows[index];
     row[field] = value;
 
-    if (field === 'item') {
-      let selectedItem = items.find(i => i._id === value);
+    if (field === 'item' || field === 'quantity') {
+      let selectedItem = items.find(i => i._id === (field === 'item' ? value : row.item));
       if (!selectedItem) {
-        selectedItem = items.find(i => i.name?.toLowerCase() === String(value).toLowerCase());
+        selectedItem = items.find(i => i.name?.toLowerCase() === String(field === 'item' ? value : row.itemName).toLowerCase());
       }
+
       if (selectedItem) {
-        row.item = selectedItem._id;
-        row.itemName = selectedItem.name;
-        row.unit = selectedItem.unit || 'NONE';
-        row.rate = parseFloat(selectedItem.salePrice) || 0;
-        row.manufacturingSteps = selectedItem.processes || [];
-        row.currentStock = selectedItem.currentStock || 0;
-      } else {
+        if (field === 'item') {
+          row.item = selectedItem._id;
+          row.itemName = selectedItem.name;
+          row.unit = selectedItem.unit || 'NONE';
+          row.rate = parseFloat(selectedItem.salePrice) || 0;
+          row.manufacturingSteps = selectedItem.processes || [];
+          row.currentStock = selectedItem.currentStock || 0;
+        }
+
+        // Calculate Raw Material Requirements
+        const qty = field === 'quantity' ? parseFloat(value) : parseFloat(row.quantity);
+        row.rmRequirements = (selectedItem.rawMaterials || []).map(rm => {
+          // Find live stock from RawMaterials collection
+          const liveRM = rawMaterialsMap.find(r =>
+            (r.code && r.code?.trim() === rm.itemCode?.trim()) ||
+            (r.name && r.name?.trim().toLowerCase() === rm.materialName?.trim().toLowerCase()) ||
+            (r.name && r.name?.trim().toLowerCase() === rm.name?.trim().toLowerCase())
+          );
+
+          const consumption = parseFloat(rm.consumptionPerUnit) || parseFloat(rm.quantity) || 0;
+          const required = consumption * (qty || 0);
+
+          // Use live stock if found, otherwise fallback (safer 0 check)
+          const available = liveRM ? (liveRM.qty || 0) : 0;
+
+          return {
+            name: rm.materialName || rm.name,
+            required,
+            available,
+            shortage: Math.max(0, required - available),
+            unit: liveRM ? liveRM.uom : (rm.unit || 'Units')
+          };
+        });
+      } else if (field === 'item') {
         row.item = null;
         row.itemName = value;
         row.manufacturingSteps = [];
         row.currentStock = 0;
+        row.rmRequirements = [];
       }
     }
 
@@ -143,6 +179,8 @@ export default function Orders() {
           amount: parseFloat(r.amount) || 0,
           deliveryDate: r.deliveryDate,
           priority: r.priority || 'Normal',
+          productionMode: r.productionMode || 'normal',
+          rmRequirements: r.rmRequirements || [],
           manufacturingSteps: (r.manufacturingSteps || []).map(s => ({
             ...s,
             employeeId: s.employeeId || null
@@ -226,7 +264,11 @@ export default function Orders() {
     });
   }, [orders, searchTerm, statusFilter]);
 
-  const handleEditOrder = (order) => {
+  const handleEditOrder = async (order) => {
+    // Refresh data before editing to get latest stock levels
+    const { items: freshItems } = await fetchData();
+    const currentItems = freshItems || items;
+
     setEditingOrderId(order._id);
     setPartyName(order.partyName);
     setPoNumber(order.poNumber);
@@ -321,6 +363,7 @@ export default function Orders() {
             <button
               onClick={() => {
                 handleCancel();
+                // Instant switch - data is already loaded on mount
                 setActiveView('create');
               }}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 shadow-sm border border-blue-600 font-bold text-xs uppercase tracking-wide"
@@ -496,11 +539,71 @@ export default function Orders() {
                     </tr>
                     {row.item && (
                       <tr className="bg-slate-50/50">
-                        <td colSpan="10" className="px-3 py-1.5 text-[10px] border-t border-slate-100">
-                          <div className="flex items-center gap-4">
-                            <span className="text-slate-500 uppercase font-semibold">Stock Available: <span className="text-slate-900">{row.currentStock || 0} {row.unit}</span></span>
-                            {row.currentStock < row.quantity && (
-                              <span className="text-orange-600 font-bold flex items-center gap-1">⚠️ SHORTFALL</span>
+                        <td colSpan="10" className="px-6 py-4 border-t border-slate-100">
+                          <div className="space-y-3">
+                            {/* Finished Good Stock */}
+                            <div className="flex items-center gap-4 text-xs">
+                              <span className="text-slate-500 uppercase font-black tracking-widest">FG Stock:</span>
+                              <span className="text-slate-900 font-bold">{row.currentStock || 0} {row.unit}</span>
+                              {row.currentStock < row.quantity && (
+                                <span className="text-orange-600 font-black flex items-center gap-1">⚠️ FG SHORTFALL</span>
+                              )}
+                            </div>
+
+                            {/* Raw Materials Breakdown */}
+                            {row.rmRequirements?.length > 0 && (
+                              <div className="bg-white p-4 rounded-md border border-slate-200 shadow-sm">
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Raw Material Analysis</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                  {row.rmRequirements.map((rm, rmIdx) => (
+                                    <div key={rmIdx} className={`p-3 rounded border ${rm.shortage > 0 ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-100'}`}>
+                                      <div className="flex justify-between items-start mb-2">
+                                        <span className="font-bold text-slate-800 text-xs">{rm.name}</span>
+                                        {rm.shortage > 0 ? (
+                                          <span className="text-[10px] font-black text-red-600 uppercase tracking-tight">🔴 Shortage</span>
+                                        ) : (
+                                          <span className="text-[10px] font-black text-emerald-600 uppercase tracking-tight">✓ Available</span>
+                                        )}
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-500 uppercase">
+                                        <div>Required: <span className="text-slate-900">{rm.required.toFixed(2)} {rm.unit}</span></div>
+                                        <div>In Stock: <span className="text-slate-900">{rm.available.toFixed(2)} {rm.unit}</span></div>
+                                      </div>
+                                      {rm.shortage > 0 && (
+                                        <div className="mt-2 pt-2 border-t border-red-100 text-[10px] font-black text-red-700">
+                                          🔴 INSUFFICIENT RAW MATERIAL: SHORT BY {(rm.shortage).toFixed(2)} {rm.unit}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Partial Production Options */}
+                                {row.rmRequirements.some(rm => rm.shortage > 0) && (
+                                  <div className="mt-4 p-3 bg-indigo-50 border border-indigo-100 rounded-md flex flex-col md:flex-row items-center justify-between gap-4">
+                                    <div className="text-xs">
+                                      <p className="text-indigo-900 font-bold mb-1 uppercase tracking-tight">Shortage detected. How would you like to proceed?</p>
+                                      <p className="text-indigo-600 font-medium">Max producible based on current stock: <span className="font-bold text-indigo-900">
+                                        {Math.floor(Math.min(...row.rmRequirements.map(rm => rm.required > 0 ? (rm.available / (rm.required / row.quantity)) : 999999)))} units
+                                      </span></p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => handleItemRowChange(index, 'productionMode', 'partial')}
+                                        className={`px-4 py-2 rounded font-bold text-[10px] uppercase tracking-wider transition-all border ${row.productionMode === 'partial' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                                      >
+                                        Produce with Available Material
+                                      </button>
+                                      <button
+                                        onClick={() => handleItemRowChange(index, 'productionMode', 'hold')}
+                                        className={`px-4 py-2 rounded font-bold text-[10px] uppercase tracking-wider transition-all border ${row.productionMode === 'hold' ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-orange-600 border-orange-200 hover:bg-orange-50'}`}
+                                      >
+                                        Hold Until Material Available
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </div>
                         </td>
@@ -603,136 +706,168 @@ export default function Orders() {
           </div>
 
           {filteredOrders.length === 0 ? (
-            <div className="bg-white rounded-md shadow-sm p-16 text-center border border-dashed border-slate-300">
-              <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ShoppingCart size={24} className="text-slate-400" />
+            <div className="bg-white rounded-xl shadow-sm p-16 text-center border border-dashed border-slate-300">
+              <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-300">
+                <ShoppingCart size={32} />
               </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-1">No orders found</h3>
-              <p className="text-slate-500 mb-6 text-sm">Try adjusting your filters or create a new order.</p>
+              <h3 className="text-xl font-extrabold text-slate-800 mb-2 tracking-tight">No orders found</h3>
+              <p className="text-slate-500 mb-8 text-sm font-medium">Try adjusting your filters or create a new order to get started.</p>
+              <button
+                onClick={() => setActiveView('create')}
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-500/20 text-xs uppercase tracking-widest"
+              >
+                Create First Order
+              </button>
             </div>
           ) : (
-            filteredOrders.map(order => (
-              <div key={order._id} className="bg-white rounded-md shadow-sm border border-slate-200 hover:border-blue-300 transition-colors overflow-hidden flex flex-col md:flex-row mb-3 group">
-                <div className="p-5 flex-1 select-none">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-4">
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Customer</span>
-                      <span className="font-bold text-slate-800 block truncate text-sm">{order.partyName}</span>
+            <div className="space-y-6">
+              {filteredOrders.map(order => (
+                <div key={order._id} className="bg-white rounded-xl shadow-md shadow-slate-200/50 border border-slate-200 hover:border-blue-400 hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-300 group relative hover:z-20">
+                  {/* Accent Glow Wrapper to allow clipping without overflow-hidden on parent */}
+                  <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
+                    <div className={`absolute top-0 right-0 w-48 h-48 -mr-24 -mt-24 rounded-full blur-[80px] opacity-0 group-hover:opacity-20 transition-opacity duration-700 ${order.orderStage === 'OnHold' ? 'bg-rose-500' : 'bg-blue-500'}`}></div>
+                  </div>
+
+                  <div className="p-0 relative z-10">
+                    <div className="p-6 md:p-8">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+                        {/* Identity & Status */}
+                        <div className="flex-1 min-w-[300px]">
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3 className="font-extrabold text-slate-900 group-hover:text-blue-600 transition-colors text-xl tracking-tighter">{order.partyName}</h3>
+                            <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${order.orderStage === 'New' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                              order.orderStage === 'Processing' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                order.orderStage === 'FQC' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                  order.orderStage === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                    order.orderStage === 'OnHold' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                                      'bg-slate-50 text-slate-600 border-slate-200'
+                              }`}>
+                              {order.orderStage || 'New'}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-6">
+                            <div className="flex items-center gap-2 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">
+                              <FileText size={14} className="text-slate-400" />
+                              <span className="font-mono text-xs font-bold text-slate-600">{order.poNumber || 'PO: NOT SET'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-slate-500 font-bold text-[11px] uppercase tracking-wider">
+                              <Calendar size={14} className="text-slate-400" />
+                              {formatDate(order.poDate)}
+                            </div>
+                            <div className="flex items-center gap-2 text-blue-600 font-black text-[11px] uppercase tracking-wider">
+                              <Package size={14} className="text-blue-400" />
+                              {order.items?.length || 0} POSITIONS
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Value & Summary */}
+                        <div className="flex items-center gap-12 justify-between lg:justify-end min-w-[250px]">
+                          <div className="text-right">
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ">Order value</div>
+                            <div className="text-2xl font-black text-slate-900 font-mono tracking-tighter">
+                              ₹{parseFloat(order.totalAmount || 0).toLocaleString('en-IN')}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Quantity</div>
+                            <div className="text-2xl font-black text-blue-600 font-mono tracking-tighter">
+                              {order.totalQty || 0}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {order.orderStage === 'OnHold' && (
+                        <div className="mt-6 p-3 bg-rose-50 border border-rose-100 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                          <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+                            <Ban size={16} />
+                          </div>
+                          <div className="text-xs">
+                            <span className="font-black text-rose-800 uppercase tracking-tight block">Order Put On Hold</span>
+                            <span className="text-rose-600 font-bold">{order.holdReason}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">PO Number</span>
-                      <span className="font-mono text-slate-600 block truncate text-sm">{order.poNumber || 'NOT SET'}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Amount</span>
-                      <span className="font-bold text-slate-800 block font-mono text-sm">₹{parseFloat(order.totalAmount || 0).toLocaleString('en-IN')}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Workflow Stage</span>
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${order.orderStage === 'New' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                          order.orderStage === 'Processing' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                            order.orderStage === 'FQC' ? 'bg-purple-50 text-purple-600 border-purple-100' :
-                              order.orderStage === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                order.orderStage === 'OnHold' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                                  'bg-slate-50 text-slate-600 border-slate-100'
-                          }`}>
-                          {order.orderStage || 'New'}
-                        </span>
-                        {order.orderStage === 'OnHold' && (
-                          <span className="text-[10px] text-rose-400 italic font-medium truncate max-w-[100px]" title={order.holdReason}>
-                            ({order.holdReason})
-                          </span>
+
+                    {/* Footer Action Bar - Integrated Design to prevent stacking */}
+                    <div className="px-6 py-5 bg-slate-50/80 backdrop-blur-sm border-t border-slate-100 flex flex-wrap items-center justify-between gap-6 group-hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="flex -space-x-3">
+                          {[1, 2, 3].map(i => (
+                            <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center text-[8px] font-black text-slate-500 shadow-sm">U{i}</div>
+                          ))}
+                        </div>
+                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Modified {new Date(order.updatedAt).toLocaleDateString()}</span>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {canEdit('orders') && (
+                          <button onClick={() => handleEditOrder(order)} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-lg text-[11px] font-black text-slate-700 hover:text-blue-600 hover:border-blue-300 hover:shadow-lg transition-all uppercase tracking-widest">
+                            <Edit2 size={14} />
+                            <span>Quick Edit</span>
+                          </button>
+                        )}
+
+                        {(order.status === 'New' || order.status === 'Confirmed') && canEdit('orders') && (
+                          <button
+                            onClick={async () => {
+                              if (window.confirm('Move this order to Production? It will then be available in the Production Planning stage.')) {
+                                try {
+                                  setOrders(prev => prev.map(o => o._id === order._id ? { ...o, status: 'Processing', orderStage: 'Processing' } : o));
+                                  await updateOrderStatus(order._id, 'Processing');
+                                  setMessage('Order moved to Production Planning!');
+                                  getAllOrders().then(res => setOrders(Array.isArray(res) ? res : res.data || []));
+                                } catch (err) {
+                                  setError('Failed to update status');
+                                  fetchData();
+                                }
+                              }
+                            }}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white border border-transparent rounded-lg text-[11px] font-black hover:bg-blue-700 shadow-md shadow-blue-500/20 transition-all uppercase tracking-widest"
+                          >
+                            <PlayCircle size={14} />
+                            <span>Start Production</span>
+                          </button>
+                        )}
+
+                        <div className="relative group/stage">
+                          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black text-slate-600 hover:text-indigo-600 hover:border-indigo-300 transition-all uppercase tracking-widest">
+                            <ArrowUpRight size={14} />
+                            <span>Stage</span>
+                          </button>
+                          <div className="invisible group-hover/stage:visible absolute top-full right-0 mt-2 bg-white shadow-2xl border border-slate-200 rounded-xl p-2 z-[100] flex flex-col min-w-[200px] animate-in slide-in-from-top-2 fade-in duration-300 ring-4 ring-slate-100/50">
+                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-3 py-2 border-b border-slate-100 mb-1">Workflow Pipeline</div>
+                            <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+                              {['New', 'Mapped', 'Assigned', 'Processing', 'MFGCompleted', 'FQC', 'Documentation', 'Packing', 'Dispatch', 'Completed'].map(s => (
+                                <button
+                                  key={s}
+                                  onClick={() => handleUpdateStage(order._id, s)}
+                                  className={`w-full text-left px-3 py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-slate-50 transition-all ${order.orderStage === s ? 'text-blue-600 bg-blue-50 shadow-inner' : 'text-slate-600'}`}
+                                >
+                                  {s}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {canDelete('orders') && (
+                          <button onClick={() => handleDeleteOrder(order._id)} className="p-2.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all border border-transparent hover:border-rose-100">
+                            <Trash2 size={18} />
+                          </button>
                         )}
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-4 text-[10px] font-bold text-slate-500 border-t border-slate-50 pt-3 mt-1">
-                    <div className="flex items-center gap-1.5"><Calendar size={12} /> {formatDate(order.poDate)}</div>
-                    <div className="flex items-center gap-1.5"><Package size={12} /> {order.items?.length || 0} ITEMS</div>
-                    <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded"><Plus size={10} /> {order.totalQty || 0} QTY</div>
-                  </div>
                 </div>
-                <div className="bg-slate-50 p-4 md:w-32 flex md:flex-col justify-center gap-2 border-t md:border-t-0 md:border-l border-slate-100">
-                  {canEdit('orders') && (
-                    <button onClick={() => handleEditOrder(order)} className="flex-1 p-1.5 bg-white border border-slate-200 rounded-md hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all flex items-center justify-center">
-                      <Edit2 size={14} />
-                    </button>
-                  )}
-                  {(order.status === 'New' || order.status === 'Confirmed') && canEdit('orders') && (
-                    <button
-                      onClick={async () => {
-                        if (window.confirm('Move this order to Production? This will generate Job Cards.')) {
-                          try {
-                            setLoading(true);
-                            await updateOrderStatus(order._id, 'Processing');
-                            setMessage('Order moved to Production successfully!');
-                            const res = await getAllOrders();
-                            setOrders(Array.isArray(res) ? res : res.data || []);
-                          } catch (err) {
-                            console.error(err);
-                            setError('Failed to update status');
-                          } finally {
-                            setLoading(false);
-                          }
-                        }
-                      }}
-                      className="flex-1 p-1.5 bg-white border border-slate-200 rounded-md hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center justify-center"
-                      title="Move to Production"
-                    >
-                      <Settings size={14} />
-                    </button>
-                  )}
-                  {canDelete('orders') && (
-                    <button onClick={() => handleDeleteOrder(order._id)} className="flex-1 p-1.5 bg-white border border-slate-200 rounded-md hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all flex items-center justify-center" title="Delete Order">
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-
-                  {/* Stage Transitions */}
-                  <div className="md:border-t border-slate-200 pt-2 flex flex-col gap-2">
-                    {order.orderStage !== 'OnHold' ? (
-                      <button
-                        onClick={() => handleHoldResume(order, 'hold')}
-                        className="p-1.5 bg-white border border-rose-100 text-rose-500 rounded-md hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center"
-                        title="Put On Hold"
-                      >
-                        <Ban size={14} />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleHoldResume(order, 'resume')}
-                        className="p-1.5 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-md hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center"
-                        title="Resume Work"
-                      >
-                        <PlayCircle size={14} />
-                      </button>
-                    )}
-
-                    <div className="relative group/stage">
-                      <button className="w-full p-1.5 bg-blue-50 text-blue-600 rounded-md flex items-center justify-center hover:bg-blue-100 transition-all border border-blue-100">
-                        <ArrowUpRight size={14} />
-                      </button>
-                      <div className="hidden group-hover/stage:flex absolute right-full top-0 mr-2 bg-white shadow-sm border border-slate-200 rounded-md p-2 z-[50] flex-col min-w-[150px]">
-                        {['New', 'Mapped', 'Assigned', 'Processing', 'MFGCompleted', 'FQC', 'Documentation', 'Packing', 'Dispatch', 'Completed'].map(s => (
-                          <button
-                            key={s}
-                            onClick={() => handleUpdateStage(order._id, s)}
-                            className={`text-left px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-widest hover:bg-slate-50 ${order.orderStage === s ? 'text-blue-600 bg-blue-50' : 'text-slate-500'}`}
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       )}
-
       {/* Step Customization Modal */}
       {
         showStepModal && selectedRowIndex !== null && (
@@ -923,6 +1058,61 @@ export default function Orders() {
                 >
                   <span>Save Workflow</span>
                   <CheckCircle size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Confirmation Modal for Production Move */}
+      {
+        productionConfirmOrder && (
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-lg shadow-2xl max-w-sm w-full p-6 border border-slate-200 scale-100 animate-in zoom-in-95 duration-200">
+              <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mb-4 mx-auto">
+                <Settings className="text-indigo-600" size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 text-center mb-2">Move to Production?</h3>
+              <p className="text-sm text-slate-500 text-center mb-6">
+                This will update the order status to <strong>Processing</strong> and make it available for production planning.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setProductionConfirmOrder(null)}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      setLoading(true);
+                      // Optimistic Update
+                      setOrders(prev => prev.map(o => o._id === productionConfirmOrder._id ? { ...o, status: 'Processing', orderStage: 'Processing' } : o));
+
+                      await updateOrderStatus(productionConfirmOrder._id, 'Processing');
+                      setMessage('Order moved to Production Planning!');
+                      setProductionConfirmOrder(null);
+
+                      // Background Sync
+                      getAllOrders().then(res => {
+                        setOrders(Array.isArray(res) ? res : res.data || []);
+                      }).catch(console.error);
+
+                    } catch (err) {
+                      console.error(err);
+                      setError('Failed to update status');
+                      fetchData(); // Revert
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 bg-indigo-600 rounded-lg text-sm font-bold text-white hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-colors flex items-center justify-center gap-2"
+                  disabled={loading}
+                >
+                  {loading ? <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span> : 'Confirm Move'}
                 </button>
               </div>
             </div>

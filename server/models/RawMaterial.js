@@ -16,12 +16,10 @@ const rawMaterialSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
-    thickness: String,
-    finish: String,
-    colour: String,
-    type: String,
-    size: String,
-    expDate: Date,
+    category: {
+        type: String,
+        trim: true
+    },
     qty: {
         type: Number,
         default: 0
@@ -30,7 +28,9 @@ const rawMaterialSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true
-    }
+    },
+    hsn: String,
+    gstRate: Number
 }, {
     timestamps: true
 });

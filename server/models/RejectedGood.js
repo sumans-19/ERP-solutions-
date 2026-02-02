@@ -10,6 +10,9 @@ const rejectedGoodSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    jobNo: String,      // Added for tracking
+    stepName: String,   // Added for tracking
+    employeeName: String, // Added for tracking
     mfgDate: Date,
     poNo: String,
     invoiceNo: String,

@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const JobCard = require('../models/JobCard');
 const Order = require('../models/Order');
@@ -6,13 +7,61 @@ const Item = require('../models/Item');
 const authenticateToken = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permissions');
 
+// DEBUG ROUTE - Remove after fixing
+router.get('/debug-assignment/:employeeId', async (req, res) => {
+    try {
+        const { employeeId } = req.params;
+        const Employee = require('../models/Employee');
+        const JobCard = require('../models/JobCard');
+
+        let report = {
+            param: employeeId,
+            steps: []
+        };
+
+        // 1. Check Employee
+        let searchId = employeeId;
+        const isValid = require('mongoose').Types.ObjectId.isValid(employeeId);
+        report.steps.push(`IsValidObjectId: ${isValid}`);
+
+        let emp = null;
+        if (isValid) emp = await Employee.findById(employeeId);
+        if (!emp) emp = await Employee.findOne({ employeeId: employeeId });
+
+        if (emp) {
+            report.steps.push(`Found Employee: ${emp.fullName} (${emp.email}) ID: ${emp._id}`);
+            searchId = emp._id;
+        } else {
+            report.steps.push(`Employee Not Found`);
+        }
+
+        // 2. Query Jobs
+        const jobs = await JobCard.find({
+            'steps.assignedEmployees.employeeId': searchId
+        }).lean();
+
+        report.jobCount = jobs.length;
+        report.jobs = jobs.map(j => ({
+            id: j._id,
+            number: j.jobNumber,
+            assignedSteps: j.steps
+                .filter(s => s.assignedEmployees.some(ae => ae.employeeId.toString() === searchId.toString()))
+                .map(s => s.stepName)
+        }));
+
+        res.json(report);
+    } catch (e) {
+        res.status(500).json({ error: e.message, stack: e.stack });
+    }
+});
+
 router.use(authenticateToken);
 
 // Get all job cards
 router.get('/', checkPermission('viewOrders'), async (req, res) => {
     try {
         const jobs = await JobCard.find()
-            .populate('itemId', 'name code unit')
+            .populate('itemId', 'name code unit finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
             .populate('orderId', 'partyName poNumber')
             .sort({ createdAt: -1 });
         res.json(jobs);
@@ -68,6 +117,54 @@ router.get('/stats/state-counts', checkPermission('viewOrders'), async (req, res
     }
 });
 
+// DEBUG ROUTE - Remove after fixing
+router.get('/debug-assignment/:employeeId', async (req, res) => {
+    try {
+        const { employeeId } = req.params;
+        const Employee = require('../models/Employee');
+        const JobCard = require('../models/JobCard');
+
+        let report = {
+            param: employeeId,
+            steps: []
+        };
+
+        // 1. Check Employee
+        let searchId = employeeId;
+        const isValid = require('mongoose').Types.ObjectId.isValid(employeeId);
+        report.steps.push(`IsValidObjectId: ${isValid}`);
+
+        let emp = null;
+        if (isValid) emp = await Employee.findById(employeeId);
+        if (!emp) emp = await Employee.findOne({ employeeId: employeeId });
+
+        if (emp) {
+            report.steps.push(`Found Employee: ${emp.fullName} (${emp.email}) ID: ${emp._id}`);
+            searchId = emp._id;
+        } else {
+            report.steps.push(`Employee Not Found`);
+        }
+
+        // 2. Query Jobs
+        const jobs = await JobCard.find({
+            'steps.assignedEmployees.employeeId': searchId
+        }).lean();
+
+        report.jobCount = jobs.length;
+        report.jobs = jobs.map(j => ({
+            id: j._id,
+            number: j.jobNumber,
+            assignedSteps: j.steps
+                .filter(s => s.assignedEmployees.some(ae => ae.employeeId.toString() === searchId.toString()))
+                .map(s => s.stepName)
+        }));
+
+        res.json(report);
+    } catch (e) {
+        res.status(500).json({ error: e.message, stack: e.stack });
+    }
+});
+
 // Get job cards by stage (Unified view of JobCards and Items)
 router.get('/state/:stage', checkPermission('viewOrders'), async (req, res) => {
     try {
@@ -80,7 +177,7 @@ router.get('/state/:stage', checkPermission('viewOrders'), async (req, res) => {
 
         // 2. Fetch JobCards
         const jobs = await JobCard.find({ stage: stage })
-            .populate('itemId', 'name code unit')
+            .populate('itemId', 'name code unit finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
             .populate('orderId', 'partyName poNumber')
             .sort({ createdAt: -1 });
 
@@ -140,14 +237,55 @@ router.get('/state/:stage', checkPermission('viewOrders'), async (req, res) => {
 // Get job cards by employee ID
 router.get('/employee/:employeeId', checkPermission('viewOrders'), async (req, res) => {
     try {
+        const rawId = req.params.employeeId;
+        const employeeId = rawId ? rawId.trim() : rawId;
+
+        console.log(`[GET /employee/:id] Fetching jobs for employee param: '${employeeId}'`);
+
+        const Employee = require('../models/Employee');
+        let searchId = employeeId;
+
+        // Check if the param is a valid ObjectId
+        const isValidObjectId = mongoose.Types.ObjectId.isValid(employeeId);
+
+        // RESOLUTION LOGIC:
+        // 1. If it's a valid ObjectId, we generally assume it IS the _id.
+        //    We cast it immediately to ensure the query works even if the Employee lookup fails.
+        if (isValidObjectId) {
+            searchId = new mongoose.Types.ObjectId(employeeId);
+            console.log(`[GET /employee/:id] Valid ObjectId detected. searchId set to ObjectId('${employeeId}')`);
+
+            // Optional: Lookup just to confirm existence or get name
+            // const exists = await Employee.exists({ _id: employeeId });
+        } else {
+            // 2. If NOT an ObjectId (e.g. "EMP002"), we MUST resolve it to an _id
+            console.log(`[GET /employee/:id] Not a valid ObjectId. Attempting Custom ID lookup for '${employeeId}'...`);
+            const empDoc = await Employee.findOne({ employeeId: employeeId });
+            if (empDoc) {
+                searchId = empDoc._id;
+                console.log(`[GET /employee/:id] Resolved Custom ID '${employeeId}' to ObjectId '${searchId}'`);
+            } else {
+                console.log(`[GET /employee/:id] Warning: No employee found matching string '${employeeId}'. Querying as string.`);
+            }
+        }
+
+        // Query nested assignedEmployees array
+        // Use $in to be safe? No, let's stick to the direct match with the resolved ID.
+        // We log the type being used.
+        console.log(`[GET /employee/:id] Executing Query with searchId: ${searchId} (Type: ${typeof searchId === 'object' ? 'ObjectId' : 'String'})`);
+
         const jobs = await JobCard.find({
-            'steps.employeeId': req.params.employeeId
+            'steps.assignedEmployees.employeeId': searchId
         })
-            .populate('itemId', 'name code unit')
+            .populate('itemId', 'name code unit finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
             .populate('orderId', 'partyName poNumber')
+            .populate('steps.assignedEmployees.employeeId', 'name fullName email')
             .sort({ createdAt: -1 });
+
+        console.log(`[GET /employee/:id] Found ${jobs.length} jobs.`);
         res.json(jobs);
     } catch (error) {
+        console.error('[GET /employee/:id] Error:', error);
         res.status(500).json({ message: error.message });
     }
 });
@@ -156,8 +294,9 @@ router.get('/employee/:employeeId', checkPermission('viewOrders'), async (req, r
 router.get('/:id', checkPermission('viewOrders'), async (req, res) => {
     try {
         const job = await JobCard.findById(req.params.id)
-            .populate('itemId', 'name code unit')
-            .populate('orderId', 'partyName poNumber');
+            .populate('itemId', 'name code unit finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
+            .populate('orderId', 'partyName poNumber')
+            .populate('steps.assignedEmployees.employeeId', 'name fullName email'); // Added this populate
         if (!job) return res.status(404).json({ message: 'Job Card not found' });
         res.json(job);
     } catch (error) {
@@ -182,9 +321,33 @@ router.patch('/:id/steps', checkPermission('editOrders'), async (req, res) => {
                     empId = empId._id || empId.id || empId;
                 }
 
+                // Fix: Map simple employeeId from frontend to assignedEmployees array
+                let assignedEmployees = step.assignedEmployees || [];
+
+                // If frontend sent a new employeeId selection
+                if (empId) {
+                    // Check if this employee is already assigned
+                    const isAssigned = assignedEmployees.some(ae =>
+                        (ae.employeeId?._id || ae.employeeId)?.toString() === empId.toString()
+                    );
+
+                    if (!isAssigned) {
+                        // For the current simple UI, we might want to replace the assignment 
+                        // or add to it. Assuming "Assign Specialist" dropdown means *the* specialist:
+                        assignedEmployees = [{
+                            employeeId: empId,
+                            assignedAt: new Date()
+                        }];
+                    }
+                }
+
+                // Remove root-level employeeId to avoid schema issues, but keep it if it's undefined
+                // actually, we should just not set it on the new object if it's not in schema
+                const { employeeId: _, ...stepRest } = step;
+
                 return {
-                    ...step,
-                    employeeId: (empId === "" || empId === null || empId === undefined) ? undefined : empId
+                    ...stepRest,
+                    assignedEmployees
                 };
             });
         }
@@ -304,10 +467,10 @@ router.patch('/:id/steps/:stepId/substeps/:subStepId/toggle', checkPermission('e
         const job = await JobCard.findById(req.params.id);
         if (!job) return res.status(404).json({ message: 'Job Card not found' });
 
-        const step = job.steps.find(s => s.stepId === parseInt(req.params.stepId));
+        const step = job.steps.find(s => String(s.stepId) === String(req.params.stepId));
         if (!step) return res.status(404).json({ message: 'Step not found' });
 
-        const substep = step.subSteps.find(ss => ss.id === parseInt(req.params.subStepId));
+        const substep = step.subSteps.find(ss => String(ss.id) === String(req.params.subStepId));
         if (!substep) return res.status(404).json({ message: 'Substep not found' });
 
         substep.status = status;

@@ -297,7 +297,7 @@ const DashboardLayout = ({ onLogout, user }) => {
       case 'employee-chat':
       case 'employee-bulletins':
         return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? (
-          <EmployeeViewProvider>
+          <EmployeeViewProvider currentUser={user}>
             <EmployeeViewLayout activeTab={activeSection === 'employee-view' ? 'employee-dashboard' : activeSection} setActiveTab={setActiveSection}>
               {(() => {
                 const tab = activeSection === 'employee-view' ? 'employee-dashboard' : activeSection;

@@ -21,11 +21,7 @@ const materialRequestSchema = new mongoose.Schema({
         unique: true
     },
     items: [itemSchema],
-    status: {
-        type: String,
-        enum: ['Pending', 'Approved', 'Rejected', 'Fulfilled'],
-        default: 'Pending'
-    },
+    purpose: String,
     requestedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Employee'
@@ -33,7 +29,19 @@ const materialRequestSchema = new mongoose.Schema({
     requestDate: {
         type: Date,
         default: Date.now
-    }
+    },
+    requiredDate: Date,
+    status: {
+        type: String,
+        enum: ['Pending', 'Approved', 'Rejected', 'On Hold', 'Fulfilled'],
+        default: 'Pending'
+    },
+    statusHistory: [{
+        status: String,
+        updatedBy: String,
+        updatedAt: { type: Date, default: Date.now },
+        remark: String
+    }]
 }, {
     timestamps: true
 });

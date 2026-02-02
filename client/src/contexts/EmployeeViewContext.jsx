@@ -11,7 +11,7 @@ export const useEmployeeView = () => {
     return context;
 };
 
-export const EmployeeViewProvider = ({ children }) => {
+export const EmployeeViewProvider = ({ children, currentUser }) => {
     const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
     const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [employees, setEmployees] = useState([]);
@@ -42,9 +42,23 @@ export const EmployeeViewProvider = ({ children }) => {
             }));
             setEmployees(mappedEmployees);
 
-            // Auto-select first employee if none selected
+            // Auto-select logic
             if (!selectedEmployeeId && mappedEmployees.length > 0) {
-                setSelectedEmployeeId(mappedEmployees[0]._id);
+                let defaultId = mappedEmployees[0]._id;
+
+                // If currentUser is provided, try to find them in the list
+                if (currentUser) {
+                    const found = mappedEmployees.find(e =>
+                        (e._id === currentUser._id) ||
+                        (e.email && currentUser.email && e.email.toLowerCase() === currentUser.email.toLowerCase())
+                    );
+                    if (found) {
+                        console.log('Auto-selecting logged-in user:', found.name);
+                        defaultId = found._id;
+                    }
+                }
+
+                setSelectedEmployeeId(defaultId);
             }
         } catch (error) {
             console.error('Error fetching employees:', error);

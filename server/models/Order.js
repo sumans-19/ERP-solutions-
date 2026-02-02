@@ -16,6 +16,11 @@ const orderItemSchema = new mongoose.Schema({
     default: 1,
     min: 1
   },
+  // Tracks how much of the 'quantity' has been assigned to job cards
+  plannedQty: {
+    type: Number,
+    default: 0
+  },
   unit: {
     type: String,
     trim: true,
@@ -39,15 +44,36 @@ const orderItemSchema = new mongoose.Schema({
     enum: ['Normal', 'High'],
     default: 'Normal'
   },
-  // Added for production integration
+  // Master snapshot from Item (can be modified per order)
   manufacturingSteps: [{
     id: Number,
     stepName: String,
     description: String,
     stepType: String,
-    employeeId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Employee'
+    timeToComplete: String,
+    // Support for complex assignments during planning
+    assignedEmployees: [{
+      employeeId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Employee'
+      },
+      assignedAt: { type: Date, default: Date.now }
+    }],
+    isOpenJob: {
+      type: Boolean,
+      default: false
+    },
+    isOutward: {
+      type: Boolean,
+      default: false
+    },
+    outwardDetails: {
+      partyName: String,
+      expectedReturnDate: Date,
+      internalEmployeeId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Employee'
+      }
     },
     targetStartDate: Date,
     targetDeadline: Date,
@@ -83,7 +109,20 @@ const orderItemSchema = new mongoose.Schema({
     type: String,
     enum: ['Pending', 'Passed', 'Failed'],
     default: 'Pending'
-  }
+  },
+  productionMode: {
+    type: String,
+    enum: ['normal', 'partial', 'hold'],
+    default: 'normal'
+  },
+  rmRequirements: [{
+    name: String,
+    itemCode: String,
+    required: Number,
+    available: Number,
+    shortage: Number,
+    unit: String
+  }]
 }); // Removed _id: false to uniquely identify order items for JobCards
 
 const orderSchema = new mongoose.Schema({
@@ -127,19 +166,7 @@ const orderSchema = new mongoose.Schema({
   },
   orderStage: {
     type: String,
-    enum: [
-      'New',
-      'Mapped',
-      'Assigned',
-      'Processing',
-      'MFGCompleted',
-      'FQC',
-      'Documentation',
-      'Packing',
-      'Dispatch',
-      'Completed',
-      'OnHold'
-    ],
+    enum: ['New', 'Confirmed', 'Mapped', 'Assigned', 'Processing', 'MFGCompleted', 'FQC', 'Documentation', 'Packing', 'Dispatch', 'Completed', 'OnHold'],
     default: 'New',
     index: true
   },
@@ -149,11 +176,20 @@ const orderSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Pre-save hook to calculate totals
+// Pre-save hook to calculate totals and sync plannedQty
 orderSchema.pre('save', async function () {
   try {
     this.totalQty = this.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
     this.totalAmount = this.items.reduce((sum, item) => sum + (item.amount || 0), 0);
+
+    // Ensure plannedQty is always synced with jobBatches sum
+    this.items.forEach(item => {
+      const actualPlanned = (item.jobBatches || []).reduce((sum, b) => sum + (b.batchQty || 0), 0);
+      if (item.plannedQty !== actualPlanned) {
+        console.log(`Syncing plannedQty for item ${item.itemName}: ${item.plannedQty} -> ${actualPlanned}`);
+        item.plannedQty = actualPlanned;
+      }
+    });
   } catch (error) {
     console.error('Error in pre-save hook:', error);
     throw error;

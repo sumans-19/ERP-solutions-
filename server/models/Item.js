@@ -14,9 +14,17 @@ const rawMaterialSchema = new mongoose.Schema({
     ref: 'Item',
     default: null
   },
+  itemCode: {
+    type: String,
+    trim: true
+  },
   quantity: {
     type: String,
     default: ''
+  },
+  consumptionPerUnit: {
+    type: Number,
+    default: 0
   },
   unit: {
     type: String,
@@ -32,34 +40,7 @@ const rawMaterialSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
-const stageInspectionCheckSchema = new mongoose.Schema({
-  id: {
-    type: Number,
-    required: true
-  },
-  checkName: {
-    type: String,
-    trim: true
-  },
-  description: {
-    type: String,
-    trim: true
-  },
-  checkType: {
-    type: String,
-    enum: ['visual', 'measurement', 'functional', 'other'],
-    default: 'visual'
-  },
-  acceptanceCriteria: {
-    type: String,
-    trim: true
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'passed', 'failed'],
-    default: 'pending'
-  }
-}, { _id: false });
+
 
 const finalQualityCheckSchema = new mongoose.Schema({
   id: {
@@ -71,7 +52,36 @@ const finalQualityCheckSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
-  tolerance: {
+  notation: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  positiveTolerance: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  negativeTolerance: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  valueType: {
+    type: String,
+    enum: ['number', 'alphanumeric', 'alphabet', 'boolean'],
+    default: 'alphanumeric'
+  },
+  requiredSamples: {
+    type: Number,
+    default: 3
+  },
+  standardValue: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  actualValue: {
     type: String,
     trim: true,
     default: ''
@@ -116,11 +126,20 @@ const processStepSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  timeToComplete: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   subSteps: [subStepSchema],
   stepType: {
     type: String,
     enum: ['execution', 'testing'],
     default: 'execution'
+  },
+  isOutward: {
+    type: Boolean,
+    default: false
   },
   status: {
     type: String,
@@ -141,11 +160,7 @@ const itemSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  itemType: {
-    type: String,
-    enum: ['raw-material', 'finished-good', 'semi-finished', 'consumable'],
-    default: 'finished-good'
-  },
+
   generalNote: {
     type: String,
     trim: true,
@@ -172,6 +187,9 @@ const itemSchema = new mongoose.Schema({
   image: {
     type: String
   },
+  images: [{
+    type: String
+  }],
 
   // Pricing Section
   salePrice: {
@@ -235,16 +253,20 @@ const itemSchema = new mongoose.Schema({
   // Raw Materials Section
   rawMaterials: [rawMaterialSchema],
 
-  // Stage Inspection Check Section
-  stageInspectionChecks: [stageInspectionCheckSchema],
+
 
   // Final Quality Check Section
   finalQualityCheck: [finalQualityCheckSchema],
 
-  // Single image upload for Final Quality Check
-  qualityCheckImage: {
-    type: String,
-    default: ''
+  // Multiple images upload for Final Quality Check
+  finalQualityCheckImages: [{
+    type: String
+  }],
+
+  // Number of required samples
+  finalQualityCheckSampleSize: {
+    type: Number,
+    default: 1
   },
 
 
@@ -331,13 +353,6 @@ itemSchema.methods.calculateState = function () {
 
   // 5. Post-Production Transitions (Verification -> Documentation -> Completed)
   if (completedMfgSteps >= mfgSteps.length) {
-    // Check if Verification is needed (if checks exist and aren't all passed)
-    const stageInspectionChecks = this.stageInspectionChecks || [];
-    const needsVerification = stageInspectionChecks.length > 0 &&
-      !stageInspectionChecks.every(c => c.status === 'passed');
-
-    if (needsVerification) return 'Verification';
-
     // Check if Documentation is needed (if fields exist and aren't all filled)
     const finalQualityCheck = this.finalQualityCheck || [];
     const needsDocumentation = finalQualityCheck.length > 0 &&
@@ -362,7 +377,6 @@ itemSchema.pre('save', async function () {
   const shouldRecalculate =
     this.isModified('assignedEmployees') ||
     this.isModified('processes') ||
-    this.isModified('stageInspectionChecks') ||
     this.isModified('finalQualityCheck') ||
     this.isModified('state');
 

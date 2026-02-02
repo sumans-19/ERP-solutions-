@@ -61,6 +61,26 @@ const AddPartyModal = ({ isOpen, onClose, onSubmit, isSubmitting }) => {
         }
     };
 
+    const copyBillingToShipping = () => {
+        setFormData(prev => ({
+            ...prev,
+            shippingAddress: prev.billingAddress,
+            shippingCity: prev.billingCity,
+            shippingState: prev.billingState,
+            shippingPincode: prev.billingPincode
+        }));
+    };
+
+    const copyShippingToBilling = () => {
+        setFormData(prev => ({
+            ...prev,
+            billingAddress: prev.shippingAddress,
+            billingCity: prev.shippingCity,
+            billingState: prev.shippingState,
+            billingPincode: prev.shippingPincode
+        }));
+    };
+
     const handleInitialOrderChange = (field, value) => {
         setFormData(prev => ({
             ...prev,
@@ -215,7 +235,16 @@ const AddPartyModal = ({ isOpen, onClose, onSubmit, isSubmitting }) => {
 
                     {/* Billing Address Details */}
                     <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                        <h3 className="text-sm font-semibold text-slate-800 mb-4">Billing Address Details</h3>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-sm font-semibold text-slate-800">Billing Address Details</h3>
+                            <button
+                                type="button"
+                                onClick={copyShippingToBilling}
+                                className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded border border-blue-100 transition-colors"
+                            >
+                                Copy from Shipping
+                            </button>
+                        </div>
                         <div className="mb-4">
                             <label className="block text-sm font-medium text-slate-700 mb-1.5">Billing Address</label>
                             <textarea
@@ -259,7 +288,16 @@ const AddPartyModal = ({ isOpen, onClose, onSubmit, isSubmitting }) => {
 
                     {/* Shipping Address Details */}
                     <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                        <h3 className="text-sm font-semibold text-slate-800 mb-4">Shipping Address Details</h3>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-sm font-semibold text-slate-800">Shipping Address Details</h3>
+                            <button
+                                type="button"
+                                onClick={copyBillingToShipping}
+                                className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded border border-blue-100 transition-colors"
+                            >
+                                Copy from Billing
+                            </button>
+                        </div>
                         <div className="mb-4">
                             <label className="block text-sm font-medium text-slate-700 mb-1.5">Shipping Address</label>
                             <textarea

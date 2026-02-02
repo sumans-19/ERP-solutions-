@@ -15,7 +15,9 @@ axios.interceptors.request.use(
     if (user) {
       const userData = JSON.parse(user);
       config.headers['x-user-role'] = userData.role || 'development';
-      config.headers['x-user-id'] = userData.id || userData._id;
+      if (!config.headers['x-user-id']) {
+        config.headers['x-user-id'] = userData.id || userData._id;
+      }
     }
     return config;
   },
@@ -169,28 +171,49 @@ export const updateOrderStatus = async (id, status) => {
   }
 };
 
+export const planProduction = async (orderId, itemId, data) => {
+  try {
+    const response = await axios.post(`/api/orders/${orderId}/items/${itemId}/plan-production`, data);
+    return response.data;
+  } catch (error) {
+    console.error('Error planning production:', error);
+    throw error;
+  }
+};
+
 // Inventory V2 API functions
 export const getRawMaterials = async () => (await axios.get('/api/raw-materials')).data;
 export const createRawMaterial = async (data) => (await axios.post('/api/raw-materials', data)).data;
 export const updateRawMaterial = async (id, data) => (await axios.put(`/api/raw-materials/${id}`, data)).data;
 export const deleteRawMaterial = async (id) => (await axios.delete(`/api/raw-materials/${id}`)).data;
+export const recalculateRMStock = async () => (await axios.post('/api/raw-materials/recalculate')).data;
 
 export const getMaterialRequests = async () => (await axios.get('/api/material-requests')).data;
 export const getNextMRNumber = async () => (await axios.get('/api/material-requests/next-number')).data;
 export const createMaterialRequest = async (data) => (await axios.post('/api/material-requests', data)).data;
+export const updateMaterialRequest = async (id, data) => (await axios.put(`/api/material-requests/${id}`, data)).data;
+export const deleteMaterialRequest = async (id, remark) => (await axios.delete(`/api/material-requests/${id}`, { data: { remark } })).data;
 
 export const getGRNs = async () => (await axios.get('/api/grn')).data;
 export const getNextGRNNumber = async () => (await axios.get('/api/grn/next-number')).data;
 export const createGRN = async (data) => (await axios.post('/api/grn', data)).data;
+export const updateGRN = async (id, data) => (await axios.put(`/api/grn/${id}`, data)).data;
+export const deleteGRN = async (id, remark) => (await axios.delete(`/api/grn/${id}`, { data: { remark } })).data;
 
 export const getWIPStock = async () => (await axios.get('/api/wip-stock')).data;
 export const createWIPStock = async (data) => (await axios.post('/api/wip-stock', data)).data;
+export const updateWIPStock = async (id, data) => (await axios.put(`/api/wip-stock/${id}`, data)).data;
+export const deleteWIPStock = async (id, remark) => (await axios.delete(`/api/wip-stock/${id}`, { data: { remark } })).data;
 
 export const getFinishedGoods = async () => (await axios.get('/api/finished-goods')).data;
 export const createFinishedGood = async (data) => (await axios.post('/api/finished-goods', data)).data;
+export const updateFinishedGood = async (id, data) => (await axios.put(`/api/finished-goods/${id}`, data)).data;
+export const deleteFinishedGood = async (id, remark) => (await axios.delete(`/api/finished-goods/${id}`, { data: { remark } })).data;
 
 export const getRejectedGoods = async () => (await axios.get('/api/rejected-goods')).data;
 export const createRejectedGood = async (data) => (await axios.post('/api/rejected-goods', data)).data;
+export const updateRejectedGood = async (id, data) => (await axios.put(`/api/rejected-goods/${id}`, data)).data;
+export const deleteRejectedGood = async (id, remark) => (await axios.delete(`/api/rejected-goods/${id}`, { data: { remark } })).data;
 
 export const getInventory = async () => {
   try {
@@ -473,5 +496,38 @@ export const toggleJobSubstep = async (jobCardId, stepId, subStepId, status) => 
 };
 export const updateJobCardSteps = async (id, steps) => (await axios.patch(`/api/job-cards/${id}/steps`, { steps })).data;
 export const splitJobCard = async (id, splitQty) => (await axios.post(`/api/job-cards/${id}/split`, { splitQty })).data;
+
+// Production Execution API
+export const getJobCardsByStage = async (stage) => {
+  try {
+    const response = await axios.get(`/api/job-cards/state/${stage}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching jobs by stage:', error);
+    throw error;
+  }
+};
+
+export const getOpenJobs = async () => (await axios.get('/api/production-execution/open-jobs')).data;
+
+export const acceptOpenJob = async (jobId, stepId, overrideUserId = null) => {
+  const config = overrideUserId ? { headers: { 'x-user-id': overrideUserId } } : {};
+  return (await axios.post(`/api/production-execution/jobs/${jobId}/steps/${stepId}/accept`, {}, config)).data;
+};
+
+export const executeProductionStep = async (jobId, stepId, data, overrideUserId = null) => {
+  const config = overrideUserId ? { headers: { 'x-user-id': overrideUserId } } : {};
+  return (await axios.patch(`/api/production-execution/jobs/${jobId}/steps/${stepId}/execute`, data, config)).data;
+};
+
+export const completeOutwardWork = async (jobId, stepId, data, overrideUserId = null) => {
+  const config = overrideUserId ? { headers: { 'x-user-id': overrideUserId } } : {};
+  return (await axios.patch(`/api/production-execution/jobs/${jobId}/steps/${stepId}/complete-outward`, data, config)).data;
+};
+
+export const submitFQCResults = async (jobId, data, overrideUserId = null) => {
+  const config = overrideUserId ? { headers: { 'x-user-id': overrideUserId } } : {};
+  return (await axios.post(`/api/production-execution/jobs/${jobId}/fqc`, data, config)).data;
+};
 
 export const getCalendarEvents = async (start, end) => (await axios.get('/api/calendar/events', { params: { start, end } })).data;

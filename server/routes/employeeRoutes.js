@@ -111,7 +111,7 @@ router.get('/:id/assignments', async (req, res) => {
 
         // Find all JobCards where this employee is assigned to any step
         const jobs = await JobCard.find({
-            'steps.employeeId': req.params.id
+            'steps.assignedEmployees.employeeId': req.params.id
         })
             .populate('itemId', 'name code')
             .lean();
@@ -123,7 +123,9 @@ router.get('/:id/assignments', async (req, res) => {
             if (job.steps && Array.isArray(job.steps)) {
                 // Filter steps for this employee
                 const employeeSteps = job.steps.filter(s =>
-                    s.employeeId && s.employeeId.toString() === req.params.id
+                    s.assignedEmployees && s.assignedEmployees.some(ae =>
+                        ae.employeeId && ae.employeeId.toString() === req.params.id
+                    )
                 );
 
                 for (const step of employeeSteps) {
@@ -137,7 +139,7 @@ router.get('/:id/assignments', async (req, res) => {
                         processStepId: step.stepId,
                         stepName: step.stepName || 'Manufacturing Step',
                         status: step.status || 'pending',
-                        assignedAt: step.assignedAt || job.createdAt,
+                        assignedAt: step.assignedEmployees.find(ae => ae.employeeId.toString() === req.params.id)?.assignedAt || job.createdAt,
                         targetDeadline: step.targetDeadline,
                         completedAt: step.endTime
                     });

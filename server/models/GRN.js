@@ -22,6 +22,9 @@ const grnSchema = new mongoose.Schema({
         itemName: String,
         qty: Number,
         uom: String,
+        costPerUnit: Number,
+        hsn: String,
+        gstRate: Number,
         batchCode: String,
         mfgDate: Date,
         expDate: Date

@@ -25,6 +25,10 @@ const jobCardSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    extraQty: {
+        type: Number,
+        default: 0
+    },
     priority: {
         type: String,
         default: 'Normal'
@@ -36,16 +40,68 @@ const jobCardSchema = new mongoose.Schema({
         default: 'Created'
     },
     steps: [{
-        stepId: Number, // Reference to manufacturingSteps id in Order/Item
+        stepId: String,
         stepName: String,
-        employeeId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Employee'
+        description: String,
+        timeToComplete: String,
+        stepType: {
+            type: String,
+            enum: ['execution', 'testing'],
+            default: 'execution'
         },
+        // Multiple Employees
+        assignedEmployees: [{
+            employeeId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Employee'
+            },
+            assignedAt: { type: Date, default: Date.now }
+        }],
+        isOpenJob: {
+            type: Boolean,
+            default: false
+        },
+        // FQC Structured Data
+        fqcParameters: [{
+            parameterName: String,
+            notation: String,
+            tolerance: String,
+            valueType: String,
+            standardValue: String,
+            samples: [{
+                sampleNumber: Number,
+                reading: String
+            }],
+            remarks: String
+        }],
+        requiredSamples: {
+            type: Number,
+            default: 1
+        },
+        isOutward: {
+            type: Boolean,
+            default: false
+        },
+        outwardDetails: {
+            partyName: String,
+            expectedReturnDate: Date,
+            internalEmployeeId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Employee'
+            }
+        },
+        // Execution Tracking
+        quantities: {
+            received: { type: Number, default: 0 },
+            processed: { type: Number, default: 0 },
+            rejected: { type: Number, default: 0 }
+        },
+        remarks: String,
         targetStartDate: Date,
         targetDeadline: Date,
         status: {
             type: String,
+            enum: ['pending', 'in-progress', 'completed', 'failed'],
             default: 'pending'
         },
         startTime: Date,
@@ -61,6 +117,36 @@ const jobCardSchema = new mongoose.Schema({
             }
         }]
     }],
+    // Final Quality Check Structure (Snapped from Item)
+    fqcParameters: [{
+        parameterName: String,
+        notation: String,
+        tolerance: String,
+        valueType: String,
+        standardValue: String,
+        samples: [{
+            sampleNumber: Number,
+            reading: String
+        }],
+        remarks: String
+    }],
+    requiredSamples: {
+        type: Number,
+        default: 1
+    },
+    // Final Quality Check Results (Legacy or specifically for summary)
+    fqcResults: [{
+        parameterId: Number,
+        parameterName: String,
+        samples: [Number], // Sample 1, 2, 3...
+        actualValue: String,
+        remarks: String,
+        status: {
+            type: String,
+            enum: ['Passed', 'Failed', 'Pending'],
+            default: 'Pending'
+        }
+    }],
     // Enhanced Stage Management
     stage: {
         type: String,
@@ -72,6 +158,14 @@ const jobCardSchema = new mongoose.Schema({
         stage: String,
         changedAt: { type: Date, default: Date.now },
         description: String
+    }],
+    rmRequirements: [{
+        name: String,
+        required: Number,
+        available: Number,
+        unit: String,
+        itemCode: String,
+        code: String
     }]
 }, { timestamps: true });
 
@@ -79,34 +173,27 @@ const jobCardSchema = new mongoose.Schema({
 jobCardSchema.index({ orderId: 1 });
 jobCardSchema.index({ itemId: 1 });
 jobCardSchema.index({ status: 1 });
-jobCardSchema.index({ stage: 1 });
+
 
 // Method to calculate stage based on progress
 jobCardSchema.methods.calculateStage = function () {
     if (this.status === 'OnHold') return 'Hold';
 
     // Check assignments
-    const assignedSteps = this.steps.filter(s => s.employeeId);
-    if (assignedSteps.length === 0) return 'New';
+    const hasAssignedOrOpen = this.steps.some(s => s.assignedEmployees?.length > 0 || s.isOpenJob);
+    if (!hasAssignedOrOpen) return 'New';
 
     // Check progress
     const inProgressSteps = this.steps.filter(s => s.status === 'in-progress');
     const completedSteps = this.steps.filter(s => s.status === 'completed');
 
-    // New: No assignment (handled above)
-    // Assigned: Steps assigned, none started
     if (inProgressSteps.length === 0 && completedSteps.length === 0) return 'Assigned';
 
-    // Manufacturing: Work started
-    // If all steps are completed, move to Verification (or next logic)
     if (completedSteps.length === this.steps.length) {
-        // If we are already in Verification, Documentation or Completed, don't revert automatically
-        // unless explicitly handled. For now, assume Completed if all steps done.
-        // But to fit the UI flow, let's allow manual transition or basic logic.
         if (this.stage === 'Verification' || this.stage === 'Documentation' || this.stage === 'Completed') {
             return this.stage;
         }
-        return 'Verification'; // Default next step after MFG
+        return 'Verification';
     }
 
     return 'Manufacturing';

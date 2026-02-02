@@ -13,7 +13,10 @@ const finishedGoodSchema = new mongoose.Schema({
     mfgDate: Date,
     expDate: Date,
     poNo: String,
-    invoiceNo: String
+    invoiceNo: String,
+    jobNo: String,   // Traceability
+    batchCode: String, // Traceability
+    initialQty: Number // Original Job Quantity
 }, {
     timestamps: true
 });

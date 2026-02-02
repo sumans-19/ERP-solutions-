@@ -11,6 +11,7 @@ const OrderTreeView = () => {
     const [stats, setStats] = useState({ total: 0, processing: 0, completed: 0, onHold: 0 });
     const [expandedNodes, setExpandedNodes] = useState(new Set());
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
@@ -46,6 +47,7 @@ const OrderTreeView = () => {
             setLoading(false);
         } catch (error) {
             console.error('Failed to fetch tree data', error);
+            setError("Failed to load data. Please try again.");
             setLoading(false);
         }
     };
@@ -80,6 +82,12 @@ const OrderTreeView = () => {
         const isExpanded = expandedNodes.has(node.id);
         const hasChildren = (node.orders || node.items || node.jobs || node.steps);
 
+        let label = node.name || node.poNumber || node.itemName || node.stepName;
+        if (node.type === 'job') {
+            // User requested: Items Qty, Mfg Steps, then Job Card Number
+            label = `Batch: ${node.quantity} • Steps: ${node.steps?.length || 0} • Ref: ${node.jobNumber}`;
+        }
+
         return (
             <div className="select-none">
                 <div
@@ -107,7 +115,7 @@ const OrderTreeView = () => {
                                 <span className={`font-bold text-slate-900 ${node.type === 'company' ? 'text-lg' :
                                     node.type === 'order' ? 'text-base' : 'text-sm'
                                     }`}>
-                                    {node.name || node.poNumber || node.jobNumber || node.itemName || node.stepName}
+                                    {label}
                                 </span>
 
                                 {node.stage && (
@@ -237,7 +245,7 @@ const OrderTreeView = () => {
             <div className="space-y-4">
                 {treeData.length === 0 ? (
                     <div className="p-12 text-center text-slate-400 italic">
-                        No active production trees found.
+                        {error ? <span className="text-red-500">{error}</span> : "No active production trees found. Check if orders exist."}
                     </div>
                 ) : (
                     treeData.map(company => (
