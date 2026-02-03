@@ -168,7 +168,9 @@ const itemSchema = new mongoose.Schema({
   },
   hsn: {
     type: String,
-    trim: true
+    trim: true,
+    maxlength: [8, 'HSN cannot exceed 8 characters'],
+    match: [/^\d*$/, 'HSN must contain only numbers']
   },
   unit: {
     type: String,
@@ -201,11 +203,7 @@ const itemSchema = new mongoose.Schema({
     enum: ['without', 'with'],
     default: 'without'
   },
-  saleDiscountType: {
-    type: String,
-    enum: ['percentage', 'flat'],
-    default: 'percentage'
-  },
+
   purchasePrice: {
     type: String,
     default: ''

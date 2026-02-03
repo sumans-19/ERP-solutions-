@@ -9,6 +9,10 @@ const grnSchema = new mongoose.Schema({
     invoiceNo: String,
     invoiceDate: Date,
     poNo: String,
+    supplierId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Party'
+    },
     supplierName: String,
     supplierCode: String,
     modeOfTransport: String,
@@ -23,11 +27,15 @@ const grnSchema = new mongoose.Schema({
         qty: Number,
         uom: String,
         costPerUnit: Number,
-        hsn: String,
+        hsn: {
+            type: String,
+            match: [/^\d{0,8}$/, 'HSN must be numeric and max 8 digits']
+        },
         gstRate: Number,
         batchCode: String,
         mfgDate: Date,
-        expDate: Date
+        expDate: Date,
+        remarks: String
     }],
     receivedBy: {
         type: mongoose.Schema.Types.ObjectId,

@@ -19,7 +19,6 @@ const defaultForm = () => ({
   // Pricing
   salePrice: "",
   salePriceTaxType: "without",
-  saleDiscountType: "percentage",
   purchasePrice: "",
   purchasePriceTaxType: "without",
   taxRate: "None",
@@ -300,7 +299,6 @@ export default function ItemPage() {
             imageBase64: data.image || "",
             salePrice: data.salePrice || "",
             salePriceTaxType: data.salePriceTaxType || "without",
-            saleDiscountType: data.saleDiscountType || "percentage",
             purchasePrice: data.purchasePrice || "",
             purchasePriceTaxType: data.purchasePriceTaxType || "without",
             taxRate: data.taxRate || "None",
@@ -636,7 +634,6 @@ export default function ItemPage() {
       category: selectedItem.category || "",
       salePrice: selectedItem.salePrice || "",
       salePriceTaxType: selectedItem.salePriceTaxType || "without",
-      saleDiscountType: selectedItem.saleDiscountType || "percentage",
       purchasePrice: selectedItem.purchasePrice || "",
       purchasePriceTaxType: selectedItem.purchasePriceTaxType || "without",
       taxRate: selectedItem.taxRate || "None",
@@ -677,7 +674,6 @@ export default function ItemPage() {
       category: item.category || "",
       salePrice: item.salePrice || "",
       salePriceTaxType: item.salePriceTaxType || "without",
-      saleDiscountType: item.saleDiscountType || "percentage",
       purchasePrice: item.purchasePrice || "",
       purchasePriceTaxType: item.purchasePriceTaxType || "without",
       taxRate: item.taxRate || "None",
@@ -756,7 +752,6 @@ export default function ItemPage() {
         image: form.imageBase64,
         salePrice: form.salePrice,
         salePriceTaxType: form.salePriceTaxType,
-        saleDiscountType: form.saleDiscountType,
         purchasePrice: form.purchasePrice,
         purchasePriceTaxType: form.purchasePriceTaxType,
         taxRate: form.taxRate,
@@ -1449,14 +1444,20 @@ export default function ItemPage() {
 
                   <div>
                     <label className="block text-sm text-slate-600 mb-1.5">
-                      Item HSN
+                      Item HSN <span className="text-xs text-slate-400">(Numeric, max 8 digits)</span>
                     </label>
                     <div className="flex items-center gap-2">
                       <input
                         value={form.hsn}
-                        onChange={(e) => updateField("hsn", e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 8);
+                          updateField("hsn", val);
+                        }}
+                        maxLength={8}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         className="flex-1 border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder=""
+                        placeholder="e.g. 84713010"
                       />
                     </div>
                   </div>
@@ -1702,7 +1703,7 @@ export default function ItemPage() {
                         <h3 className="text-sm font-semibold text-slate-700 mb-3">
                           Sale Price
                         </h3>
-                        <div className="grid grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 gap-3">
                           <input
                             value={form.salePrice}
                             onChange={(e) =>
@@ -1720,20 +1721,6 @@ export default function ItemPage() {
                           >
                             <option value="without">Without Tax</option>
                             <option value="with">With Tax</option>
-                          </select>
-                          <input
-                            placeholder="Disc. On Sale Pric..."
-                            className="border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                          <select
-                            value={form.saleDiscountType}
-                            onChange={(e) =>
-                              updateField("saleDiscountType", e.target.value)
-                            }
-                            className="border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-                          >
-                            <option value="percentage">Percentage</option>
-                            <option value="flat">Flat</option>
                           </select>
                         </div>
                         <button className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium">
@@ -2054,18 +2041,42 @@ export default function ItemPage() {
 
                             <div className="col-span-1">
                               <label className="block text-sm text-slate-600 mb-1.5">
-                                Time to Complete
+                                Time to Complete <span className="text-xs text-slate-400">(HH:MM)</span>
                               </label>
-                              <input
-                                value={process.timeToComplete}
-                                onChange={(e) => {
-                                  const newProcesses = [...form.processes];
-                                  newProcesses[index].timeToComplete = e.target.value;
-                                  updateField("processes", newProcesses);
-                                }}
-                                placeholder="e.g., 2 hours, 30 mins"
-                                className="w-full h-12 border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              />
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="999"
+                                  value={process.timeToComplete ? process.timeToComplete.split(':')[0] || '' : ''}
+                                  onChange={(e) => {
+                                    const hours = Math.max(0, parseInt(e.target.value) || 0);
+                                    const currentMins = process.timeToComplete?.split(':')[1] || '00';
+                                    const newProcesses = [...form.processes];
+                                    newProcesses[index].timeToComplete = `${hours}:${currentMins}`;
+                                    updateField("processes", newProcesses);
+                                  }}
+                                  placeholder="HH"
+                                  className="w-16 h-12 border border-slate-300 rounded px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                <span className="text-slate-400 font-bold">:</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="59"
+                                  value={process.timeToComplete ? process.timeToComplete.split(':')[1] || '' : ''}
+                                  onChange={(e) => {
+                                    const mins = Math.min(59, Math.max(0, parseInt(e.target.value) || 0));
+                                    const currentHours = process.timeToComplete?.split(':')[0] || '0';
+                                    const newProcesses = [...form.processes];
+                                    newProcesses[index].timeToComplete = `${currentHours}:${mins.toString().padStart(2, '0')}`;
+                                    updateField("processes", newProcesses);
+                                  }}
+                                  placeholder="MM"
+                                  className="w-16 h-12 border border-slate-300 rounded px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                <span className="text-xs text-slate-400 ml-1">hrs</span>
+                              </div>
                             </div>
 
                             <div className="col-span-1">

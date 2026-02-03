@@ -36,7 +36,8 @@ import {
     getWIPStock, createWIPStock, updateWIPStock, deleteWIPStock,
     getFinishedGoods, createFinishedGood, updateFinishedGood, deleteFinishedGood,
     getRejectedGoods, createRejectedGood, updateRejectedGood, deleteRejectedGood,
-    recalculateRMStock
+    recalculateRMStock,
+    getAllParties
 } from '../services/api';
 
 const Inventory = () => {
@@ -55,6 +56,7 @@ const Inventory = () => {
     const [rejectedGoods, setRejectedGoods] = useState([]);
     const [inventoryLogs, setInventoryLogs] = useState([]);
     const [selectedRMDetails, setSelectedRMDetails] = useState(null);
+    const [parties, setParties] = useState([]);
 
     // Centralized Notification & Remark State
     const [alert, setAlert] = useState(null); // { type, message }
@@ -89,6 +91,8 @@ const Inventory = () => {
                     setGrns(g || []);
                     const rmList = await getRawMaterials();
                     setRawMaterials(rmList || []);
+                    const partyList = await getAllParties();
+                    setParties(partyList || []);
                     break;
                 case 'wip':
                     const wip = await getWIPStock();
@@ -390,6 +394,7 @@ const Inventory = () => {
                         type={activeTab}
                         item={editingItem}
                         rawMaterialsList={rawMaterials}
+                        partiesList={parties}
                         onClose={() => setIsAddModalOpen(false)}
                         onSubmit={handleAddOrEdit}
                     />
@@ -1168,7 +1173,7 @@ const RejectedItemCard = ({ partName, totalQty, items, onEdit, onDelete }) => {
 
 // --- Modal Component ---
 
-const InventoryModal = ({ type, item, rawMaterialsList = [], onClose, onSubmit }) => {
+const InventoryModal = ({ type, item, rawMaterialsList = [], partiesList = [], onClose, onSubmit }) => {
     const [formData, setFormData] = useState(item || {});
     const [saving, setSaving] = useState(false);
 
@@ -1301,11 +1306,11 @@ const InventoryModal = ({ type, item, rawMaterialsList = [], onClose, onSubmit }
                 );
             case 'grn':
                 if (!formData.items) {
-                    formData.items = [{ itemCode: '', itemName: '', qty: 0, uom: '', mfgDate: '', expDate: '', costPerUnit: 0, hsn: '', gstRate: 0 }];
+                    formData.items = [{ itemCode: '', itemName: '', qty: 0, uom: '', mfgDate: '', expDate: '', costPerUnit: 0, hsn: '', gstRate: 0, remarks: '' }];
                 }
 
                 const addItem = () => {
-                    const newItems = [...formData.items, { itemCode: '', itemName: '', qty: 0, uom: '', mfgDate: '', expDate: '', costPerUnit: 0, hsn: '', gstRate: 0 }];
+                    const newItems = [...formData.items, { itemCode: '', itemName: '', qty: 0, uom: '', mfgDate: '', expDate: '', costPerUnit: 0, hsn: '', gstRate: 0, remarks: '' }];
                     updateField('items', newItems);
                 };
 
@@ -1343,12 +1348,36 @@ const InventoryModal = ({ type, item, rawMaterialsList = [], onClose, onSubmit }
                                 </div>
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Supplier Name</label>
-                                <input className="w-full p-2 border rounded" value={formData.supplierName || ''} onChange={e => updateField('supplierName', e.target.value)} />
+                                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Supplier Name *</label>
+                                <div className="relative">
+                                    <select
+                                        className="w-full p-2 border rounded appearance-none bg-white"
+                                        value={formData.supplierId || ''}
+                                        onChange={e => {
+                                            const selectedParty = partiesList.find(p => p._id === e.target.value);
+                                            if (selectedParty) {
+                                                updateField('supplierId', selectedParty._id);
+                                                updateField('supplierName', selectedParty.name);
+                                                updateField('supplierCode', selectedParty.vendorCode || '');
+                                            } else {
+                                                updateField('supplierId', '');
+                                                updateField('supplierName', '');
+                                                updateField('supplierCode', '');
+                                            }
+                                        }}
+                                    >
+                                        <option value="">-- Select Supplier from Parties --</option>
+                                        {partiesList.filter(p => p.vendorCode).map(party => (
+                                            <option key={party._id} value={party._id}>
+                                                {party.name} {party.vendorCode ? `(${party.vendorCode})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Supplier Code</label>
-                                <input className="w-full p-2 border rounded" value={formData.supplierCode || ''} onChange={e => updateField('supplierCode', e.target.value)} />
+                                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Supplier Code (Vendor Code)</label>
+                                <input readOnly className="w-full p-2 border rounded bg-slate-100 text-slate-600 font-mono" value={formData.supplierCode || 'Auto-filled from Party'} />
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">PO Number</label>
@@ -1443,7 +1472,7 @@ const InventoryModal = ({ type, item, rawMaterialsList = [], onClose, onSubmit }
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2 border-t border-slate-50">
+                                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 pt-2 border-t border-slate-50">
                                             <div>
                                                 <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Manufacturing Date</label>
                                                 <input type="date" className="w-full p-2.5 text-xs border rounded-lg bg-white focus:border-blue-500 outline-none transition-all shadow-sm" value={item.mfgDate ? item.mfgDate.slice(0, 10) : ''} onChange={e => updateItem(index, 'mfgDate', e.target.value)} />
@@ -1453,12 +1482,16 @@ const InventoryModal = ({ type, item, rawMaterialsList = [], onClose, onSubmit }
                                                 <input type="date" className="w-full p-2.5 text-xs border rounded-lg bg-white focus:border-red-500 outline-none transition-all shadow-sm" value={item.expDate ? item.expDate.slice(0, 10) : ''} onChange={e => updateItem(index, 'expDate', e.target.value)} />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">HSN Code (RM)</label>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">HSN Code</label>
                                                 <input readOnly className="w-full p-2.5 text-xs border rounded-lg bg-slate-100 text-slate-500 font-mono" value={item.hsn || 'N/A'} />
                                             </div>
                                             <div>
                                                 <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">GST Rate (%)</label>
                                                 <input readOnly className="w-full p-2.5 text-xs border rounded-lg bg-slate-100 text-slate-500 font-bold" value={item.gstRate ? `${item.gstRate}%` : '0%'} />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Remarks</label>
+                                                <input className="w-full p-2.5 text-xs border rounded-lg bg-white focus:border-blue-500 outline-none transition-all shadow-sm" placeholder="Notes for this item..." value={item.remarks || ''} onChange={e => updateItem(index, 'remarks', e.target.value)} />
                                             </div>
                                         </div>
                                     </div>

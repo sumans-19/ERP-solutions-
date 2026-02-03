@@ -76,7 +76,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
 
   const navStructure = [
     // 1. CoreRequested Items
-    { id: 'dashboard', label: 'Admin Dashboard', icon: Home, type: 'item' },
+    { id: 'dashboard', label: 'Dashboard', icon: Home, type: 'item' },
     { id: 'orders', label: 'Order Management', icon: ShoppingCart, type: 'item' },
     { id: 'process', label: 'Process Management', icon: Activity, type: 'item' },
     { id: 'items', label: 'Item Master', icon: Package, type: 'item' },
