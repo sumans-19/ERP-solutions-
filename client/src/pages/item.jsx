@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { createItem, getItemById, updateItem, getAllItems, deleteItem, completeItem, getInventory, getRawMaterials } from "../services/api";
 import { canCreate, canEdit, canDelete, canExportReports } from "../utils/permissions";
 import { Package, X, Trash2 } from "lucide-react";
+import PopupNotification from "../components/PopupNotification";
 
 const defaultForm = () => ({
   type: "product",
@@ -772,10 +773,10 @@ export default function ItemPage() {
 
       if (id) {
         await updateItem(id, payload);
-        setMessage("Item updated successfully");
+        setMessage("Saved Successfully!");
       } else {
         await createItem(payload);
-        setMessage("Item created successfully");
+        setMessage("Saved Successfully!");
       }
 
       // Reload items list
@@ -1978,7 +1979,7 @@ export default function ItemPage() {
                                 </button>
                               </div>
 
-                              {/* Outward Process Checkbox */}
+                              {/* Outsource Process Checkbox */}
                               <label className="flex items-center gap-2 cursor-pointer ml-3 bg-slate-50 px-3 py-1 rounded-full border border-slate-200 hover:bg-slate-100 transition-colors">
                                 <input
                                   type="checkbox"
@@ -1990,7 +1991,7 @@ export default function ItemPage() {
                                   }}
                                   className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
                                 />
-                                <span className="text-xs font-semibold text-purple-700 select-none">Outward</span>
+                                <span className="text-xs font-semibold text-purple-700 select-none">Outsource</span>
                               </label>
 
                               {/* Visual Badge */}
@@ -2707,36 +2708,7 @@ export default function ItemPage() {
                           <h3 className="text-sm font-semibold text-slate-700">
                             Final Quality Check Details
                           </h3>
-                          {canEdit() && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newId = form.finalQualityCheck.length > 0
-                                  ? Math.max(...form.finalQualityCheck.map(i => i.id)) + 1
-                                  : 1;
-                                setForm({
-                                  ...form,
-                                  finalQualityCheck: [
-                                    ...form.finalQualityCheck,
-                                    {
-                                      id: newId,
-                                      parameter: "",
-                                      notation: "",
-                                      positiveTolerance: "",
-                                      negativeTolerance: "",
-                                      valueType: "alphanumeric",
-                                      actualValue: "",
-                                      remarks: ""
-                                    },
-                                  ]
-                                });
-                              }}
-                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1"
-                            >
-                              <span>+</span>
-                              <span>Add Quality Check Step</span>
-                            </button>
-                          )}
+
                         </div>
 
                         {form.finalQualityCheck && form.finalQualityCheck.length > 0 ? (
@@ -2914,6 +2886,38 @@ export default function ItemPage() {
                               Click here to add the first check
                             </button>
                           </div>
+                        )}
+
+                        {/* Bottom Add Button */}
+                        {canEdit() && form.finalQualityCheck && form.finalQualityCheck.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newId = form.finalQualityCheck.length > 0
+                                ? Math.max(...form.finalQualityCheck.map(i => i.id)) + 1
+                                : 1;
+                              setForm({
+                                ...form,
+                                finalQualityCheck: [
+                                  ...form.finalQualityCheck,
+                                  {
+                                    id: newId,
+                                    parameter: "",
+                                    notation: "",
+                                    positiveTolerance: "",
+                                    negativeTolerance: "",
+                                    valueType: "alphanumeric",
+                                    actualValue: "",
+                                    remarks: ""
+                                  },
+                                ]
+                              });
+                            }}
+                            className="mt-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 w-full justify-center border border-dashed border-blue-200"
+                          >
+                            <span>+</span>
+                            <span>Add Another Quality Check Step</span>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -3173,13 +3177,7 @@ export default function ItemPage() {
                     ← Back to List
                   </button>
                   <div className="flex gap-3">
-                    <button
-                      onClick={() => submit(true)}
-                      disabled={loading}
-                      className="bg-white border border-slate-300 hover:bg-slate-50 px-6 py-2.5 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading ? "Saving..." : "Save & New"}
-                    </button>
+
                     <button
                       onClick={() => submit(false)}
                       disabled={loading}
@@ -3194,6 +3192,9 @@ export default function ItemPage() {
           )}
         </div >
       </div >
+
+      {/* Saved Popup */}
+
 
       {/* Modal for Employee - View Manufacturing Steps */}
       {
@@ -3484,6 +3485,16 @@ export default function ItemPage() {
           </div>
         </div>
       )}
+      <PopupNotification
+        message={error}
+        type="error"
+        onClose={() => setError(null)}
+      />
+      <PopupNotification
+        message={message}
+        type="success"
+        onClose={() => setMessage(null)}
+      />
     </div>
   );
 }

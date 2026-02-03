@@ -84,16 +84,15 @@ const OrderTreeView = () => {
 
         let label = node.name || node.poNumber || node.itemName || node.stepName;
         if (node.type === 'job') {
-            // User requested: Items Qty, Mfg Steps, then Job Card Number
             label = `Batch: ${node.quantity} • Steps: ${node.steps?.length || 0} • Ref: ${node.jobNumber}`;
         }
 
         return (
-            <div className="select-none">
+            <div className="select-none relative">
                 <div
                     onClick={() => hasChildren && toggleNode(node.id)}
-                    className={`flex items-center gap-3 p-3 rounded-md transition-all cursor-pointer ${level === 0 ? 'bg-white border border-slate-200 mb-2 shadow-sm' :
-                        'hover:bg-slate-50 ml-6 mb-1'
+                    className={`flex items-center gap-3 p-3 rounded-md transition-all cursor-pointer relative ${level === 0 ? 'bg-white border border-slate-200 mb-2 shadow-sm' :
+                        'hover:bg-slate-50 mb-1'
                         }`}
                 >
                     {hasChildren ? (
@@ -163,14 +162,17 @@ const OrderTreeView = () => {
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
-                            className="overflow-hidden"
+                            className="overflow-hidden ml-6 pl-6"
                         >
                             {node.orders?.map(child => <TreeNode key={child.id} node={child} level={level + 1} />)}
                             {node.items?.map(child => <TreeNode key={child.id} node={child} level={level + 1} />)}
                             {node.jobs?.map(child => <TreeNode key={child.id} node={child} level={level + 1} />)}
                             {node.steps?.map((step, idx) => (
-                                <div key={idx} className="ml-12 p-2 mb-1 flex items-center justify-between bg-slate-50/50 rounded-md border border-slate-100">
+                                <div key={idx} className="relative p-2 mb-1 flex items-center justify-between bg-slate-50/50 rounded-md border border-slate-100">
                                     <div className="flex items-center gap-3">
+                                        <div className="flex items-center justify-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold shadow-sm border border-blue-200 min-w-[50px]">
+                                            Step {idx + 1}
+                                        </div>
                                         <Clock size={12} className="text-slate-400" />
                                         <span className="text-xs font-bold text-slate-700">{step.stepName}</span>
                                         <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${getStatusColor(step.status)}`}>

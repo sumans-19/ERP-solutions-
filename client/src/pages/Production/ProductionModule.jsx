@@ -517,7 +517,10 @@ export default function ProductionModule() {
                                                                 }`}>
                                                                 {step.status === 'completed' ? <CheckCircle size={20} className="stroke-[3]" /> :
                                                                     step.status === 'in-progress' ? <Clock size={20} className="stroke-[3] animate-pulse" /> :
-                                                                        <span className="text-xs font-black">{idx + 1}</span>}
+                                                                        <div className="flex flex-col items-center justify-center leading-none">
+                                                                            <span className="text-[8px] font-bold opacity-60">Step</span>
+                                                                            <span className="text-sm font-black text-slate-700">{idx + 1}</span>
+                                                                        </div>}
                                                             </div>
                                                             {step.timeToComplete && (
                                                                 <div className="px-2 py-1 bg-slate-100 text-slate-500 text-[9px] font-bold rounded flex items-center gap-1 border border-slate-200">
@@ -527,7 +530,9 @@ export default function ProductionModule() {
                                                         </div>
 
                                                         <div className="w-56 bg-white p-3 rounded-lg border border-slate-200 shadow-sm transition-all hover:border-slate-300">
-                                                            <h4 className="text-xs font-bold text-slate-800 line-clamp-1 truncate mb-2" title={step.stepName}>{step.stepName}</h4>
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <h4 className="text-xs font-bold text-slate-800 line-clamp-1 truncate" title={step.stepName}>{step.stepName}</h4>
+                                                            </div>
 
                                                             {/* Assignment Section */}
                                                             <div className="mb-2 space-y-2">
@@ -575,7 +580,7 @@ export default function ProductionModule() {
                                                                     <input
                                                                         list={`employees-list-${step._id}`}
                                                                         className="w-full text-[10px] font-bold pl-7 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer text-slate-600 hover:bg-white transition-colors"
-                                                                        placeholder="+ Add Specialist..."
+                                                                        placeholder="+ Assign Employee..."
                                                                         onChange={(e) => {
                                                                             if (e.target.value) {
                                                                                 const emp = employees.find(emp => emp.name === e.target.value || emp.fullName === e.target.value);
@@ -755,16 +760,21 @@ export default function ProductionModule() {
                                                             type="number"
                                                             value={batchQty}
                                                             onChange={(e) => {
-                                                                const val = parseFloat(e.target.value) || 0;
+                                                                const inputVal = e.target.value;
+                                                                if (inputVal === '') {
+                                                                    setBatchQty('');
+                                                                    return;
+                                                                }
+                                                                const val = parseFloat(inputVal);
+                                                                if (isNaN(val)) return;
                                                                 const max = planningItem.quantity - (planningItem.plannedQty || 0);
-                                                                setBatchQty(val > max ? max : val); // Strict Limit
+                                                                setBatchQty(val > max ? max : Math.max(0, val));
                                                             }}
+                                                            min="0"
                                                             className="w-full bg-slate-50 border border-slate-200 rounded-md p-3 text-xl font-black text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none pl-4"
-                                                            placeholder="0"
+                                                            placeholder=""
                                                         />
-                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 bg-white px-2 py-0.5 rounded text-[10px] font-bold text-indigo-600 border border-indigo-100 shadow-sm pointer-events-none">
-                                                            KEY ORDER
-                                                        </div>
+
                                                     </div>
                                                     <span className="text-slate-400 font-bold uppercase tracking-widest text-xs w-12">{planningItem.unit}</span>
                                                 </div>
@@ -797,20 +807,25 @@ export default function ProductionModule() {
                                                             <input
                                                                 type="number"
                                                                 value={extraQty}
-                                                                onChange={(e) => setExtraQty(Math.max(0, parseFloat(e.target.value) || 0))}
+                                                                onChange={(e) => {
+                                                                    const inputVal = e.target.value;
+                                                                    if (inputVal === '') {
+                                                                        setExtraQty('');
+                                                                        return;
+                                                                    }
+                                                                    const val = parseFloat(inputVal);
+                                                                    if (isNaN(val)) return;
+                                                                    setExtraQty(Math.max(0, val));
+                                                                }}
                                                                 className="w-full bg-white border border-amber-200 rounded-md p-2 pl-4 text-lg font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-none placeholder-amber-200"
-                                                                placeholder="0"
+                                                                placeholder=""
                                                                 min={0}
                                                             />
-                                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 bg-amber-100 px-2 py-0.5 rounded text-[10px] font-bold text-amber-700 pointer-events-none">
-                                                                BUFFER
-                                                            </div>
+
                                                         </div>
                                                         <span className="text-slate-400 font-bold uppercase tracking-widest text-xs w-12">{planningItem.unit}</span>
                                                     </div>
-                                                    <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
-                                                        Add extra stock for expected wastage or buffer. This enters inventory but <strong>does not</strong> count towards the original order fulfillment.
-                                                    </p>
+
                                                 </div>
                                             </div>
 
@@ -824,11 +839,7 @@ export default function ProductionModule() {
 
                                         </div>
 
-                                        <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                                            <p className="text-indigo-700 text-xs font-bold leading-relaxed">
-                                                🚀 Starting production will generate a unique Job Number for this batch and notify assigned employees.
-                                            </p>
-                                        </div>
+
                                     </div>
 
                                     {/* Right Side: Custom Steps */}
@@ -857,7 +868,10 @@ export default function ProductionModule() {
 
                                             <div className="space-y-4">
                                                 {customSteps.map((step, idx) => (
-                                                    <div key={idx} className="p-4 bg-slate-50 rounded-md border border-slate-200 group relative">
+                                                    <div key={idx} className="p-4 bg-slate-50 rounded-md border border-slate-200 group relative mt-4">
+                                                        <div className="absolute -left-3 -top-3 px-2 py-0.5 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold shadow-sm border-2 border-white z-10 min-w-[60px]">
+                                                            Step {idx + 1}
+                                                        </div>
                                                         <div className="grid grid-cols-2 gap-4 mb-3">
                                                             <div>
                                                                 <label className="block text-[8px] font-black text-slate-400 uppercase mb-1">Step Name</label>

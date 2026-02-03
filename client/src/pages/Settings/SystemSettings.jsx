@@ -118,8 +118,8 @@ const SystemSettings = () => {
                             key={tab.id}
                             onClick={() => tabChange(tab.id)}
                             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-md text-sm font-semibold transition-all duration-200 ${activeTab === tab.id
-                                    ? 'bg-white text-blue-600 shadow-md border border-slate-200/60 ring-1 ring-slate-100'
-                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                ? 'bg-white text-blue-600 shadow-md border border-slate-200/60 ring-1 ring-slate-100'
+                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                                 }`}
                         >
                             <tab.icon size={18} className={activeTab === tab.id ? 'text-blue-600' : 'text-slate-400'} />
@@ -290,8 +290,8 @@ const SystemSettings = () => {
                                         <button
                                             onClick={() => setSettings({ ...settings, theme: 'light' })}
                                             className={`flex-1 p-6 rounded-md border-2 flex flex-col items-center gap-4 transition-all duration-200 group ${settings.theme === 'light'
-                                                    ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-600/20'
-                                                    : 'border-slate-200 hover:border-blue-400 hover:bg-slate-50'
+                                                ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-600/20'
+                                                : 'border-slate-200 hover:border-blue-400 hover:bg-slate-50'
                                                 }`}
                                         >
                                             <div className={`p-4 rounded-full ${settings.theme === 'light' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400 group-hover:text-blue-500'}`}>
@@ -305,8 +305,8 @@ const SystemSettings = () => {
                                         <button
                                             onClick={() => setSettings({ ...settings, theme: 'dark' })}
                                             className={`flex-1 p-6 rounded-md border-2 flex flex-col items-center gap-4 transition-all duration-200 group ${settings.theme === 'dark'
-                                                    ? 'border-indigo-600 bg-slate-900 text-white shadow-sm'
-                                                    : 'border-slate-200 hover:border-indigo-400 hover:bg-slate-50'
+                                                ? 'border-indigo-600 bg-slate-900 text-white shadow-sm'
+                                                : 'border-slate-200 hover:border-indigo-400 hover:bg-slate-50'
                                                 }`}
                                         >
                                             <div className={`p-4 rounded-full ${settings.theme === 'dark' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-100 text-slate-400 group-hover:text-indigo-500'}`}>

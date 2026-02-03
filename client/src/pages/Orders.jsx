@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Calendar, Package, ShoppingCart, User, ChevronDown, Settings, X, Layers, List, Search, Filter, ArrowUpRight, Ban, CheckCircle2, CheckCircle, Activity, PlayCircle, FileText } from 'lucide-react';
+import PopupNotification from '../components/PopupNotification';
 import { getAllItems, getAllOrders, createOrder, updateOrder, deleteOrder, updateOrderStatus, getAllParties, getEmployees, getRawMaterials } from '../services/api';
 import axios from 'axios';
 import OrderTreeView from './Orders/OrderTreeView';
@@ -11,6 +12,7 @@ const getTodayString = () => new Date().toISOString().slice(0, 10);
 const createNewItemRow = () => ({
   id: Date.now(),
   item: null,
+  itemCode: '',
   itemName: '',
   quantity: 1,
   unit: 'NONE',
@@ -79,15 +81,24 @@ export default function Orders() {
     const row = newRows[index];
     row[field] = value;
 
-    if (field === 'item' || field === 'quantity') {
-      let selectedItem = items.find(i => i._id === (field === 'item' ? value : row.item));
-      if (!selectedItem) {
-        selectedItem = items.find(i => i.name?.toLowerCase() === String(field === 'item' ? value : row.itemName).toLowerCase());
+    if (field === 'item' || field === 'quantity' || field === 'itemCode') {
+      let selectedItem = null;
+      if (field === 'item') {
+        selectedItem = items.find(i => i._id === value);
+      } else if (field === 'itemCode') {
+        selectedItem = items.find(i => i.code?.toLowerCase() === value.toLowerCase());
+      } else {
+        selectedItem = items.find(i => i._id === row.item);
+      }
+
+      if (!selectedItem && field === 'item' && typeof value === 'string') {
+        selectedItem = items.find(i => i.name?.toLowerCase() === value.toLowerCase());
       }
 
       if (selectedItem) {
-        if (field === 'item') {
+        if (field === 'item' || field === 'itemCode') {
           row.item = selectedItem._id;
+          row.itemCode = selectedItem.code || '';
           row.itemName = selectedItem.name;
           row.unit = selectedItem.unit || 'NONE';
           row.rate = parseFloat(selectedItem.salePrice) || 0;
@@ -121,7 +132,15 @@ export default function Orders() {
         });
       } else if (field === 'item') {
         row.item = null;
+        row.itemCode = ''; // Clear code if name typed manually and not found
         row.itemName = value;
+        row.manufacturingSteps = [];
+        row.currentStock = 0;
+        row.rmRequirements = [];
+      } else if (field === 'itemCode') {
+        // If code typed but not found, just update the field but clear linked data
+        row.item = null;
+        row.itemName = '';
         row.manufacturingSteps = [];
         row.currentStock = 0;
         row.rmRequirements = [];
@@ -172,6 +191,7 @@ export default function Orders() {
         estimatedDeliveryDate: estDate,
         items: itemRows.map(r => ({
           item: r.item,
+          itemCode: r.itemCode,
           itemName: r.itemName,
           quantity: parseFloat(r.quantity) || 1,
           unit: r.unit,
@@ -278,6 +298,7 @@ export default function Orders() {
     setItemRows(order.items.map((item, idx) => ({
       id: idx,
       item: item.item?._id || item.item || null,
+      itemCode: item.itemCode || item.item?.code || '',
       itemName: item.itemName,
       quantity: item.quantity,
       unit: item.unit,
@@ -375,16 +396,7 @@ export default function Orders() {
       </div>
 
       {/* Messages */}
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-700 flex items-center gap-2 text-sm font-medium">
-          <span>⚠️</span> {error}
-        </div>
-      )}
-      {message && (
-        <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-md text-emerald-700 flex items-center gap-2 text-sm font-medium">
-          <span>✓</span> {message}
-        </div>
-      )}
+
 
       {/* Create/Edit Form */}
       {activeView === 'create' && (
@@ -454,6 +466,7 @@ export default function Orders() {
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="p-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">#</th>
+                  <th className="p-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider w-32">Part No</th>
                   <th className="p-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider w-64">Item Name</th>
                   <th className="p-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Delivery</th>
                   <th className="p-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider w-24">Qty</th>
@@ -470,6 +483,15 @@ export default function Orders() {
                   <React.Fragment key={row.id}>
                     <tr className="hover:bg-slate-50 group transition-colors">
                       <td className="p-3 text-slate-400 font-medium">{index + 1}</td>
+                      <td className="p-3">
+                        <input
+                          type="text"
+                          className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                          value={row.itemCode || ''}
+                          onChange={e => handleItemRowChange(index, 'itemCode', e.target.value)}
+                          placeholder="Part No"
+                        />
+                      </td>
                       <td className="p-3">
                         <input
                           list="items-list"
@@ -539,14 +561,14 @@ export default function Orders() {
                     </tr>
                     {row.item && (
                       <tr className="bg-slate-50/50">
-                        <td colSpan="10" className="px-6 py-4 border-t border-slate-100">
+                        <td colSpan="11" className="px-6 py-4 border-t border-slate-100">
                           <div className="space-y-3">
                             {/* Finished Good Stock */}
                             <div className="flex items-center gap-4 text-xs">
                               <span className="text-slate-500 uppercase font-black tracking-widest">FG Stock:</span>
                               <span className="text-slate-900 font-bold">{row.currentStock || 0} {row.unit}</span>
                               {row.currentStock < row.quantity && (
-                                <span className="text-orange-600 font-black flex items-center gap-1">⚠️ FG SHORTFALL</span>
+                                <span className="text-blue-600 font-black flex items-center gap-1">⚡ FG SHORTFALL</span>
                               )}
                             </div>
 
@@ -1119,6 +1141,16 @@ export default function Orders() {
           </div>
         )
       }
+      <PopupNotification
+        message={error}
+        type="error"
+        onClose={() => setError(null)}
+      />
+      <PopupNotification
+        message={message}
+        type="success"
+        onClose={() => setMessage(null)}
+      />
     </div >
   );
 }

@@ -177,8 +177,8 @@ router.patch('/jobs/:jobId/steps/:stepId/execute', async (req, res) => {
 
         // Quantity validation if completing
         if (status === 'completed') {
-            if (received === undefined || processed === undefined || rejected === undefined || !remarks) {
-                return res.status(400).json({ message: 'All quantities and remarks are mandatory for completion' });
+            if (received === undefined || processed === undefined || rejected === undefined) {
+                return res.status(400).json({ message: 'All quantities are mandatory for completion' });
             }
             if (Number(processed) + Number(rejected) > Number(received)) {
                 return res.status(400).json({ message: 'Processed + Rejected quantity cannot exceed Received quantity' });

@@ -325,10 +325,7 @@ const EmployeeJobs = ({ user }) => {
 
     const submitExecution = async () => {
         const { received, processed, rejected, remarks } = qtyInputs;
-        if (!remarks || remarks.trim() === '') {
-            alert('Remarks are mandatory');
-            return;
-        }
+
         if (Number(processed) + Number(rejected) > Number(received)) {
             alert('Processed + Rejected cannot exceed Received quantity');
             return;
@@ -878,7 +875,7 @@ const EmployeeJobs = ({ user }) => {
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks (Mandatory)</label>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks (Optional)</label>
                                     <textarea
                                         rows="3"
                                         value={qtyInputs.remarks}
