@@ -322,9 +322,10 @@ export default function ItemPage() {
                 ? data.stageInspectionChecks
                 : f.stageInspectionChecks,
             finalQualityCheck: data.finalQualityCheck || f.finalQualityCheck,
+            finalQualityCheckImages: data.finalQualityCheckImages || [],
+            finalQualityCheckSampleSize: data.finalQualityCheckSampleSize || 1,
             qualityCheckImage: data.qualityCheckImage || "",
-            images: data.images || [],
-            finalQualityCheckSampleSize: data.finalQualityCheckSampleSize || 1
+            images: data.images || []
           }));
           // Initialize search fields
           setItemNameSearch(data.name || "");
@@ -768,9 +769,10 @@ export default function ItemPage() {
         rawMaterials: form.rawMaterials,
         stageInspectionChecks: form.stageInspectionChecks,
         finalQualityCheck: form.finalQualityCheck,
+        finalQualityCheckImages: form.finalQualityCheckImages, // FQC reference images
+        finalQualityCheckSampleSize: form.finalQualityCheckSampleSize,
         qualityCheckImage: form.qualityCheckImage,
-        images: form.images,
-        finalQualityCheckSampleSize: form.finalQualityCheckSampleSize
+        images: form.images
       };
 
       if (id) {

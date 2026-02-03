@@ -193,17 +193,25 @@ router.get('/state/:stage', checkPermission('viewOrders'), async (req, res) => {
             .select('-image')
             .sort({ createdAt: -1 });
 
-        // 4. Map JobCards to UI structure
+        // 4. Map JobCards to UI structure - preserve full itemId for FQC data
         const mappedJobs = jobs.map(j => ({
             _id: j._id,
             name: j.itemId?.name || 'Unknown Item',
             code: j.jobNumber,
+            jobNumber: j.jobNumber,
             state: j.stage,
+            stage: j.stage,
             type: 'job', // Indicator for UI logic if needed
+            itemId: j.itemId, // Preserve full populated itemId for FQC images and parameters
+            orderId: j.orderId, // Preserve orderId for party info
+            quantity: j.quantity,
+            steps: j.steps, // Preserve full steps array for FQC step handling
+            fqcParameters: j.fqcParameters, // Preserve job-level FQC parameters
+            requiredSamples: j.requiredSamples,
             processes: j.steps.map(s => ({
                 id: s.stepId,
                 stepName: s.stepName,
-                stepType: 'execution',
+                stepType: s.stepType || 'execution',
                 status: s.status
             })),
             assignedEmployees: j.steps.filter(s => s.employeeId).map(s => ({

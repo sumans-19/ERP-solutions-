@@ -66,6 +66,9 @@ const jobCardSchema = new mongoose.Schema({
             parameterName: String,
             notation: String,
             tolerance: String,
+            positiveTolerance: String,
+            negativeTolerance: String,
+            actualValue: String,
             valueType: String,
             standardValue: String,
             samples: [{
@@ -122,6 +125,9 @@ const jobCardSchema = new mongoose.Schema({
         parameterName: String,
         notation: String,
         tolerance: String,
+        positiveTolerance: String,
+        negativeTolerance: String,
+        actualValue: String,
         valueType: String,
         standardValue: String,
         samples: [{
@@ -166,6 +172,13 @@ const jobCardSchema = new mongoose.Schema({
         unit: String,
         itemCode: String,
         code: String
+    }],
+    rmConsumptionLog: [{
+        materialCode: String,
+        materialName: String,
+        quantityConsumed: Number,
+        uom: String,
+        consumedAt: { type: Date, default: Date.now }
     }]
 }, { timestamps: true });
 

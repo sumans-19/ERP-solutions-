@@ -455,6 +455,15 @@ router.patch('/:id/items/:itemId/qc', checkPermission('editOrders'), async (req,
 // Plan Production / Create Job Card API
 router.post('/:id/items/:itemId/plan-production', checkPermission('editOrders'), async (req, res) => {
   try {
+    // FILE LOG - This will DEFINITELY show if route is hit
+    const fs = require('fs');
+    const logPath = require('path').join(__dirname, '..', 'ROUTE_HIT_LOG.txt');
+    fs.appendFileSync(logPath, `\n\n=== PLAN PRODUCTION CALLED at ${new Date().toISOString()} ===\n`);
+    fs.appendFileSync(logPath, `Order ID: ${req.params.id}\n`);
+    fs.appendFileSync(logPath, `Item ID: ${req.params.itemId}\n`);
+    fs.appendFileSync(logPath, `Body: ${JSON.stringify(req.body)}\n`);
+
+    console.log('\n\n🚨🚨🚨 PLAN PRODUCTION ROUTE HIT 🚨🚨🚨\n');
     console.log('--- PLAN PRODUCTION REQUEST ---');
     console.log('Params:', req.params);
     console.log('Body:', req.body);
@@ -555,9 +564,12 @@ router.post('/:id/items/:itemId/plan-production', checkPermission('editOrders'),
       fqcParameters: (masterItem?.finalQualityCheck || []).map(p => ({
         parameterName: p.parameter,
         notation: p.notation,
-        tolerance: p.tolerance,
+        tolerance: p.tolerance || '',
+        positiveTolerance: p.positiveTolerance || '',
+        negativeTolerance: p.negativeTolerance || '',
+        actualValue: p.actualValue || '',
         valueType: p.valueType,
-        standardValue: p.standardValue,
+        standardValue: p.standardValue || '',
         samples: Array.from({ length: masterItem.finalQualityCheckSampleSize || 1 }, (_, i) => ({
           sampleNumber: i + 1,
           reading: ''
@@ -631,6 +643,12 @@ router.post('/:id/items/:itemId/plan-production', checkPermission('editOrders'),
       // 1. Deduct Raw Material
       const rmReqs = savedJob.rmRequirements || [];
       const rmUsageLog = [];
+      const consumptionLog = []; // Track consumption for job card
+
+      // FILE LOG for RM Deduction
+      fs.appendFileSync(logPath, `\n--- RM DEDUCTION SECTION ---\n`);
+      fs.appendFileSync(logPath, `Total RM Requirements: ${rmReqs.length}\n`);
+      fs.appendFileSync(logPath, `RM Data: ${JSON.stringify(rmReqs, null, 2)}\n`);
 
       console.log(`\n========== RM DEDUCTION START for Job ${savedJob.jobNumber} ==========`);
       console.log(`Total RM Requirements: ${rmReqs.length}`);
@@ -660,6 +678,15 @@ router.post('/:id/items/:itemId/plan-production', checkPermission('editOrders'),
 
           if (deduced) {
             rmUsageLog.push(`${rm.required} ${rm.uom || ''} (${deduced.code})`);
+
+            // Track consumption for job card
+            consumptionLog.push({
+              materialCode: deduced.code,
+              materialName: deduced.name,
+              quantityConsumed: rm.required,
+              uom: deduced.uom
+            });
+
             console.log(`  ✅ SUCCESS: Deducted ${rm.required} ${deduced.uom} of '${deduced.name}' (Code: ${deduced.code})`);
             console.log(`  📊 New Stock Level: ${deduced.qty} ${deduced.uom}`);
           } else {
@@ -670,6 +697,14 @@ router.post('/:id/items/:itemId/plan-production', checkPermission('editOrders'),
         } else {
           console.log(`  ⏭️  Skipped (required qty is 0)`);
         }
+      }
+
+      // Save consumption log to job card
+      if (consumptionLog.length > 0) {
+        savedJob.rmConsumptionLog = consumptionLog;
+        await savedJob.save();
+        console.log(`\n📝 Saved ${consumptionLog.length} consumption records to Job Card`);
+        fs.appendFileSync(logPath, `\nSaved ${consumptionLog.length} consumption records to job\n`);
       }
 
       console.log(`\n========== RM DEDUCTION END ==========\n`);

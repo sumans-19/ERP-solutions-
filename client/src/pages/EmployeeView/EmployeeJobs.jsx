@@ -42,6 +42,7 @@ const EmployeeJobs = ({ user }) => {
     // FQC State
     const [fqcValues, setFqcValues] = useState([]);
     const [fqcQty, setFqcQty] = useState({ received: 0, processed: 0, rejected: 0, stepId: null });
+    const [zoomedImage, setZoomedImage] = useState(null); // For image zoom modal
 
     useEffect(() => {
         if (selectedEmployeeId) {
@@ -156,23 +157,33 @@ const EmployeeJobs = ({ user }) => {
             : (job.itemId?.finalQualityCheck?.map(p => ({
                 parameterName: p.parameter,
                 notation: p.notation,
-                tolerance: p.tolerance,
-                standardValue: p.standardValue,
+                positiveTolerance: p.positiveTolerance || '',
+                negativeTolerance: p.negativeTolerance || '',
+                actualValue: p.actualValue || '',
+                standardValue: p.standardValue || '',
                 valueType: p.valueType,
                 samples: Array.from({ length: job.itemId.finalQualityCheckSampleSize || 1 }, (_, i) => ({ sampleNumber: i + 1, reading: '' }))
             })) || []);
+
+        console.log('[FQC DEBUG] Job Item FQC Data:', job.itemId?.finalQualityCheck);
+        console.log('[FQC DEBUG] Mapped FQC Params:', fqcParams);
+        console.log('[FQC DEBUG] FQC Images:', job.itemId?.finalQualityCheckImages);
 
         const initialFQC = fqcParams.map(p => ({
             parameterId: p._id || p.id,
             parameterName: p.parameterName,
             notation: p.notation,
-            tolerance: p.tolerance,
-            standardValue: p.standardValue,
+            positiveTolerance: p.positiveTolerance || '',
+            negativeTolerance: p.negativeTolerance || '',
+            actualValue: p.actualValue || '',
+            standardValue: p.standardValue || '',
             samples: (p.samples && p.samples.length > 0)
                 ? p.samples.map(s => s.reading || '')
                 : Array(job.requiredSamples || job.itemId?.finalQualityCheckSampleSize || 1).fill(''),
             remarks: p.remarks || ''
         }));
+
+        console.log('[FQC DEBUG] Initial FQC Values:', initialFQC);
 
         setFqcValues(initialFQC);
         setSelectedJob(job);
@@ -663,14 +674,19 @@ const EmployeeJobs = ({ user }) => {
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Reference Images / Documents</p>
                                                 <div className="flex gap-4 overflow-x-auto pb-2">
                                                     {selectedJob.itemId.finalQualityCheckImages.map((img, i) => (
-                                                        <a key={i} href={img} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                                                        <div
+                                                            key={i}
+                                                            onClick={() => setZoomedImage(img)}
+                                                            className="flex-shrink-0 cursor-pointer group"
+                                                        >
                                                             <img
                                                                 src={img}
                                                                 alt={`QC Ref ${i + 1}`}
-                                                                className="h-24 w-32 object-cover rounded border border-slate-300 hover:border-blue-500 transition-colors shadow-sm bg-white"
+                                                                className="h-24 w-32 object-cover rounded border-2 border-slate-300 group-hover:border-blue-500 group-hover:shadow-lg transition-all shadow-sm bg-white"
                                                                 onError={(e) => { e.target.style.display = 'none'; }}
                                                             />
-                                                        </a>
+                                                            <p className="text-[9px] text-center mt-1 text-slate-500 group-hover:text-blue-600 font-medium">Click to zoom</p>
+                                                        </div>
                                                     ))}
                                                 </div>
                                             </div>
@@ -682,7 +698,8 @@ const EmployeeJobs = ({ user }) => {
                                                     <tr className="bg-slate-900 text-white uppercase text-[9px] tracking-widest">
                                                         <th className="p-3 border-r border-slate-700">Parameter</th>
                                                         <th className="p-3 border-r border-slate-700 text-center">Notation</th>
-                                                        <th className="p-3 border-r border-slate-700 text-center">Tolerance</th>
+                                                        <th className="p-3 border-r border-slate-700 text-center">+Tol</th>
+                                                        <th className="p-3 border-r border-slate-700 text-center">-Tol</th>
                                                         <th className="p-3 border-r border-slate-700 text-center">Expected</th>
                                                         {fqcValues[0]?.samples.map((_, i) => (
                                                             <th key={i} className="p-3 border-r border-slate-700 text-center min-w-[80px]">Sample {i + 1}</th>
@@ -699,11 +716,14 @@ const EmployeeJobs = ({ user }) => {
                                                             <td className="p-3 border-t border-r border-slate-200 text-center font-mono text-blue-600 font-bold">
                                                                 {v.notation || '-'}
                                                             </td>
-                                                            <td className="p-3 border-t border-r border-slate-200 text-center text-rose-600 font-bold">
-                                                                {v.tolerance || '-'}
-                                                            </td>
                                                             <td className="p-3 border-t border-r border-slate-200 text-center text-emerald-600 font-bold">
-                                                                {v.standardValue || '-'}
+                                                                {v.positiveTolerance || '-'}
+                                                            </td>
+                                                            <td className="p-3 border-t border-r border-slate-200 text-center text-rose-600 font-bold">
+                                                                {v.negativeTolerance || '-'}
+                                                            </td>
+                                                            <td className="p-3 border-t border-r border-slate-200 text-center text-purple-600 font-bold">
+                                                                {v.actualValue || v.standardValue || '-'}
                                                             </td>
                                                             {v.samples.map((s, sIdx) => (
                                                                 <td key={sIdx} className="p-2 border-t border-r border-slate-200 bg-white">
@@ -878,6 +898,37 @@ const EmployeeJobs = ({ user }) => {
                     </div>
                 )}
             </AnimatePresence >
+
+            {/* Image Zoom Modal */}
+            <AnimatePresence>
+                {zoomedImage && (
+                    <div
+                        className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+                        onClick={() => setZoomedImage(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            className="relative max-w-6xl max-h-[90vh]"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                onClick={() => setZoomedImage(null)}
+                                className="absolute -top-12 right-0 text-white hover:text-red-400 transition-colors"
+                            >
+                                <XCircle size={32} />
+                            </button>
+                            <img
+                                src={zoomedImage}
+                                alt="Zoomed FQC Reference"
+                                className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                            />
+                            <p className="text-white text-center mt-4 text-sm">Click outside to close</p>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div >
     );
 };
