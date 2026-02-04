@@ -531,3 +531,5 @@ export const submitFQCResults = async (jobId, data, overrideUserId = null) => {
 };
 
 export const getCalendarEvents = async (start, end) => (await axios.get('/api/calendar/events', { params: { start, end } })).data;
+
+export const getAllJobs = async () => (await axios.get('/api/job-cards')).data;

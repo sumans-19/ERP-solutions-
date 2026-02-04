@@ -19,13 +19,23 @@ router.get('/open-jobs', async (req, res) => {
         const jobs = await JobCard.find({
             'steps.isOpenJob': true,
             'steps.status': 'pending'
-        }).populate('itemId', 'name code unit finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize').populate('orderId', 'partyName poNumber');
+        })
+            .populate('itemId', 'name code unit image images finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
+            .populate('orderId', 'partyName poNumber')
+            .populate('steps.assignedEmployees.employeeId', 'fullName name username employeeId');
 
         // Filter out steps that are not open
         const openSteps = [];
         jobs.forEach(job => {
-            job.steps.forEach(step => {
+            job.steps.forEach((step, stepIndex) => {
                 if (step.isOpenJob && step.status === 'pending') {
+                    // Get assigned employee details
+                    const assignedEmployees = (step.assignedEmployees || []).map(ae => ({
+                        employeeId: ae.employeeId?._id || ae.employeeId,
+                        name: ae.employeeId?.fullName || ae.employeeId?.name || ae.employeeId?.username || 'Worker',
+                        employeeCode: ae.employeeId?.employeeId || ''
+                    }));
+
                     openSteps.push({
                         jobCardId: job._id,
                         jobNumber: job.jobNumber,
@@ -35,8 +45,10 @@ router.get('/open-jobs', async (req, res) => {
                         quantity: job.quantity,
                         stepId: step.stepId,
                         stepName: step.stepName,
+                        stepNumber: stepIndex + 1,
                         partyName: job.orderId?.partyName,
-                        poNumber: job.orderId?.poNumber
+                        poNumber: job.orderId?.poNumber,
+                        assignedEmployees: assignedEmployees
                     });
                 }
             });
@@ -124,7 +136,7 @@ router.patch('/jobs/:jobId/steps/:stepId/execute', async (req, res) => {
 
         console.log(`[Execute Job] Request from User '${employeeId}' for Job '${jobId}', Step '${stepId}' Status: ${status}`);
 
-        const job = await JobCard.findById(jobId).populate('itemId').populate('orderId');
+        const job = await JobCard.findById(jobId).populate('itemId', 'name code unit image images finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize').populate('orderId');
         if (!job) return res.status(404).json({ message: 'Job Card not found' });
 
         // Fix: Use loose equality logic for stepId lookup
@@ -243,15 +255,26 @@ router.patch('/jobs/:jobId/steps/:stepId/execute', async (req, res) => {
                 // Automated Rejection Movement (Only log to RejectedGood on first transition)
                 if (oldStatus !== 'completed' && rejectedVal > 0) {
                     try {
+                        // Fetch actual employee name from database
+                        let employeeName = 'Worker';
+                        try {
+                            const employee = await Employee.findById(employeeId);
+                            if (employee) {
+                                employeeName = employee.fullName || employee.name || employee.username || 'Worker';
+                            }
+                        } catch (empErr) {
+                            console.error('[Sync] Failed to fetch employee name:', empErr);
+                        }
+
                         const rejectedEntry = new RejectedGood({
                             partNo: item?.code || 'N/A',
                             partName: item?.name || 'Unknown',
                             qty: rejectedVal,
                             reason: `Rejected during step: ${step.stepName}`,
-                            poNo: job.orderId?.toString() || '',
+                            poNo: job.orderId?.poNumber || '',
                             jobNo: job.jobNumber,
                             stepName: step.stepName,
-                            employeeName: req.user?.name || req.user?.username || 'Worker',
+                            employeeName: employeeName,
                             mfgDate: new Date()
                         });
                         await rejectedEntry.save();
@@ -307,7 +330,7 @@ router.patch('/jobs/:jobId/steps/:stepId/complete-outward', async (req, res) => 
 router.post('/jobs/:jobId/fqc', async (req, res) => {
     try {
         const { jobId } = req.params;
-        const { results, processed, rejected, stepId, employeeId } = req.body; // Array of { parameterId, parameterName, samples: [], remarks }
+        const { results, processed, rejected, stepId, employeeId, images } = req.body; // Array of { parameterId, parameterName, samples: [], remarks }
 
         const job = await JobCard.findById(jobId).populate('itemId').populate('orderId');
         if (!job) return res.status(404).json({ message: 'Job Card not found' });
@@ -323,6 +346,11 @@ router.post('/jobs/:jobId/fqc', async (req, res) => {
                 param.remarks = res.remarks;
             }
         });
+
+        // Save FQC Images if provided
+        if (images && Array.isArray(images)) {
+            job.fqcImages = images;
+        }
 
         // Mark the specific FQC step as completed (using stepId if provided)
         let fqcStep = null;
@@ -376,6 +404,19 @@ router.post('/jobs/:jobId/fqc', async (req, res) => {
             // 2. Automated Rejection Movement during FQC
             if (rejected !== undefined && Number(rejected) > 0) {
                 try {
+                    // Fetch actual employee name from database
+                    let employeeName = 'Quality Inspector';
+                    try {
+                        if (employeeId) {
+                            const employee = await Employee.findById(employeeId);
+                            if (employee) {
+                                employeeName = employee.fullName || employee.name || employee.username || 'Quality Inspector';
+                            }
+                        }
+                    } catch (empErr) {
+                        console.error('[FQC] Failed to fetch employee name:', empErr);
+                    }
+
                     const rejectedEntry = new RejectedGood({
                         partNo: item?.code || 'N/A',
                         partName: item?.name || 'Unknown',
@@ -384,7 +425,7 @@ router.post('/jobs/:jobId/fqc', async (req, res) => {
                         poNo: job.orderId?.poNumber || '',
                         jobNo: job.jobNumber,
                         stepName: 'Final Quality Check',
-                        employeeName: req.user?.name || req.user?.username || 'Quality Inspector',
+                        employeeName: employeeName,
                         mfgDate: new Date()
                     });
                     await rejectedEntry.save();

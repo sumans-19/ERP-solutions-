@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Save, CheckCircle, AlertCircle, Calendar, Users, Coffee, LogIn, LogOut } from 'lucide-react';
 import { getEmployees, updateEmployee } from '../../services/employeeApi';
 import { motion } from 'framer-motion';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const ShiftTimeSettings = () => {
+    const { showNotification } = useNotification();
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState(null);
 
     // Global Timing
     const [globalShift, setGlobalShift] = useState({
@@ -45,10 +46,9 @@ const ShiftTimeSettings = () => {
         setSaving(true);
         try {
             await updateEmployee(emp._id, { workShift: emp.workShift });
-            setMessage({ type: 'success', text: `Shift updated for ${emp.fullName}` });
-            setTimeout(() => setMessage(null), 3000);
+            showNotification(`Shift updated for ${emp.fullName}`);
         } catch (error) {
-            setMessage({ type: 'error', text: 'Failed to update shift' });
+            showNotification('Failed to update shift', 'error');
         } finally {
             setSaving(false);
         }
@@ -57,7 +57,7 @@ const ShiftTimeSettings = () => {
     const applyGlobalToAll = () => {
         if (window.confirm('Apply these timings to ALL employees? This will overwrite individual settings.')) {
             setEmployees(employees.map(emp => ({ ...emp, workShift: { ...globalShift } })));
-            setMessage({ type: 'success', text: 'Global shift applied to local list. Click save on individual employees to sync with server.' });
+            showNotification('Global shift applied local list. Click save on individual employees to sync.');
         }
     };
 
@@ -73,17 +73,7 @@ const ShiftTimeSettings = () => {
                 <p className="text-slate-500 mt-2">Configure working hours and break schedules for the organization</p>
             </div>
 
-            {message && (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className={`mb-6 p-4 rounded-md flex items-center gap-3 shadow-sm border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
-                        }`}
-                >
-                    {message.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
-                    <span className="font-semibold">{message.text}</span>
-                </motion.div>
-            )}
+
 
             {/* Global Configuration Card */}
             <div className="bg-white rounded-md shadow-sm border border-slate-200 p-6 mb-8 mt-2">

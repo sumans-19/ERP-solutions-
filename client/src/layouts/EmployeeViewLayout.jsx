@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, ClipboardCheck, Briefcase, MessageSquare, Bell, ChevronDown, User } from 'lucide-react';
+import { Home, ClipboardCheck, Briefcase, MessageSquare, Bell, ChevronDown, User, Globe } from 'lucide-react';
 import { useEmployeeView } from '../contexts/EmployeeViewContext';
 
 const EmployeeViewLayout = ({ activeTab, setActiveTab, children }) => {
@@ -8,8 +8,9 @@ const EmployeeViewLayout = ({ activeTab, setActiveTab, children }) => {
 
     const tabs = [
         { id: 'employee-dashboard', label: 'Dashboard', icon: Home },
+        { id: 'employee-jobs', label: 'My Jobs', icon: Briefcase },
+        { id: 'employee-global-jobs', label: 'Jobs', icon: Globe },
         { id: 'employee-tasks', label: 'Tasks', icon: ClipboardCheck },
-        { id: 'employee-jobs', label: 'Jobs', icon: Briefcase },
         { id: 'employee-chat', label: 'Chat', icon: MessageSquare },
         { id: 'employee-bulletins', label: 'Bulletins', icon: Bell }
     ];
@@ -96,8 +97,8 @@ const EmployeeViewLayout = ({ activeTab, setActiveTab, children }) => {
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id)}
                                         className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${isActive
-                                                ? 'bg-slate-900 text-white shadow-lg'
-                                                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                                            ? 'bg-slate-900 text-white shadow-lg'
+                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                                             }`}
                                     >
                                         <Icon size={16} />

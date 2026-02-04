@@ -3,14 +3,15 @@ import { Shield, ChevronRight, User, CheckCircle2, XCircle, Search, Save, AlertC
 import { getEmployees, updateEmployee } from '../../services/employeeApi';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const IndividualPermissions = () => {
+    const { showNotification } = useNotification();
     const [employees, setEmployees] = useState([]);
     const [selectedEmp, setSelectedEmp] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState(null);
 
     const SECTIONS = [
         { id: 'dashboard', label: 'Dashboard' },
@@ -53,7 +54,6 @@ const IndividualPermissions = () => {
             };
         });
         setSelectedEmp({ ...emp, permissions });
-        setMessage(null);
     };
 
     const togglePermission = (sectionId) => {
@@ -82,11 +82,10 @@ const IndividualPermissions = () => {
             await updateEmployee(selectedEmp._id, {
                 individualPermissions: selectedEmp.permissions
             });
-            setMessage({ type: 'success', text: `Permissions updated for ${selectedEmp.fullName}` });
+            showNotification(`Permissions updated for ${selectedEmp.fullName}`);
             fetchEmployees(); // Refresh list
-            setTimeout(() => setMessage(null), 3000);
         } catch (error) {
-            setMessage({ type: 'error', text: 'Failed to update permissions' });
+            showNotification('Failed to update permissions', 'error');
         } finally {
             setSaving(false);
         }
@@ -131,8 +130,8 @@ const IndividualPermissions = () => {
                                 key={emp._id}
                                 onClick={() => handleEmployeeSelect(emp)}
                                 className={`w-full flex items-center gap-3 p-3 rounded-md transition-all ${selectedEmp?._id === emp._id
-                                        ? 'bg-blue-600 text-white shadow-md'
-                                        : 'hover:bg-slate-50 text-slate-700'
+                                    ? 'bg-blue-600 text-white shadow-md'
+                                    : 'hover:bg-slate-50 text-slate-700'
                                     }`}
                             >
                                 <div className={`w-10 h-10 rounded-md flex items-center justify-center font-bold text-lg ${selectedEmp?._id === emp._id ? 'bg-white/20' : 'bg-blue-100 text-blue-600'
@@ -180,18 +179,7 @@ const IndividualPermissions = () => {
 
                             <div className="flex-1 overflow-y-auto p-6">
                                 <AnimatePresence mode="wait">
-                                    {message && (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: -10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0 }}
-                                            className={`mb-6 p-4 rounded-md flex items-center gap-3 border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
-                                                }`}
-                                        >
-                                            {message.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-                                            <span className="text-sm font-semibold">{message.text}</span>
-                                        </motion.div>
-                                    )}
+
                                 </AnimatePresence>
 
                                 <div className="space-y-4">
@@ -199,8 +187,8 @@ const IndividualPermissions = () => {
                                         <div
                                             key={perm.section}
                                             className={`p-4 rounded-md border transition-all ${perm.visibility
-                                                    ? 'bg-white border-slate-200'
-                                                    : 'bg-slate-50 border-slate-100 opacity-60'
+                                                ? 'bg-white border-slate-200'
+                                                : 'bg-slate-50 border-slate-100 opacity-60'
                                                 }`}
                                         >
                                             <div className="flex items-center justify-between mb-4">
@@ -238,8 +226,8 @@ const IndividualPermissions = () => {
                                                             key={action}
                                                             onClick={() => toggleAction(perm.section, action)}
                                                             className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all border ${enabled
-                                                                    ? 'bg-blue-50 text-blue-700 border-blue-100 shadow-sm'
-                                                                    : 'bg-white text-slate-300 border-slate-100 grayscale'
+                                                                ? 'bg-blue-50 text-blue-700 border-blue-100 shadow-sm'
+                                                                : 'bg-white text-slate-300 border-slate-100 grayscale'
                                                                 }`}
                                                         >
                                                             {enabled ? <CheckCircle2 size={12} /> : <XCircle size={12} />}

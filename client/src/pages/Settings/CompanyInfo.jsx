@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Building2, Mail, Phone, Globe, MapPin, CreditCard, Save, CheckCircle, AlertTriangle, Upload, Trash2 } from 'lucide-react';
 import { getSystemSettings, updateSystemSettings } from '../../services/api';
 import { motion } from 'framer-motion';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const CompanyInfo = () => {
+    const { showNotification } = useNotification();
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
-    const [message, setMessage] = useState(null);
 
     const [settings, setSettings] = useState({
         businessName: '',
@@ -37,14 +38,12 @@ const CompanyInfo = () => {
 
     const handleSave = async () => {
         setLoading(true);
-        setMessage(null);
         try {
             await updateSystemSettings(settings);
-            setMessage({ type: 'success', text: 'Company information updated successfully' });
-            setTimeout(() => setMessage(null), 3000);
+            showNotification('Company information updated successfully');
         } catch (error) {
             console.error('Error saving settings:', error);
-            setMessage({ type: 'error', text: 'Failed to update company information' });
+            showNotification('Failed to update company information', 'error');
         } finally {
             setLoading(false);
         }
@@ -88,16 +87,7 @@ const CompanyInfo = () => {
                 </button>
             </motion.div>
 
-            {message && (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className={`mb-6 p-4 rounded-md flex items-center gap-3 shadow-sm border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}
-                >
-                    {message.type === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
-                    <span className="font-medium">{message.text}</span>
-                </motion.div>
-            )}
+
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Logo Section */}

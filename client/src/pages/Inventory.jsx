@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNotification } from '../contexts/NotificationContext';
 import axios from 'axios';
 import {
     Package,
@@ -41,6 +42,7 @@ import {
 } from '../services/api';
 
 const Inventory = () => {
+    const { showNotification } = useNotification();
     const [activeTab, setActiveTab] = useState('material-request');
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -59,16 +61,7 @@ const Inventory = () => {
     const [parties, setParties] = useState([]);
 
     // Centralized Notification & Remark State
-    const [alert, setAlert] = useState(null); // { type, message }
     const [remarkModal, setRemarkModal] = useState(null); // { type, action, id, data }
-
-    const showAlert = (message, type = 'success') => {
-        setAlert({ message, type });
-        // Auto-close after 3 seconds for success
-        if (type === 'success') {
-            setTimeout(() => setAlert(null), 3000);
-        }
-    };
 
     useEffect(() => {
         fetchData();
@@ -119,7 +112,7 @@ const Inventory = () => {
         if (!editingItem && activeTab === 'raw-materials') {
             const exists = rawMaterials.some(rm => rm.code === data.code);
             if (exists) {
-                showAlert(`Error: Item Code "${data.code}" already exists in the master list. Please use a unique code.`, 'error');
+                showNotification(`Error: Item Code "${data.code}" already exists in the master list. Please use a unique code.`, 'error');
                 return;
             }
         }
@@ -150,11 +143,11 @@ const Inventory = () => {
             setIsAddModalOpen(false);
             setEditingItem(null);
             await fetchData();
-            showAlert("✓ Success: Saved successfully!");
+            showNotification("Saved successfully!");
         } catch (error) {
             console.error("Operation failed", error);
             const errMsg = error.response?.data?.message || "Failed to save. Please try again.";
-            showAlert(errMsg, "error");
+            showNotification(errMsg, "error");
         }
     };
 
@@ -176,11 +169,11 @@ const Inventory = () => {
                     } else if (activeTab === 'rejected') {
                         await deleteRejectedGood(id, remark);
                     }
-                    showAlert("Item deleted successfully!");
+                    showNotification("Item deleted successfully!");
                     fetchData();
                 } catch (error) {
                     console.error("Delete failed", error);
-                    showAlert(error.response?.data?.message || "Delete failed", "error");
+                    showNotification(error.response?.data?.message || "Delete failed", "error");
                 }
             }
         });
@@ -191,10 +184,10 @@ const Inventory = () => {
             setLoading(true);
             await recalculateRMStock();
             await fetchData();
-            showAlert("Stock levels synchronized with GRNs successfully!");
+            showNotification("Stock levels synchronized with GRNs successfully!");
         } catch (error) {
             console.error("Sync failed", error);
-            showAlert("Failed to sync stock.", "error");
+            showNotification("Failed to sync stock.", "error");
         } finally {
             setLoading(false);
         }
@@ -211,11 +204,11 @@ const Inventory = () => {
                         remark,
                         updatedBy: userData.name || userData.username
                     });
-                    showAlert(`MR ${status} successfully!`);
+                    showNotification(`MR ${status} successfully!`);
                     fetchData();
                 } catch (error) {
                     console.error("Status update failed", error);
-                    showAlert(error.response?.data?.message || "Status update failed", "error");
+                    showNotification(error.response?.data?.message || "Status update failed", "error");
                 }
             }
         });
@@ -401,35 +394,6 @@ const Inventory = () => {
                 )}
             </AnimatePresence>
 
-            {/* Centralized Centered Alert */}
-            <AnimatePresence>
-                {alert && (
-                    <div className="fixed inset-0 flex items-center justify-center z-[100] pointer-events-none">
-                        <motion.div
-                            initial={{ scale: 0.8, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.8, opacity: 0, y: 20 }}
-                            className={`
-                                pointer-events-auto px-8 py-4 rounded-xl shadow-2xl border-2 flex items-center gap-4 min-w-[300px]
-                                ${alert.type === 'error' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-emerald-100 text-emerald-800'}
-                            `}
-                        >
-                            <div className={`p-2 rounded-full ${alert.type === 'error' ? 'bg-red-100' : 'bg-emerald-100'}`}>
-                                {alert.type === 'error' ? <AlertTriangle size={24} /> : <CheckCircle2 size={24} />}
-                            </div>
-                            <div className="flex-1">
-                                <h4 className="font-bold uppercase text-xs tracking-widest mb-0.5">{alert.type === 'error' ? 'Error' : 'Success'}</h4>
-                                <p className="font-medium">{alert.message}</p>
-                            </div>
-                            {alert.type === 'error' && (
-                                <button onClick={() => setAlert(null)} className="p-1 hover:bg-red-100 rounded-full transition">
-                                    <X size={18} />
-                                </button>
-                            )}
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
 
             {/* Center Remark Modal for Deletes/Adjustments */}
             <AnimatePresence>
@@ -682,13 +646,13 @@ const RMDetailsModal = ({ item, onClose }) => {
                     </div>
 
                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <Truck size={16} className="text-blue-500" /> Linked GRN History
+                        <Truck size={16} className="text-blue-500" /> Linked GRN History (Receipts)
                     </h3>
 
                     {loading ? (
                         <div className="py-12 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>
                     ) : grnHistory.length > 0 ? (
-                        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm mb-8">
                             <table className="w-full text-left text-[12px]">
                                 <thead>
                                     <tr className="bg-slate-50 border-b border-slate-200">
@@ -724,8 +688,43 @@ const RMDetailsModal = ({ item, onClose }) => {
                             </table>
                         </div>
                     ) : (
-                        <div className="p-12 text-center bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                        <div className="p-12 text-center bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 mb-8">
                             <p className="text-slate-400 font-bold">No receipt history found for this material.</p>
+                        </div>
+                    )}
+
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Package size={16} className="text-rose-500" /> Consumption History (Job Cards)
+                    </h3>
+
+                    {item.consumptionHistory && item.consumptionHistory.length > 0 ? (
+                        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                            <table className="w-full text-left text-[12px]">
+                                <thead>
+                                    <tr className="bg-rose-50 border-b border-rose-200">
+                                        <th className="px-6 py-4 font-black text-rose-600 uppercase">Job Number</th>
+                                        <th className="px-6 py-4 font-black text-rose-600 uppercase">PO Number</th>
+                                        <th className="px-6 py-4 font-black text-rose-600 uppercase">Item</th>
+                                        <th className="px-6 py-4 font-black text-rose-600 uppercase text-right">Qty Consumed</th>
+                                        <th className="px-6 py-4 font-black text-rose-600 uppercase">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {item.consumptionHistory.slice().reverse().map((consumption, idx) => (
+                                        <tr key={idx} className="hover:bg-rose-50/30">
+                                            <td className="px-6 py-4 font-bold text-blue-600">{consumption.jobNumber}</td>
+                                            <td className="px-6 py-4 text-slate-600 font-medium">{consumption.poNumber}</td>
+                                            <td className="px-6 py-4 text-slate-700">{consumption.itemName}</td>
+                                            <td className="px-6 py-4 text-right font-black text-rose-600">-{consumption.quantityConsumed} {item.uom}</td>
+                                            <td className="px-6 py-4 text-slate-500">{new Date(consumption.consumedAt).toLocaleDateString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="p-12 text-center bg-rose-50 rounded-xl border-2 border-dashed border-rose-200">
+                            <p className="text-rose-400 font-bold">No consumption history found for this material.</p>
                         </div>
                     )}
                 </div>
@@ -1138,30 +1137,46 @@ const RejectedItemCard = ({ partName, totalQty, items, onEdit, onDelete }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {items.map((rej, i) => (
-                                    <tr key={rej._id || i} className="hover:bg-red-50/20 transition-colors border-b border-slate-50 last:border-none">
-                                        <td className="px-6 py-3">
-                                            <div className="font-black text-blue-600 uppercase">{rej.jobNo || 'N/A'}</div>
-                                            <div className="text-[10px] font-bold text-slate-500 mt-0.5">{rej.stepName || 'Unknown Step'}</div>
-                                        </td>
-                                        <td className="px-6 py-3">
-                                            <div className="font-bold text-slate-700">{rej.employeeName || 'Admin'}</div>
-                                        </td>
-                                        <td className="px-6 py-3 text-right">
-                                            <span className="font-black text-red-600 text-sm">{rej.qty}</span>
-                                        </td>
-                                        <td className="px-6 py-3">
-                                            <div className="italic text-slate-600">{rej.reason}</div>
-                                            <div className="text-[10px] text-slate-400 mt-1 uppercase font-bold">{new Date(rej.mfgDate || rej.createdAt).toLocaleDateString()}</div>
-                                        </td>
-                                        <td className="px-6 py-3 text-center">
-                                            <div className="flex justify-center gap-2">
-                                                <button onClick={(e) => { e.stopPropagation(); onEdit(rej); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition"><Edit2 size={14} /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); onDelete(rej._id); }} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition"><Trash2 size={14} /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {items.map((rej, i) => {
+                                    // Check if this rejection is from Final Quality Check
+                                    const isFQC = rej.stepName?.toLowerCase().includes('final quality check') ||
+                                        rej.stepName?.toLowerCase().includes('final qc');
+
+                                    return (
+                                        <tr key={rej._id || i} className={`transition-colors border-b border-slate-50 last:border-none ${isFQC
+                                            ? 'bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border-l-4 border-l-purple-500'
+                                            : 'hover:bg-red-50/20'
+                                            }`}>
+                                            <td className="px-6 py-3">
+                                                <div className="font-black text-blue-600 uppercase">{rej.jobNo || 'N/A'}</div>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <div className="text-[10px] font-bold text-slate-500">{rej.stepName || 'Unknown Step'}</div>
+                                                    {isFQC && (
+                                                        <span className="px-2 py-0.5 bg-purple-600 text-white text-[8px] font-black rounded-full uppercase tracking-wide">
+                                                            FQC
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-3">
+                                                <div className="font-bold text-slate-700">{rej.employeeName || 'Admin'}</div>
+                                            </td>
+                                            <td className="px-6 py-3 text-right">
+                                                <span className="font-black text-red-600 text-sm">{rej.qty}</span>
+                                            </td>
+                                            <td className="px-6 py-3">
+                                                <div className="italic text-slate-600">{rej.reason}</div>
+                                                <div className="text-[10px] text-slate-400 mt-1 uppercase font-bold">{new Date(rej.mfgDate || rej.createdAt).toLocaleDateString()}</div>
+                                            </td>
+                                            <td className="px-6 py-3 text-center">
+                                                <div className="flex justify-center gap-2">
+                                                    <button onClick={(e) => { e.stopPropagation(); onEdit(rej); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition"><Edit2 size={14} /></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); onDelete(rej._id); }} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition"><Trash2 size={14} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </motion.div>
@@ -1472,27 +1487,35 @@ const InventoryModal = ({ type, item, rawMaterialsList = [], partiesList = [], o
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 pt-2 border-t border-slate-50">
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-3 mt-3 border-t border-slate-100">
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Manufacturing Date</label>
-                                                <input type="date" className="w-full p-2.5 text-xs border rounded-lg bg-white focus:border-blue-500 outline-none transition-all shadow-sm" value={item.mfgDate ? item.mfgDate.slice(0, 10) : ''} onChange={e => updateItem(index, 'mfgDate', e.target.value)} />
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block">Manufacturing Date</label>
+                                                <input type="date" className="w-full p-2.5 text-sm border border-slate-200 rounded-lg bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-100 outline-none transition-all" value={item.mfgDate ? item.mfgDate.slice(0, 10) : ''} onChange={e => updateItem(index, 'mfgDate', e.target.value)} />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Expiry / Best Before</label>
-                                                <input type="date" className="w-full p-2.5 text-xs border rounded-lg bg-white focus:border-red-500 outline-none transition-all shadow-sm" value={item.expDate ? item.expDate.slice(0, 10) : ''} onChange={e => updateItem(index, 'expDate', e.target.value)} />
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block">Expiry / Best Before</label>
+                                                <input type="date" className="w-full p-2.5 text-sm border border-slate-200 rounded-lg bg-white focus:border-red-500 focus:ring-1 focus:ring-red-100 outline-none transition-all" value={item.expDate ? item.expDate.slice(0, 10) : ''} onChange={e => updateItem(index, 'expDate', e.target.value)} />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">HSN Code</label>
-                                                <input readOnly className="w-full p-2.5 text-xs border rounded-lg bg-slate-100 text-slate-500 font-mono" value={item.hsn || 'N/A'} />
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block">HSN Code</label>
+                                                <input readOnly className="w-full p-2.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-600 font-mono" value={item.hsn || 'N/A'} />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">GST Rate (%)</label>
-                                                <input readOnly className="w-full p-2.5 text-xs border rounded-lg bg-slate-100 text-slate-500 font-bold" value={item.gstRate ? `${item.gstRate}%` : '0%'} />
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block">GST Rate (%)</label>
+                                                <input readOnly className="w-full p-2.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-600 font-bold" value={item.gstRate ? `${item.gstRate}%` : '0%'} />
                                             </div>
-                                            <div>
-                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Remarks</label>
-                                                <input className="w-full p-2.5 text-xs border rounded-lg bg-white focus:border-blue-500 outline-none transition-all shadow-sm" placeholder="Notes for this item..." value={item.remarks || ''} onChange={e => updateItem(index, 'remarks', e.target.value)} />
-                                            </div>
+                                        </div>
+
+                                        {/* Remarks - Full Width Row */}
+                                        <div className="pt-3 mt-3 border-t border-slate-100">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block">Remarks / Notes</label>
+                                            <textarea
+                                                rows={2}
+                                                className="w-full p-3 text-sm border border-slate-200 rounded-lg bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-100 outline-none transition-all resize-none"
+                                                placeholder="Add any notes, special instructions, or remarks for this item..."
+                                                value={item.remarks || ''}
+                                                onChange={e => updateItem(index, 'remarks', e.target.value)}
+                                            />
                                         </div>
                                     </div>
                                 </div>

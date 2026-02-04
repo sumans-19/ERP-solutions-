@@ -8,28 +8,46 @@ import {
     getJobCardById,
     toggleJobSubstep,
     getJobCardsByStage,
-    completeOutwardWork
+    completeOutwardWork,
+    getAllJobs
 } from '../../services/api';
 import {
     Briefcase, CheckCircle, Circle, Clock, ChevronRight, FileText,
     AlertTriangle, Layout, List, ClipboardList, CheckCircle2, AlertCircle, Calendar, Users,
     ArrowRight, Play, Trash2, ClipboardCheck,
-    Search, Filter, Package, ShoppingBag, ArrowLeftRight, XCircle
+    Search, Filter, Package, ShoppingBag, ArrowLeftRight, XCircle, Camera, Upload, Globe, ArrowLeft
 } from 'lucide-react';
+import ZoomableImageViewer from '../../components/ZoomableImageViewer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEmployeeView } from '../../contexts/EmployeeViewContext';
+import { useNotification } from '../../contexts/NotificationContext';
 
-const EmployeeJobs = ({ user }) => {
+const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
+    const { showNotification } = useNotification();
     const { selectedEmployeeId } = useEmployeeView();
     const [jobs, setJobs] = useState([]);
     const [openJobs, setOpenJobs] = useState([]);
+    const [globalJobs, setGlobalJobs] = useState([]); // For Global Search
+    const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('assigned'); // 'assigned', 'open', 'fqc', 'completed'
+
+    // Initialize tab based on mode
+    const [activeTab, setActiveTab] = useState(viewMode === 'global' ? 'open' : 'assigned');
+
+    // Sync tab when mode changes
+    useEffect(() => {
+        if (viewMode === 'global') {
+            if (activeTab !== 'open' && activeTab !== 'search') setActiveTab('open');
+        } else {
+            if (activeTab === 'open' || activeTab === 'search') setActiveTab('assigned');
+        }
+    }, [viewMode]);
+
     const [selectedJob, setSelectedJob] = useState(null);
     const [isFqcMode, setIsFqcMode] = useState(false);
     const [showExecutionModal, setShowExecutionModal] = useState(false);
 
-    const [counts, setCounts] = useState({ active: 0, completed: 0 });
+    const [counts, setCounts] = useState({ active: 0, completed: 0, open: 0, global: 0 });
 
     // Execution Step State
     const [qtyInputs, setQtyInputs] = useState({
@@ -42,6 +60,7 @@ const EmployeeJobs = ({ user }) => {
     // FQC State
     const [fqcValues, setFqcValues] = useState([]);
     const [fqcQty, setFqcQty] = useState({ received: 0, processed: 0, rejected: 0, stepId: null });
+    const [fqcImages, setFqcImages] = useState([]); // State for FQC execution images
     const [zoomedImage, setZoomedImage] = useState(null); // For image zoom modal
 
     useEffect(() => {
@@ -86,34 +105,52 @@ const EmployeeJobs = ({ user }) => {
                 }
             });
 
-            setCounts({ active: activeItems.length, completed: completedItems.length });
+            setCounts({ active: activeItems.length, completed: completedItems.length, open: openData.length, global: 0 });
 
-            // 2. Set display list based on active tab
-            if (activeTab === 'assigned') {
-                setJobs(activeItems);
-            } else if (activeTab === 'completed') {
-                setJobs(completedItems);
-            } else if (activeTab === 'open') {
-                // Handled via openJobs.map
-            } else if (activeTab === 'fqc') {
-                // Fetch FQC stage jobs (General Pool)
-                const fqcStageData = await getJobCardsByStage('Verification');
+            // 2. Mode Specific Fetch
+            if (viewMode === 'global') {
+                if (activeTab === 'search') {
+                    const allData = await getAllJobs();
+                    // Map to unified structure if needed, or rely on API
+                    setGlobalJobs(allData);
+                    setCounts(prev => ({ ...prev, global: allData.length }));
 
-                // Also include any 'testing' steps assigned to THIS user, even if job not in 'Verification' stage
-                const myFqcAssignments = assignedData.filter(job =>
-                    job.steps.some(s =>
-                        (s.stepType === 'testing' || s.stepName?.toLowerCase().includes('qc')) &&
-                        s.assignedEmployees?.some(ae => String(ae.employeeId?._id || ae.employeeId) === String(selectedEmployeeId)) &&
-                        s.status !== 'completed'
-                    )
-                );
-
-                // Union by ID to prevent duplicates
-                const unionMap = new Map();
-                fqcStageData.forEach(j => unionMap.set(j._id, j));
-                myFqcAssignments.forEach(j => unionMap.set(j._id, j));
-
-                setJobs(Array.from(unionMap.values()));
+                    // Client-side filtering
+                    if (searchQuery) {
+                        const lowerQ = searchQuery.toLowerCase();
+                        const filtered = allData.filter(j =>
+                            j.jobNumber?.toLowerCase().includes(lowerQ) ||
+                            j.itemId?.name?.toLowerCase().includes(lowerQ) ||
+                            j.orderId?.poNumber?.toLowerCase().includes(lowerQ) ||
+                            j.orderId?.partyName?.toLowerCase().includes(lowerQ)
+                        );
+                        setJobs(filtered);
+                    } else {
+                        setJobs(allData);
+                    }
+                } else if (activeTab === 'open') {
+                    // Open jobs already fetched
+                }
+            } else {
+                // My Jobs Logic
+                if (activeTab === 'assigned') {
+                    setJobs(activeItems);
+                } else if (activeTab === 'completed') {
+                    setJobs(completedItems);
+                } else if (activeTab === 'fqc') {
+                    const fqcStageData = await getJobCardsByStage('Verification');
+                    const myFqcAssignments = assignedData.filter(job =>
+                        job.steps.some(s =>
+                            (s.stepType === 'testing' || s.stepName?.toLowerCase().includes('qc')) &&
+                            s.assignedEmployees?.some(ae => String(ae.employeeId?._id || ae.employeeId) === String(selectedEmployeeId)) &&
+                            s.status !== 'completed'
+                        )
+                    );
+                    const unionMap = new Map();
+                    fqcStageData.forEach(j => unionMap.set(j._id, j));
+                    myFqcAssignments.forEach(j => unionMap.set(j._id, j));
+                    setJobs(Array.from(unionMap.values()));
+                }
             }
         } catch (error) {
             console.error('Error refreshing data:', error);
@@ -186,6 +223,7 @@ const EmployeeJobs = ({ user }) => {
         console.log('[FQC DEBUG] Initial FQC Values:', initialFQC);
 
         setFqcValues(initialFQC);
+        setFqcImages([]); // Reset images
         setSelectedJob(job);
     };
 
@@ -204,20 +242,20 @@ const EmployeeJobs = ({ user }) => {
     const submitFQC = async () => {
         // Validation: Mandatory Remarks
         if (fqcValues.some(v => !v.remarks || v.remarks.trim() === '')) {
-            alert('All remarks are mandatory for FQC');
+            showNotification('All remarks are mandatory for FQC', 'warning');
             return;
         }
 
         // Validation: Mandatory Sample Readings
         const hasEmptySamples = fqcValues.some(v => v.samples.some(s => s === '' || s === undefined || s === null));
         if (hasEmptySamples) {
-            alert('All sample readings are mandatory for FQC. Please fill all readings.');
+            showNotification('All sample readings are mandatory for FQC. Please fill all readings.', 'warning');
             return;
         }
 
         // Validation: Quantity consistency
         if (Number(fqcQty.processed) + Number(fqcQty.rejected) > Number(fqcQty.received)) {
-            alert(`Quantity Mismatch: Pass (${fqcQty.processed}) + Fail (${fqcQty.rejected}) exceeds Total Received (${fqcQty.received})`);
+            showNotification(`Quantity Mismatch: Pass (${fqcQty.processed}) + Fail (${fqcQty.rejected}) exceeds Total Received (${fqcQty.received})`, 'error');
             return;
         }
 
@@ -226,24 +264,25 @@ const EmployeeJobs = ({ user }) => {
                 results: fqcValues,
                 processed: fqcQty.processed,
                 rejected: fqcQty.rejected,
-                stepId: fqcQty.stepId
+                stepId: fqcQty.stepId,
+                images: fqcImages // Include uploaded images
             }, selectedEmployeeId);
-            alert('FQC results submitted');
+            showNotification('FQC results submitted');
             setIsFqcMode(false);
             refreshData();
             setSelectedJob(null);
         } catch (error) {
-            alert(error.response?.data?.message || 'Failed to submit FQC');
+            showNotification(error.response?.data?.message || 'Failed to submit FQC', 'error');
         }
     };
 
     const handleAcceptJob = async (jobId, stepId) => {
         try {
             await acceptOpenJob(jobId, stepId, selectedEmployeeId);
-            alert('Job accepted and moved to your assignments');
+            showNotification('Job accepted and moved to your assignments');
             setActiveTab('assigned');
         } catch (error) {
-            alert(error.response?.data?.message || 'Failed to accept job');
+            showNotification(error.response?.data?.message || 'Failed to accept job', 'error');
         }
     };
 
@@ -253,7 +292,7 @@ const EmployeeJobs = ({ user }) => {
             console.log(`Starting Step: Job=${jobId}, Step=${stepId}, Emp=${effectiveEmployeeId}`);
 
             if (!effectiveEmployeeId) {
-                alert('Error: Could not determine employee identity. Please re-login.');
+                showNotification('Error: Could not determine employee identity. Please re-login.', 'error');
                 return;
             }
 
@@ -267,10 +306,14 @@ const EmployeeJobs = ({ user }) => {
         } catch (error) {
             console.error(error);
             if (error.response?.data?.debug) {
-                // Show raw debug info for better diagnostics
-                alert(`DEBUG INFO:\n${JSON.stringify(error.response.data.debug, null, 2)}`);
+                const debugInfo = error.response.data.debug;
+                if (debugInfo.prevStep) {
+                    showNotification(`Blocking: Step "${debugInfo.prevStep}" must be completed first.`, 'info');
+                } else {
+                    showNotification(`DEBUG INFO:\n${JSON.stringify(debugInfo, null, 2)}`, 'info');
+                }
             } else {
-                alert(error.response?.data?.message || 'Failed to start step');
+                showNotification(error.response?.data?.message || 'Failed to start step', 'error');
             }
         }
     };
@@ -285,7 +328,7 @@ const EmployeeJobs = ({ user }) => {
             setSelectedJob({ ...updatedJob, currentStep: updatedStep });
         } catch (error) {
             console.error(error);
-            alert(error.response?.data?.message || 'Failed to update sub-step status');
+            showNotification(error.response?.data?.message || 'Failed to update sub-step status', 'error');
         }
     };
 
@@ -303,7 +346,7 @@ const EmployeeJobs = ({ user }) => {
         if (stepIndex > 0) {
             const prevStep = job.steps[stepIndex - 1];
             if (prevStep.status !== 'completed') {
-                alert('You cannot start this step until the previous step is completed.');
+                showNotification('You cannot start this step until the previous step is completed.', 'info');
                 return;
             }
             setQtyInputs({
@@ -327,20 +370,20 @@ const EmployeeJobs = ({ user }) => {
         const { received, processed, rejected, remarks } = qtyInputs;
 
         if (Number(processed) + Number(rejected) > Number(received)) {
-            alert('Processed + Rejected cannot exceed Received quantity');
+            showNotification('Processed + Rejected cannot exceed Received quantity', 'warning');
             return;
         }
 
         // Validate Sub-steps
         if (selectedJob.currentStep?.subSteps && selectedJob.currentStep.subSteps.some(ss => ss.status !== 'completed')) {
-            alert('Please complete all checklist items/sub-steps before completing the main step.');
+            showNotification('Please complete all checklist items/sub-steps before completing the main step.', 'warning');
             return;
         }
 
         try {
             const effectiveEmployeeId = selectedEmployeeId || user?._id || user?.id;
             if (!effectiveEmployeeId) {
-                alert('Error: Could not determine employee identity.');
+                showNotification('Error: Could not determine employee identity.', 'error');
                 return;
             }
 
@@ -363,10 +406,14 @@ const EmployeeJobs = ({ user }) => {
         } catch (error) {
             console.error(error);
             if (error.response?.data?.debug) {
-                // Show raw debug info for better diagnostics
-                alert(`DEBUG INFO:\n${JSON.stringify(error.response.data.debug, null, 2)}`);
+                const debugInfo = error.response.data.debug;
+                if (debugInfo.prevStep) {
+                    showNotification(`Blocking: Step "${debugInfo.prevStep}" must be completed first.`, 'info');
+                } else {
+                    showNotification(`DEBUG INFO:\n${JSON.stringify(debugInfo, null, 2)}`, 'info');
+                }
             } else {
-                alert(error.response?.data?.message || 'Failed to complete step');
+                showNotification(error.response?.data?.message || 'Failed to complete step', 'error');
             }
         }
     };
@@ -380,49 +427,76 @@ const EmployeeJobs = ({ user }) => {
             return (
                 <div
                     key={step.stepId}
-                    className={`p-3 rounded-md border flex items-center justify-between transition-all ${isMyStep
-                        ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-100 shadow-sm'
+                    className={`p-4 rounded-lg border flex items-start justify-between transition-all ${isMyStep
+                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-100 shadow-md'
                         : isQC
-                            ? 'border-indigo-100 bg-indigo-50/50'
+                            ? 'border-indigo-200 bg-indigo-50/50'
                             : 'border-slate-200 bg-white opacity-90'
                         }`}
                 >
-                    <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shadow-sm border ${step.status === 'completed'
+                    <div className="flex items-start gap-4 flex-1">
+                        {/* Step Number Badge */}
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-black shadow-md border-2 ${step.status === 'completed'
                             ? 'bg-emerald-500 text-white border-emerald-600'
                             : isQC
-                                ? 'bg-indigo-100 text-indigo-700 border-indigo-200'
-                                : 'bg-slate-100 text-slate-500 border-slate-200'
+                                ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
+                                : 'bg-slate-100 text-slate-600 border-slate-300'
                             }`}>
-                            {step.status === 'completed' ? <CheckCircle size={16} /> : idx + 1}
+                            {step.status === 'completed' ? <CheckCircle size={18} /> : idx + 1}
                         </div>
-                        <div>
-                            <p className={`text-sm font-bold flex items-center gap-2 ${isMyStep ? 'text-blue-900' : 'text-slate-700'}`}>
-                                {step.stepName}
-                                {step.isOutward && <span className="text-[10px] bg-amber-100 text-amber-700 px-1 rounded border border-amber-200">Outsource</span>}
-                                {isQC && <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1 rounded border border-indigo-200 flex items-center gap-1"><ClipboardCheck size={10} /> QC</span>}
-                            </p>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
-                                {isQC ? 'INSPECTION POINT' : 'PROCESS STEP'} | <span className={`capitalize ${step.status === 'pending' ? 'text-slate-400' : step.status === 'in-progress' ? 'text-amber-600' : 'text-emerald-600'}`}>{step.status}</span>
-                            </p>
-                            {step.status === 'completed' && (
-                                <p className="text-[10px] font-bold text-blue-600 mt-1 flex items-center gap-2">
-                                    <span className="bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">PASS: {step.quantities.processed}</span>
-                                    <span className="bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 text-rose-600">FAIL: {step.quantities.rejected}</span>
+                        <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                                <p className={`text-base font-bold ${isMyStep ? 'text-blue-900' : 'text-slate-800'}`}>
+                                    {step.stepName}
                                 </p>
+                                {step.isOpenJob && (
+                                    <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-300 font-bold">OPEN JOB</span>
+                                )}
+                                {step.isOutward && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-300 font-bold">OUTSOURCE</span>}
+                                {isQC && <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-300 flex items-center gap-1 font-bold"><ClipboardCheck size={10} /> QC</span>}
+                            </div>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-2">
+                                Step #{idx + 1} • {isQC ? 'INSPECTION POINT' : 'PROCESS STEP'} • <span className={`capitalize ${step.status === 'pending' ? 'text-slate-400' : step.status === 'in-progress' ? 'text-amber-600' : 'text-emerald-600'}`}>{step.status}</span>
+                            </p>
+
+                            {/* Assigned Employees Display */}
+                            {step.assignedEmployees?.length > 0 && (
+                                <div className="mb-2 flex flex-wrap gap-2">
+                                    {step.assignedEmployees.map((ae, aeIdx) => {
+                                        const emp = ae.employeeId;
+                                        const empId = emp?._id || emp?.id || emp;
+                                        const empName = emp?.fullName || emp?.name || 'Unknown';
+                                        const empCode = emp?.employeeId || '';
+                                        const isMe = String(empId) === String(selectedEmployeeId);
+                                        return (
+                                            <div key={aeIdx} className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold border ${isMe
+                                                ? 'bg-blue-100 text-blue-800 border-blue-300'
+                                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                                                }`}>
+                                                <Users size={10} />
+                                                <span>{empName}</span>
+                                                {empCode && <span className="text-[9px] opacity-70">({empCode})</span>}
+                                                {isMe && <span className="ml-1 text-[9px] bg-blue-200 px-1 rounded">YOU</span>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            {step.isOpenJob && step.assignedEmployees?.length === 0 && (
+                                <div className="mb-2">
+                                    <span className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded border border-green-200">Available for any employee to accept</span>
+                                </div>
+                            )}
+
+                            {step.status === 'completed' && (
+                                <div className="flex items-center gap-2 mt-2">
+                                    <span className="bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 text-[11px] font-bold text-emerald-700">PASS: {step.quantities.processed}</span>
+                                    <span className="bg-rose-50 px-2 py-1 rounded-md border border-rose-200 text-[11px] font-bold text-rose-600">REJECTED: {step.quantities.rejected}</span>
+                                </div>
                             )}
                             {step.description && (
-                                <p className="text-[11px] text-slate-500 mt-1 italic border-l-2 border-slate-300 pl-2">
+                                <p className="text-[11px] text-slate-500 mt-2 italic border-l-2 border-slate-300 pl-2">
                                     {step.description}
-                                </p>
-                            )}
-                            {/* Assignee info if not me */}
-                            {!isMyStep && step.status !== 'completed' && (
-                                <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                                    <Users size={10} />
-                                    {step.assignedEmployees?.length > 0
-                                        ? step.assignedEmployees.map(e => e.employeeId?.name || 'Unknown').join(', ')
-                                        : 'Unassigned'}
                                 </p>
                             )}
                         </div>
@@ -477,131 +551,235 @@ const EmployeeJobs = ({ user }) => {
 
     return (
         <div className="h-full flex flex-col space-y-4">
-            {/* Header Tabs */}
-            <div className="flex items-center gap-6 border-b border-slate-200 pb-2">
-                <button
-                    onClick={() => { setLoading(true); setActiveTab('assigned'); setSelectedJob(null); }}
-                    className={`pb-2 px-1 text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'assigned' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                    <Briefcase size={16} /> ASSIGNED JOBS ({counts.active})
-                </button>
-                <button
-                    onClick={() => { setLoading(true); setActiveTab('completed'); setSelectedJob(null); }}
-                    className={`pb-2 px-1 text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'completed' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                    <CheckCircle2 size={16} /> COMPLETED JOBS ({counts.completed})
-                </button>
-                <button
-                    onClick={() => { setLoading(true); setActiveTab('open'); setSelectedJob(null); }}
-                    className={`pb-2 px-1 text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'open' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                    <Users size={16} /> OPEN JOBS ({openJobs.length})
-                </button>
-                <button
-                    onClick={() => { setLoading(true); setActiveTab('fqc'); setSelectedJob(null); }}
-                    className={`pb-2 px-1 text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'fqc' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                    <ClipboardCheck size={16} /> FQC PASS
-                </button>
+            {/* Header Tabs with Mobile-First Scroll */}
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide border-b border-slate-100 flex-shrink-0">
+                {viewMode === 'my-jobs' ? (
+                    <>
+                        <button
+                            onClick={() => { setLoading(true); setActiveTab('assigned'); setSelectedJob(null); }}
+                            className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'assigned'
+                                ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
+                                : 'bg-white text-slate-500 border border-slate-200'
+                                }`}
+                        >
+                            <Briefcase size={14} /> Assigned <span className="ml-1 bg-white/20 px-1.5 py-0.5 rounded text-[10px]">{counts.active}</span>
+                        </button>
+                        <button
+                            onClick={() => { setLoading(true); setActiveTab('fqc'); setSelectedJob(null); }}
+                            className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'fqc'
+                                ? 'bg-purple-600 text-white shadow-md shadow-purple-200'
+                                : 'bg-white text-slate-500 border border-slate-200'
+                                }`}
+                        >
+                            <ClipboardCheck size={14} /> FQC Check
+                        </button>
+                        <button
+                            onClick={() => { setLoading(true); setActiveTab('completed'); setSelectedJob(null); }}
+                            className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'completed'
+                                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-200'
+                                : 'bg-white text-slate-500 border border-slate-200'
+                                }`}
+                        >
+                            <CheckCircle2 size={14} /> Done <span className="ml-1 bg-white/20 px-1.5 py-0.5 rounded text-[10px]">{counts.completed}</span>
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <button
+                            onClick={() => { setLoading(true); setActiveTab('open'); setSelectedJob(null); }}
+                            className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'open'
+                                ? 'bg-amber-500 text-white shadow-md shadow-amber-200'
+                                : 'bg-white text-slate-500 border border-slate-200'
+                                }`}
+                        >
+                            <Package size={14} /> Open Pool <span className="ml-1 bg-white/20 px-1.5 py-0.5 rounded text-[10px]">{counts.open}</span>
+                        </button>
+                        <button
+                            onClick={() => { setLoading(true); setActiveTab('search'); setSelectedJob(null); }}
+                            className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'search'
+                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                : 'bg-white text-slate-500 border border-slate-200'
+                                }`}
+                        >
+                            <Globe size={14} /> Global Search <span className="ml-1 bg-white/20 px-1.5 py-0.5 rounded text-[10px]">{counts.global}</span>
+                        </button>
+                    </>
+                )}
             </div>
 
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
-                {/* List View */}
-                <div className="lg:col-span-1 bg-white border border-slate-200 rounded-lg overflow-y-auto p-4 space-y-3">
-                    {loading && <div className="text-center py-10 text-slate-400 text-sm">Loading jobs...</div>}
-
-                    {!loading && (activeTab === 'assigned' || activeTab === 'completed') && jobs.map(job => (
-                        <div
-                            key={`${job._id}-${job.currentStep?.stepId || 'unknown'}`}
-                            onClick={() => setSelectedJob(job)}
-                            className={`p-4 border rounded-lg cursor-pointer transition-all hover:bg-slate-50 ${selectedJob?._id === job._id ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}
-                        >
-                            <div className="flex justify-between items-start mb-2">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded shadow-sm ${job.currentStep?.status === 'in-progress' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                                    {job.currentStep?.status ? job.currentStep.status.toUpperCase() : 'UNKNOWN'}
-                                </span>
-                                <span className="text-[10px] font-mono text-slate-400">{job.jobNumber}</span>
-                            </div>
-                            <h4 className="font-bold text-slate-900 text-sm mb-1">{job.itemId?.name}</h4>
-                            <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">{job.orderId?.partyName}</p>
-                            <div className="mt-3 flex items-center gap-2 text-xs font-bold text-slate-600">
-                                <ChevronRight size={14} className="text-blue-500" />
-                                <span>{job.currentStep?.stepName || 'Unknown Step'}</span>
+                {/* List View - Hidden on Mobile when Job Selected */}
+                <div className={`lg:col-span-1 bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col ${selectedJob ? 'hidden lg:flex' : 'flex'}`}>
+                    {/* Search Header */}
+                    {activeTab === 'search' && (
+                        <div className="p-3 border-b border-slate-100 bg-slate-50">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={14} />
+                                <input
+                                    type="text"
+                                    placeholder="Search all jobs..."
+                                    value={searchQuery}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value);
+                                        // Local filter logic
+                                        if (viewMode === 'global' && globalJobs.length > 0) {
+                                            const lowerQ = e.target.value.toLowerCase();
+                                            const filtered = globalJobs.filter(j =>
+                                                j.jobNumber?.toLowerCase().includes(lowerQ) ||
+                                                j.itemId?.name?.toLowerCase().includes(lowerQ) ||
+                                                j.orderId?.poNumber?.toLowerCase().includes(lowerQ) ||
+                                                j.orderId?.partyName?.toLowerCase().includes(lowerQ)
+                                            );
+                                            setJobs(filtered);
+                                        }
+                                    }}
+                                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                />
                             </div>
                         </div>
-                    ))}
+                    )}
 
-                    {!loading && activeTab === 'open' && openJobs.map(job => (
-                        <div
-                            key={`${job.jobCardId}-${job.stepId}`}
-                            className="p-4 border border-slate-200 rounded-lg bg-white"
-                        >
-                            <div className="flex justify-between items-start mb-2">
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700">OPEN JOB</span>
-                                <span className="text-[10px] font-mono text-slate-400">{job.jobNumber}</span>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                        {loading && <div className="text-center py-10 text-slate-400 text-sm">Loading jobs...</div>}
+
+                        {!loading && (activeTab === 'assigned' || activeTab === 'completed' || activeTab === 'search') && jobs.map(job => (
+                            <div
+                                key={`${job._id}-${job.currentStep?.stepId || 'unknown'}`}
+                                onClick={() => setSelectedJob(job)}
+                                className={`p-4 border rounded-lg cursor-pointer transition-all hover:bg-slate-50 ${selectedJob?._id === job._id ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded shadow-sm ${job.currentStep?.status === 'in-progress' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                                        {job.currentStep?.status ? job.currentStep.status.toUpperCase() : (job.stage || 'UNKNOWN')}
+                                    </span>
+                                </div>
+                                <h4 className="font-bold text-slate-900 text-sm mb-1">{job.itemId?.name || job.name}</h4>
+                                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase mb-1">{job.orderId?.partyName}</p>
+                                <p className="text-base font-black text-blue-600 mb-2">{job.jobNumber}</p>
+                                <div className="mt-3 flex items-center gap-2 text-xs font-bold text-slate-600">
+                                    <ChevronRight size={14} className="text-blue-500" />
+                                    <span>{job.currentStep?.stepName || 'View Details'}</span>
+                                </div>
                             </div>
-                            <h4 className="font-bold text-slate-900 text-sm mb-1">{job.itemName}</h4>
-                            <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">{job.partyName}</p>
-                            <div className="mt-3 p-2 bg-slate-50 border border-dashed border-slate-300 rounded flex items-center justify-between">
-                                <span className="text-xs font-bold text-slate-700">{job.stepName}</span>
+                        ))}
+
+                        {!loading && activeTab === 'open' && openJobs.map((job, idx) => (
+                            <div
+                                key={`${job.jobCardId}-${job.stepId}`}
+                                className="p-4 border-2 border-green-200 rounded-lg bg-green-50/30 hover:bg-green-50 transition-all"
+                            >
+                                <div className="flex justify-between items-start mb-3">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-green-100 text-green-700 shadow-sm">OPEN JOB</span>
+                                </div>
+                                <h4 className="font-bold text-slate-900 text-sm mb-1">{job.itemName}</h4>
+                                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase mb-1">{job.partyName}</p>
+                                <p className="text-base font-black text-blue-600 mb-3">{job.jobNumber}</p>
+
+                                {/* Step Details Box */}
+                                <div className="bg-white rounded-lg p-3 mb-3 border border-slate-200 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-7 h-7 rounded-md bg-blue-600 text-white flex items-center justify-center text-xs font-black shadow-sm">
+                                            {job.stepNumber || idx + 1}
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Step</p>
+                                            <p className="text-xs font-bold text-slate-800">{job.stepName}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-2 pt-2 border-t border-slate-100">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Quantity</p>
+                                        <p className="text-sm font-bold text-slate-700">{job.quantity} units</p>
+                                    </div>
+
+                                    {/* Show assigned employees if any */}
+                                    {job.assignedEmployees && job.assignedEmployees.length > 0 && (
+                                        <div className="mt-2 pt-2 border-t border-slate-100">
+                                            <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1.5">Already Assigned</p>
+                                            <div className="flex flex-wrap gap-1">
+                                                {job.assignedEmployees.map((emp, i) => (
+                                                    <span key={i} className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded font-bold">
+                                                        {emp.name} {emp.employeeCode ? `(${emp.employeeCode})` : ''}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <button
                                     onClick={() => handleAcceptJob(job.jobCardId, job.stepId)}
-                                    className="px-3 py-1 bg-blue-600 text-white text-[10px] font-bold rounded hover:bg-blue-700"
+                                    className="w-full py-2.5 bg-green-600 text-white font-black uppercase tracking-widest text-[10px] rounded-lg hover:bg-green-700 shadow-md transition-all flex items-center justify-center gap-2"
                                 >
-                                    ACCEPT
+                                    <CheckCircle size={14} /> ACCEPT THIS JOB
                                 </button>
                             </div>
-                        </div>
-                    ))}
+                        ))}
 
-                    {!loading && activeTab === 'fqc' && jobs.map((job, idx) => (
-                        <div
-                            key={`${job._id}-${idx}`}
-                            onClick={() => setSelectedJob(job)}
-                            className={`p-4 border rounded-lg cursor-pointer transition-all hover:bg-slate-50 ${selectedJob?._id === job._id ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}
-                        >
-                            <div className="flex justify-between items-start mb-2">
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">WAITING FQC</span>
-                                <span className="text-[10px] font-mono text-slate-400">{job.jobNumber}</span>
+                        {!loading && activeTab === 'fqc' && jobs.map((job, idx) => (
+                            <div
+                                key={`${job._id}-${idx}`}
+                                onClick={() => setSelectedJob(job)}
+                                className={`p-4 border rounded-lg cursor-pointer transition-all hover:bg-slate-50 ${selectedJob?._id === job._id ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">WAITING FQC</span>
+                                    <span className="text-[10px] font-mono text-slate-400">{job.jobNumber}</span>
+                                </div>
+                                <h4 className="font-bold text-slate-900 text-sm mb-1">{job.itemId?.name}</h4>
+                                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">{job.orderId?.partyName}</p>
+                                <div className="mt-3 flex items-center justify-between text-[10px] font-mono text-slate-400">
+                                    <span>QTY: {job.quantity}</span>
+                                    <span>STAGE: {job.stage}</span>
+                                </div>
                             </div>
-                            <h4 className="font-bold text-slate-900 text-sm mb-1">{job.itemId?.name}</h4>
-                            <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">{job.orderId?.partyName}</p>
-                            <div className="mt-3 flex items-center justify-between text-[10px] font-mono text-slate-400">
-                                <span>QTY: {job.quantity}</span>
-                                <span>STAGE: {job.stage}</span>
-                            </div>
-                        </div>
-                    ))}
+                        ))}
 
-                    {!loading && (activeTab === 'assigned' || activeTab === 'open' || activeTab === 'fqc' || activeTab === 'completed') &&
-                        ((activeTab === 'assigned' && jobs.length === 0) ||
-                            (activeTab === 'open' && openJobs.length === 0) ||
-                            (activeTab === 'completed' && jobs.length === 0) ||
-                            (activeTab === 'fqc' && jobs.length === 0)) && (
-                            <div className="text-center py-20 text-slate-400 text-sm italic">
-                                No {activeTab} jobs found.
-                            </div>
-                        )}
+                        {!loading && (activeTab === 'assigned' || activeTab === 'open' || activeTab === 'fqc' || activeTab === 'completed' || activeTab === 'search') &&
+                            ((activeTab === 'assigned' && jobs.length === 0) ||
+                                (activeTab === 'open' && openJobs.length === 0) ||
+                                (activeTab === 'completed' && jobs.length === 0) ||
+                                (activeTab === 'search' && jobs.length === 0) ||
+                                (activeTab === 'fqc' && jobs.length === 0)) && (
+                                <div className="text-center py-20 text-slate-400 text-sm italic">
+                                    No {activeTab} jobs found.
+                                </div>
+                            )}
+                    </div>
                 </div>
 
                 {/* Detail View */}
                 <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg flex flex-col overflow-hidden">
                     {selectedJob ? (
                         <>
-                            <div className="p-6 border-b border-slate-100 bg-slate-50">
+                            <div className="p-6 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white">
+                                <button
+                                    onClick={() => setSelectedJob(null)}
+                                    className="lg:hidden mb-4 flex items-center gap-2 text-slate-500 hover:text-slate-800 font-bold text-xs uppercase tracking-widest bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm"
+                                >
+                                    <ArrowLeft size={14} /> Back to List
+                                </button>
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
                                         <h2 className="text-xl font-bold text-slate-900">{selectedJob.itemId?.name}</h2>
                                         <p className="text-sm text-slate-500">{selectedJob.orderId?.partyName} | PO: {selectedJob.orderId?.poNumber}</p>
                                     </div>
                                     <div className="text-right">
-                                        <span className="block text-[10px] font-mono text-slate-400">JOB NO: {selectedJob.jobNumber}</span>
-                                        <span className="block text-lg font-black text-slate-900">{selectedJob.quantity} UNIT</span>
-                                        {selectedJob.extraQty > 0 && (
-                                            <span className="block text-[10px] font-bold text-amber-600 bg-amber-50 px-1 rounded inline-block mt-0.5" title="Extra / Buffer Production">
-                                                +{selectedJob.extraQty} EXTRA
-                                            </span>
-                                        )}
+                                        <span className="block text-2xl font-black text-blue-600 mb-1">{selectedJob.jobNumber}</span>
+                                        <div className="bg-white border-2 border-slate-200 rounded-lg px-3 py-2 shadow-sm">
+                                            {selectedJob.extraQty > 0 ? (
+                                                <div className="text-center">
+                                                    <div className="text-lg font-black text-slate-900">
+                                                        {selectedJob.quantity + selectedJob.extraQty} units
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-500 font-medium">
+                                                        {selectedJob.quantity} + <span className="text-amber-600 font-bold">{selectedJob.extraQty} extras</span>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="text-lg font-black text-slate-900">{selectedJob.quantity} units</div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -618,6 +796,67 @@ const EmployeeJobs = ({ user }) => {
                                         />
                                     </div>
                                 </div>
+
+                                {/* ITEM MEDIA SECTION (Images & PDFs) */}
+                                {(selectedJob.itemId?.images?.length > 0 || selectedJob.itemId?.image) && (
+                                    <div className="mt-4 pt-4 border-t border-slate-100">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                            <Package size={14} /> Product Design & Drawings
+                                        </p>
+                                        <div className="flex flex-wrap gap-4">
+                                            {/* Legacy Single Image */}
+                                            {selectedJob.itemId?.image && !selectedJob.itemId.image.startsWith('data:application/pdf') && (
+                                                <div
+                                                    className="relative w-24 h-24 group cursor-pointer"
+                                                    onClick={() => setZoomedImage(selectedJob.itemId.image)}
+                                                >
+                                                    <img
+                                                        src={selectedJob.itemId.image}
+                                                        alt="Product Main"
+                                                        className="w-full h-full object-cover rounded border border-slate-200 shadow-sm group-hover:border-blue-400 transition-all"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded flex items-center justify-center">
+                                                        <Search size={16} className="text-white opacity-0 group-hover:opacity-100 drop-shadow-md" />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* New Gallery Images */}
+                                            {selectedJob.itemId?.images?.filter(img => !img.startsWith('data:application/pdf')).map((img, idx) => (
+                                                <div
+                                                    key={`prod-img-${idx}`}
+                                                    className="relative w-24 h-24 group cursor-pointer"
+                                                    onClick={() => setZoomedImage(img)}
+                                                >
+                                                    <img
+                                                        src={img}
+                                                        alt={`Product View ${idx + 1}`}
+                                                        className="w-full h-full object-cover rounded border border-slate-200 shadow-sm group-hover:border-blue-400 transition-all"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded flex items-center justify-center">
+                                                        <Search size={16} className="text-white opacity-0 group-hover:opacity-100 drop-shadow-md" />
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {/* PDF Documents */}
+                                            {selectedJob.itemId?.images?.filter(img => img.startsWith('data:application/pdf')).map((pdf, idx) => (
+                                                <div key={`pdf-${idx}`} className="w-48 h-24 bg-red-50 border border-red-100 rounded flex flex-col items-center justify-center p-2 text-center hover:border-red-300 transition-colors group">
+                                                    <FileText size={24} className="text-red-500 mb-1" />
+                                                    <span className="text-[10px] font-bold text-slate-600 truncate w-full">Document {idx + 1}</span>
+                                                    <a
+                                                        href={pdf}
+                                                        download={`spec-sheet-${idx + 1}.pdf`}
+                                                        className="mt-1 text-[9px] bg-white border border-red-200 text-red-600 px-2 py-0.5 rounded shadow-sm hover:bg-red-600 hover:text-white transition-all uppercase font-bold"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        Download PDF
+                                                    </a>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <div className="p-6 overflow-y-auto flex-1">
                                 {selectedJob.rmRequirements?.length > 0 && (
@@ -786,6 +1025,59 @@ const EmployeeJobs = ({ user }) => {
                                                 <CheckCircle size={18} /> APPROVE & SUBMIT FINAL QUALITY CHECK
                                             </button>
                                         </div>
+
+                                        {/* FQC ACTUAL IMAGES UPLOAD SECTION */}
+                                        <div className="mt-6 p-4 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                <Camera size={14} /> Capture Inspection Images / Upload Proofs
+                                            </h4>
+
+                                            <div className="flex flex-wrap gap-3">
+                                                {/* Upload Button */}
+                                                <label className="w-20 h-20 flex flex-col items-center justify-center bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors shadow-sm">
+                                                    <Upload size={20} className="text-blue-500 mb-1" />
+                                                    <span className="text-[9px] font-bold text-slate-500 uppercase">Upload</span>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        multiple
+                                                        className="hidden"
+                                                        onChange={(e) => {
+                                                            const files = Array.from(e.target.files);
+                                                            files.forEach(file => {
+                                                                const reader = new FileReader();
+                                                                reader.onloadend = () => {
+                                                                    setFqcImages(prev => [...prev, reader.result]);
+                                                                };
+                                                                reader.readAsDataURL(file);
+                                                            });
+                                                            e.target.value = ''; // Reset
+                                                        }}
+                                                    />
+                                                </label>
+
+                                                {/* Image Previews */}
+                                                {fqcImages.map((img, idx) => (
+                                                    <div key={idx} className="relative w-20 h-20 group">
+                                                        <img
+                                                            src={img}
+                                                            alt={`Preview ${idx}`}
+                                                            className="w-full h-full object-cover rounded-lg border border-slate-200 shadow-sm"
+                                                            onClick={() => setZoomedImage(img)}
+                                                        />
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setFqcImages(prev => prev.filter((_, i) => i !== idx));
+                                                            }}
+                                                            className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 opacity-100 hover:bg-red-200 shadow-sm"
+                                                        >
+                                                            <XCircle size={12} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
                                 ) : renderJobSteps(selectedJob)}
                             </div>
@@ -816,9 +1108,57 @@ const EmployeeJobs = ({ user }) => {
                                 <button onClick={() => setShowExecutionModal(false)} className="text-slate-400 hover:text-slate-600"><XCircle size={20} /></button>
                             </div>
                             <div className="p-6 space-y-5">
-                                <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-[11px] font-bold text-blue-700 uppercase tracking-widest">
-                                    {selectedJob?.currentStep?.stepName || 'Process Step'}
+                                <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-[11px] font-bold text-blue-700 uppercase tracking-widest flex justify-between items-center">
+                                    <span>{selectedJob?.currentStep?.stepName || 'Process Step'}</span>
+                                    <span className="text-[9px] bg-blue-200 px-2 py-0.5 rounded text-blue-800">STEP #{selectedJob?.steps?.findIndex(s => s.stepId === selectedJob.currentStep?.stepId) + 1}</span>
                                 </div>
+
+                                {/* EMBEDDED MEDIA SECTION FOR REFERENCE */}
+                                {(selectedJob?.itemId?.images?.length > 0 || selectedJob?.itemId?.image) && (
+                                    <div className="bg-white border border-slate-200 rounded-lg p-3">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Package size={12} className="text-slate-400" />
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reference Design & Docs</span>
+                                        </div>
+                                        <div className="flex gap-3 overflow-x-auto pb-1 custom-scrollbar">
+                                            {/* Legacy Single Image */}
+                                            {selectedJob.itemId?.image && !selectedJob.itemId.image.startsWith('data:application/pdf') && (
+                                                <img
+                                                    src={selectedJob.itemId.image}
+                                                    alt="Main Ref"
+                                                    className="h-16 w-16 object-cover rounded border border-slate-200 shadow-sm cursor-zoom-in hover:border-blue-500 transition-colors flex-shrink-0"
+                                                    onClick={() => setZoomedImage(selectedJob.itemId.image)}
+                                                />
+                                            )}
+
+                                            {/* Gallery Images */}
+                                            {selectedJob.itemId?.images?.filter(img => !img.startsWith('data:application/pdf')).map((img, idx) => (
+                                                <img
+                                                    key={`ref-img-${idx}`}
+                                                    src={img}
+                                                    alt={`Ref ${idx + 1}`}
+                                                    className="h-16 w-16 object-cover rounded border border-slate-200 shadow-sm cursor-zoom-in hover:border-blue-500 transition-colors flex-shrink-0"
+                                                    onClick={() => setZoomedImage(img)}
+                                                />
+                                            ))}
+
+                                            {/* PDF Docs */}
+                                            {selectedJob.itemId?.images?.filter(img => img.startsWith('data:application/pdf')).map((pdf, idx) => (
+                                                <a
+                                                    key={`ref-pdf-${idx}`}
+                                                    href={pdf}
+                                                    download={`doc-${idx + 1}.pdf`}
+                                                    className="h-16 w-24 bg-red-50 border border-red-100 rounded flex flex-col items-center justify-center p-1 text-center hover:bg-red-100 transition-colors flex-shrink-0 group"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <FileText size={16} className="text-red-500 mb-0.5" />
+                                                    <span className="text-[8px] font-bold text-red-600 truncate w-full">Document {idx + 1}</span>
+                                                    <span className="text-[7px] bg-red-600 text-white px-1 rounded font-bold uppercase mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">Download</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Sub-steps Checklist */}
                                 {selectedJob?.currentStep?.subSteps?.length > 0 && (
@@ -856,21 +1196,27 @@ const EmployeeJobs = ({ user }) => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 text-emerald-600">{selectedJob?.currentStep?.isOutward ? 'From Vendor' : 'Processed'}</label>
-                                        <input
-                                            type="number"
-                                            value={qtyInputs.processed}
-                                            onChange={(e) => setQtyInputs({ ...qtyInputs, processed: Number(e.target.value) })}
-                                            className="w-full p-2 border-2 border-emerald-500 bg-emerald-50 rounded text-sm font-bold text-emerald-900 focus:ring-4 focus:ring-emerald-100 outline-none"
-                                        />
-                                    </div>
-                                    <div>
                                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 text-rose-600">Rejected</label>
                                         <input
                                             type="number"
                                             value={qtyInputs.rejected}
-                                            onChange={(e) => setQtyInputs({ ...qtyInputs, rejected: Number(e.target.value) })}
+                                            onChange={(e) => {
+                                                const rejected = Number(e.target.value) || 0;
+                                                const received = Number(qtyInputs.received) || 0;
+                                                const pass = Math.max(0, received - rejected);
+                                                setQtyInputs({ ...qtyInputs, rejected, processed: pass });
+                                            }}
                                             className="w-full p-2 border-2 border-rose-500 bg-rose-50 rounded text-sm font-bold text-rose-900 focus:ring-4 focus:ring-rose-100 outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 text-emerald-600">{selectedJob?.currentStep?.isOutward ? 'From Vendor' : 'Pass'}</label>
+                                        <input
+                                            type="number"
+                                            value={qtyInputs.processed}
+                                            readOnly
+                                            className="w-full p-2 bg-emerald-50 border-2 border-emerald-300 rounded text-sm font-bold text-emerald-700 outline-none cursor-not-allowed"
+                                            title="Auto-calculated: Received - Rejected"
                                         />
                                     </div>
                                 </div>
@@ -896,36 +1242,14 @@ const EmployeeJobs = ({ user }) => {
                 )}
             </AnimatePresence >
 
-            {/* Image Zoom Modal */}
-            <AnimatePresence>
-                {zoomedImage && (
-                    <div
-                        className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
-                        onClick={() => setZoomedImage(null)}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.8, opacity: 0 }}
-                            className="relative max-w-6xl max-h-[90vh]"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <button
-                                onClick={() => setZoomedImage(null)}
-                                className="absolute -top-12 right-0 text-white hover:text-red-400 transition-colors"
-                            >
-                                <XCircle size={32} />
-                            </button>
-                            <img
-                                src={zoomedImage}
-                                alt="Zoomed FQC Reference"
-                                className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
-                            />
-                            <p className="text-white text-center mt-4 text-sm">Click outside to close</p>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            {/* Zoomable Image Viewer Component */}
+            {zoomedImage && (
+                <ZoomableImageViewer
+                    src={zoomedImage}
+                    alt="Zoomed Preview"
+                    onClose={() => setZoomedImage(null)}
+                />
+            )}
         </div >
     );
 };

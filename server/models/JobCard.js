@@ -31,6 +31,7 @@ const jobCardSchema = new mongoose.Schema({
     },
     priority: {
         type: String,
+        enum: ['Normal', 'High', 'Low', 'Today'],
         default: 'Normal'
     },
     deliveryDate: Date,
@@ -135,6 +136,10 @@ const jobCardSchema = new mongoose.Schema({
             reading: String
         }],
         remarks: String
+    }],
+    // FQC Execution Images (Proofs)
+    fqcImages: [{
+        type: String // Base64 or URL
     }],
     requiredSamples: {
         type: Number,

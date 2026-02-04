@@ -293,6 +293,75 @@ const AdminDashboard = ({ setActiveSection }) => {
                     />
                 </div>
 
+                {/* Priority Orders Section - Today's & High Priority */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Today's Marked Orders */}
+                    <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-md border border-amber-200 p-4 shadow-sm">
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="font-bold text-amber-800 flex items-center gap-2 text-sm uppercase tracking-wide">
+                                <Clock size={16} className="text-amber-600" />
+                                Today's Marked Orders
+                            </h3>
+                            <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
+                                {data.orders.filter(o => o.items?.some(item => item.priority === 'Today')).length} Orders
+                            </span>
+                        </div>
+                        <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+                            {data.orders.filter(o => o.items?.some(item => item.priority === 'Today')).length > 0 ? (
+                                data.orders.filter(o => o.items?.some(item => item.priority === 'Today')).slice(0, 5).map(order => (
+                                    <div key={order._id} className="bg-white p-3 rounded border border-amber-100 hover:border-amber-300 transition-colors">
+                                        <div className="flex justify-between items-start">
+                                            <div className="min-w-0 flex-1">
+                                                <h4 className="font-bold text-slate-800 text-sm truncate">{order.partyName}</h4>
+                                                <p className="text-[10px] text-slate-500 font-mono">PO: {order.poNumber || 'N/A'}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase">TODAY</span>
+                                                <p className="text-[10px] text-slate-500 mt-0.5">{order.items?.filter(i => i.priority === 'Today').length} items</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-4 text-amber-600 text-xs">No orders marked for today</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* High Priority Orders */}
+                    <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-md border border-red-200 p-4 shadow-sm">
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="font-bold text-red-800 flex items-center gap-2 text-sm uppercase tracking-wide">
+                                <AlertTriangle size={16} className="text-red-600" />
+                                High Priority Orders
+                            </h3>
+                            <span className="text-xs font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded border border-red-200">
+                                {data.orders.filter(o => o.items?.some(item => item.priority === 'High')).length} Orders
+                            </span>
+                        </div>
+                        <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+                            {data.orders.filter(o => o.items?.some(item => item.priority === 'High')).length > 0 ? (
+                                data.orders.filter(o => o.items?.some(item => item.priority === 'High')).slice(0, 5).map(order => (
+                                    <div key={order._id} className="bg-white p-3 rounded border border-red-100 hover:border-red-300 transition-colors">
+                                        <div className="flex justify-between items-start">
+                                            <div className="min-w-0 flex-1">
+                                                <h4 className="font-bold text-slate-800 text-sm truncate">{order.partyName}</h4>
+                                                <p className="text-[10px] text-slate-500 font-mono">PO: {order.poNumber || 'N/A'}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase">HIGH</span>
+                                                <p className="text-[10px] text-slate-500 mt-0.5">{order.items?.filter(i => i.priority === 'High').length} items</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-4 text-red-600 text-xs">No high priority orders</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
                 {/* Expanded Details Section - Renders dynamically based on selection */}
                 <AnimatePresence>
                     {expandedSection === 'orders' && (

@@ -13,7 +13,7 @@ const bulletinSchema = new mongoose.Schema({
     },
     priority: {
         type: String,
-        enum: ['Normal', 'Urgent'],
+        enum: ['Normal', 'Urgent', 'Low', 'Today'],
         default: 'Normal'
     },
     createdBy: {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { NotificationProvider } from './contexts/NotificationContext';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { Package, Activity, ShoppingCart, LayoutDashboard, UserCog, Archive, MessageSquare, ClipboardCheck, Users } from 'lucide-react';
@@ -294,6 +295,7 @@ const DashboardLayout = ({ onLogout, user }) => {
       case 'employee-dashboard':
       case 'employee-tasks':
       case 'employee-jobs':
+      case 'employee-global-jobs':
       case 'employee-chat':
       case 'employee-bulletins':
         return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? (
@@ -307,7 +309,9 @@ const DashboardLayout = ({ onLogout, user }) => {
                   case 'employee-tasks':
                     return <EmployeeTasksView user={user} />;
                   case 'employee-jobs':
-                    return <EmployeeJobs user={user} />;
+                    return <EmployeeJobs user={user} viewMode="my-jobs" />;
+                  case 'employee-global-jobs':
+                    return <EmployeeJobs user={user} viewMode="global" />;
                   case 'employee-chat':
                     return <EmployeeChat user={user} />;
                   case 'employee-bulletins':
@@ -478,45 +482,47 @@ function App() {
   };
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<Login setAuth={setIsAuthenticated} setUser={setUser} />} />
-        <Route
-          path="/dashboard"
-          element={
-            isAuthenticated ? (
-              <DashboardLayout onLogout={handleLogout} user={user} />
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-        {/* Support /items routes and redirect to dashboard with query params */}
-        <Route
-          path="/items"
-          element={
-            isAuthenticated ? (
-              <Navigate to={`/dashboard?section=items${window.location.search}`} replace />
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-        <Route
-          path="/tasks"
-          element={
-            isAuthenticated ? (
-              <Navigate to={`/dashboard?section=tasks-todo`} replace />
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-        <Route path="/tasks/followups" element={<FollowUpsPage />} />
-        <Route path="/calendar" element={<CalendarPage />} />
-        <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
-      </Routes>
-    </Router>
+    <NotificationProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login setAuth={setIsAuthenticated} setUser={setUser} />} />
+          <Route
+            path="/dashboard"
+            element={
+              isAuthenticated ? (
+                <DashboardLayout onLogout={handleLogout} user={user} />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          {/* Support /items routes and redirect to dashboard with query params */}
+          <Route
+            path="/items"
+            element={
+              isAuthenticated ? (
+                <Navigate to={`/dashboard?section=items${window.location.search}`} replace />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route
+            path="/tasks"
+            element={
+              isAuthenticated ? (
+                <Navigate to={`/dashboard?section=tasks-todo`} replace />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route path="/tasks/followups" element={<FollowUpsPage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
+        </Routes>
+      </Router>
+    </NotificationProvider>
   );
 }
 

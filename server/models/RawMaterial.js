@@ -30,7 +30,15 @@ const rawMaterialSchema = new mongoose.Schema({
         trim: true
     },
     hsn: String,
-    gstRate: Number
+    gstRate: Number,
+    consumptionHistory: [{
+        jobNumber: String,
+        poNumber: String,
+        itemName: String,
+        quantityConsumed: Number,
+        consumedAt: { type: Date, default: Date.now },
+        remarks: String
+    }]
 }, {
     timestamps: true
 });

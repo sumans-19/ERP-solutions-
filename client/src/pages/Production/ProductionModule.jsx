@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Scissors, CheckCircle, Clock, Filter, UserPlus, Split, MoreVertical, Package, ShoppingBag, User, ChevronDown, Calendar, XCircle } from 'lucide-react';
+import { LayoutDashboard, Scissors, CheckCircle, Clock, Filter, UserPlus, Split, MoreVertical, Package, ShoppingBag, User, ChevronDown, Calendar, XCircle, Search, Hash } from 'lucide-react';
 import { getJobCards, updateJobCardSteps, splitJobCard, getEmployees, getAllOrders, planProduction, getAllItems, getRawMaterials } from '../../services/api';
 import { getParties } from '../../services/partyApi';
+import { useNotification } from '../../contexts/NotificationContext';
+import CollapsibleJobCard from '../../components/CollapsibleJobCard';
 
 export default function ProductionModule() {
+    const { showNotification } = useNotification();
     const [jobs, setJobs] = useState([]);
     const [orders, setOrders] = useState([]);
     const [employees, setEmployees] = useState([]);
@@ -14,6 +17,12 @@ export default function ProductionModule() {
     const [filter, setFilter] = useState('All');
     const [viewMode, setViewMode] = useState('list'); // 'list' | 'board'
     const [activeTab, setActiveTab] = useState('planning'); // 'planning' | 'execution'
+
+    // Search states
+    const [jobSearch, setJobSearch] = useState('');
+    const [poSearch, setPoSearch] = useState('');
+    const [itemSearch, setItemSearch] = useState('');
+    const [expandedJobs, setExpandedJobs] = useState(new Set());
 
     const [selectedJob, setSelectedJob] = useState(null);
     const [showSplitModal, setShowSplitModal] = useState(false);
@@ -66,25 +75,23 @@ export default function ProductionModule() {
             const res = await getJobCards();
             setJobs(Array.isArray(res) ? res : res.data || []);
         } catch (err) {
-            if (!silent) setError('Failed to load job cards');
+            if (!silent) showNotification('Failed to load job cards', 'error');
         } finally {
             if (!silent) setLoading(false);
         }
     };
 
     const fetchOrders = async (silent = false) => {
-        if (!silent) setLoading(true);
         try {
+            if (!silent) setLoading(true);
             const res = await getAllOrders();
-            const data = Array.isArray(res) ? res : (res.data || []);
-            // Filter orders that are Confirmed or Processing and have items with pending plannedQty
-            const pendingOrders = data.filter(order =>
-                ((order.orderStage === 'Processing' || order.status === 'Processing' || order.orderStage === 'Confirmed') && order.orderStage !== 'Completed') &&
-                order.items.some(item => (item.quantity - (item.plannedQty || 0)) > 0)
+            const allOrders = Array.isArray(res) ? res : res.data || [];
+            const pendingOrders = allOrders.filter(
+                order => order.status === 'Pending' && order.items?.some(item => (item.quantity - (item.plannedQty || 0)) > 0)
             );
             setOrders(pendingOrders);
         } catch (err) {
-            if (!silent) setError('Failed to load orders');
+            if (!silent) showNotification('Failed to load orders', 'error');
         } finally {
             if (!silent) setLoading(false);
         }
@@ -98,6 +105,64 @@ export default function ProductionModule() {
             console.error('Error loading employees:', err);
         }
     };
+
+    const fetchParties = async () => {
+        try {
+            const res = await getParties();
+            setParties(Array.isArray(res) ? res : res.data || []);
+        } catch (err) {
+            console.error('Failed to load parties:', err);
+        }
+    };
+
+    const fetchItems = async () => {
+        try {
+            const res = await getAllItems();
+            setItems(Array.isArray(res) ? res : res.data || []);
+        } catch (err) {
+            console.error('Failed to load items:', err);
+        }
+    };
+
+    useEffect(() => {
+        fetchJobs();
+        fetchOrders();
+        fetchEmployees();
+        fetchParties();
+        fetchItems();
+    }, []);
+
+    // Toggle job card expansion
+    const toggleJobExpansion = (jobId) => {
+        setExpandedJobs(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(jobId)) {
+                newSet.delete(jobId);
+            } else {
+                newSet.add(jobId);
+            }
+            return newSet;
+        });
+    };
+
+    // Advanced filtering with search
+    const filteredJobs = jobs.filter(j => {
+        // Status filter
+        const statusMatch = filter === 'All' || j.status === filter;
+
+        // Job number search
+        const jobMatch = !jobSearch || j.jobNumber?.toLowerCase().includes(jobSearch.toLowerCase());
+
+        // PO number search
+        const poMatch = !poSearch || j.orderId?.poNumber?.toLowerCase().includes(poSearch.toLowerCase());
+
+        // Item search (name or code)
+        const itemMatch = !itemSearch ||
+            j.itemId?.name?.toLowerCase().includes(itemSearch.toLowerCase()) ||
+            j.itemId?.code?.toLowerCase().includes(itemSearch.toLowerCase());
+
+        return statusMatch && jobMatch && poMatch && itemMatch;
+    });
 
     const formatDateForInput = (date) => {
         if (!date) return '';
@@ -287,8 +352,6 @@ export default function ProductionModule() {
         }
     };
 
-    const filteredJobs = jobs.filter(j => filter === 'All' || j.status === filter);
-
     const getDaysRemaining = (date) => {
         if (!date) return null;
         const diffTime = new Date(date) - new Date();
@@ -413,314 +476,96 @@ export default function ProductionModule() {
                 ) : (
                     /* EXECUTION VIEW */
                     <>
-                        <div className="flex justify-end mb-6">
-                            <div className="flex bg-white p-1 rounded-md shadow-sm border border-slate-200">
-                                <button
-                                    onClick={() => setViewMode('list')}
-                                    className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-slate-100 text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                    title="List View"
-                                >
-                                    <LayoutDashboard size={18} />
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('board')}
-                                    className={`p-2 rounded-md transition-all ${viewMode === 'board' ? 'bg-slate-100 text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                    title="Kanban Board View"
-                                >
-                                    <MoreVertical size={18} className="rotate-90" />
-                                </button>
-                            </div>
+                        {/* Search & Filter Section */}
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6">
+                            <div className="flex flex-col gap-4">
+                                {/* Search Inputs */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search Job Number..."
+                                            value={jobSearch}
+                                            onChange={(e) => setJobSearch(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="relative">
+                                        <Hash className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search PO Number..."
+                                            value={poSearch}
+                                            onChange={(e) => setPoSearch(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="relative">
+                                        <Package className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search Item Name/Code..."
+                                            value={itemSearch}
+                                            onChange={(e) => setItemSearch(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
+                                        />
+                                    </div>
+                                </div>
 
-                            {viewMode === 'list' && (
-                                <div className="flex bg-white p-1 rounded-md shadow-sm border border-slate-200 ml-4">
-                                    {['All', 'Created', 'InProgress', 'Completed'].map(f => (
-                                        <button
-                                            key={f}
-                                            onClick={() => setFilter(f)}
-                                            className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${filter === f ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-                                        >
-                                            {f.toUpperCase()}
-                                        </button>
-                                    ))}
+                                {/* Status Filters & View Controls */}
+                                <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                                    <div className="flex bg-slate-100 p-1 rounded-lg">
+                                        {['All', 'Created', 'InProgress', 'Completed'].map(f => (
+                                            <button
+                                                key={f}
+                                                onClick={() => setFilter(f)}
+                                                className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all uppercase tracking-wide ${filter === f
+                                                    ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                                                    : 'text-slate-500 hover:text-slate-700'
+                                                    }`}
+                                            >
+                                                {f}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="text-xs font-bold text-slate-400">
+                                        {filteredJobs.length} Jobs Found
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Job Cards List */}
+                        <div className="space-y-6">
+                            {filteredJobs.length > 0 ? (
+                                filteredJobs.map(job => (
+                                    <CollapsibleJobCard
+                                        key={job._id}
+                                        job={job}
+                                        isExpanded={expandedJobs.has(job._id)}
+                                        onToggle={() => toggleJobExpansion(job._id)}
+                                        employees={employees}
+                                        onAssignEmployee={handleAssignEmployee}
+                                        onAddAssignee={handleAddAssignee}
+                                        onRemoveAssignee={handleRemoveAssignee}
+                                        onStepStatusUpdate={handleStepStatusUpdate}
+                                    />
+                                ))
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-24 bg-white border-2 border-dashed border-slate-200 rounded-xl">
+                                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                                        <Search className="text-slate-300" size={32} />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-slate-900 mb-1">No Jobs Found</h3>
+                                    <p className="text-sm text-slate-500">Try adjusting your search filters or create a new job.</p>
                                 </div>
                             )}
                         </div>
-
-                        {viewMode === 'list' ? (
-                            <div className="grid grid-cols-1 gap-6">
-                                {filteredJobs.map(job => (
-                                    <div key={job._id} className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col lg:flex-row group hover:shadow-md transition-all duration-300">
-                                        <div className="p-6 lg:w-80 border-b lg:border-b-0 lg:border-r border-slate-100 flex flex-col justify-between bg-slate-50/50">
-                                            <div>
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <span className="bg-white text-indigo-600 px-3 py-1 rounded-md text-[10px] font-black tracking-wider shadow-sm border border-indigo-100 uppercase">
-                                                        Job: {job.jobNumber}
-                                                    </span>
-                                                </div>
-                                                <h3 className="text-lg font-bold text-slate-800 leading-tight mb-1">{job.itemId?.name}</h3>
-                                                <p className="text-[10px] font-bold text-slate-400 mb-6 uppercase tracking-widest">{job.itemId?.code || 'NO SKU'}</p>
-
-                                                <div className="space-y-3">
-                                                    <div className="flex justify-between items-center p-3 bg-white rounded-md border border-slate-200/60 shadow-sm">
-                                                        <div className="text-[10px] font-bold text-slate-400 uppercase">Batch Qty</div>
-                                                        <div className="text-sm font-black text-slate-900">{job.quantity} <span className="text-[10px] text-slate-400 font-bold">{job.itemId?.unit}</span></div>
-                                                    </div>
-
-                                                    <div className="p-3 bg-white rounded-md border border-slate-200/60 shadow-sm">
-                                                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Parent Order</div>
-                                                        <div className="flex justify-between items-center">
-                                                            <div className="text-xs font-bold text-slate-700 truncate max-w-[120px]">{job.orderId?.partyName}</div>
-                                                            <span className="text-[10px] font-mono text-slate-400">#{job.orderId?.poNumber}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mt-4 pt-4 border-t border-slate-200/60">
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</span>
-                                                        <span className="text-[10px] font-black text-indigo-600">
-                                                            {job.steps ? Math.round((job.steps.filter(s => s.status === 'completed').length / job.steps.length) * 100) : 0}%
-                                                        </span>
-                                                    </div>
-                                                    <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="bg-indigo-600 h-full transition-all duration-500 rounded-full"
-                                                            style={{ width: `${job.steps ? (job.steps.filter(s => s.status === 'completed').length / job.steps.length) * 100 : 0}%` }}
-                                                        ></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="mt-6">
-                                                <div className={`w-full py-2.5 rounded-md text-center text-[10px] font-black uppercase tracking-widest border ${job.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                                    job.status === 'InProgress' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                                                        'bg-white text-slate-400 border-slate-200'
-                                                    }`}>
-                                                    {job.status === 'InProgress' ? 'In Progress' : job.status}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="p-8 flex-1 overflow-x-auto custom-scrollbar">
-                                            <div className="flex items-start gap-8 min-w-max pb-4">
-                                                {job.steps?.map((step, idx) => (
-                                                    <div key={idx} className="flex flex-col gap-3 group/step relative">
-                                                        {idx < job.steps.length - 1 && (
-                                                            <div className={`absolute left-[30px] top-[26px] h-0.5 w-[calc(100%+32px)] -z-10 transition-colors ${step.status === 'completed' ? 'bg-indigo-600' : 'bg-slate-200'
-                                                                }`}></div>
-                                                        )}
-
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-sm border-4 ${step.status === 'completed' ? 'bg-indigo-600 border-indigo-100 text-white' :
-                                                                step.status === 'in-progress' ? 'bg-white border-amber-100 text-amber-500 ring-2 ring-amber-50' :
-                                                                    'bg-white border-slate-100 text-slate-300'
-                                                                }`}>
-                                                                {step.status === 'completed' ? <CheckCircle size={20} className="stroke-[3]" /> :
-                                                                    step.status === 'in-progress' ? <Clock size={20} className="stroke-[3] animate-pulse" /> :
-                                                                        <div className="flex flex-col items-center justify-center leading-none">
-                                                                            <span className="text-[8px] font-bold opacity-60">Step</span>
-                                                                            <span className="text-sm font-black text-slate-700">{idx + 1}</span>
-                                                                        </div>}
-                                                            </div>
-                                                            {step.timeToComplete && (
-                                                                <div className="px-2 py-1 bg-slate-100 text-slate-500 text-[9px] font-bold rounded flex items-center gap-1 border border-slate-200">
-                                                                    <Clock size={10} /> {step.timeToComplete}
-                                                                </div>
-                                                            )}
-                                                        </div>
-
-                                                        <div className="w-56 bg-white p-3 rounded-lg border border-slate-200 shadow-sm transition-all hover:border-slate-300">
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <h4 className="text-xs font-bold text-slate-800 line-clamp-1 truncate" title={step.stepName}>{step.stepName}</h4>
-                                                            </div>
-
-                                                            {/* Assignment Section */}
-                                                            <div className="mb-2 space-y-2">
-                                                                <div className="flex flex-wrap gap-1.5">
-                                                                    {step.assignedEmployees?.map((ae, aeIdx) => {
-                                                                        // Robust ID extraction
-                                                                        const rawId = ae.employeeId;
-                                                                        const empId = (typeof rawId === 'object' && rawId !== null)
-                                                                            ? (rawId._id || rawId.id)
-                                                                            : rawId;
-
-                                                                        // Find employee in list (handle string/ObjectId mismatch)
-                                                                        const emp = employees.find(e => {
-                                                                            const currentId = e._id || e.id;
-                                                                            return currentId === empId || String(currentId) === String(empId);
-                                                                        });
-
-                                                                        // Fallback to populated name if available, or 'Unknown'
-                                                                        const empName = emp?.name || emp?.fullName || (typeof rawId === 'object' ? (rawId.name || rawId.fullName) : null) || 'Unknown';
-
-                                                                        if (empName === 'Unknown') {
-                                                                            console.warn(`[ProdModule] Unknown Employee ID: ${empId}`, {
-                                                                                rawId,
-                                                                                availableEmployees: employees.length
-                                                                            });
-                                                                        }
-
-                                                                        return (
-                                                                            <span key={`${empId}-${aeIdx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 text-[9px] font-bold">
-                                                                                {empName}
-                                                                                <button
-                                                                                    onClick={() => handleRemoveAssignee(job._id, step._id, empId)}
-                                                                                    className="hover:text-blue-900"
-                                                                                >
-                                                                                    <XCircle size={10} />
-                                                                                </button>
-                                                                            </span>
-                                                                        );
-                                                                    })}
-                                                                    {(!step.assignedEmployees || step.assignedEmployees.length === 0) && (
-                                                                        <span className="text-[9px] text-slate-400 italic pl-1">Unassigned</span>
-                                                                    )}
-                                                                </div>
-                                                                <div className="relative">
-                                                                    <input
-                                                                        list={`employees-list-${step._id}`}
-                                                                        className="w-full text-[10px] font-bold pl-7 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer text-slate-600 hover:bg-white transition-colors"
-                                                                        placeholder="+ Assign Employee..."
-                                                                        onChange={(e) => {
-                                                                            if (e.target.value) {
-                                                                                const emp = employees.find(emp => emp.name === e.target.value || emp.fullName === e.target.value);
-                                                                                if (emp) {
-                                                                                    handleAddAssignee(job._id, step._id, emp._id);
-                                                                                    e.target.value = "";
-                                                                                }
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                    <datalist id={`employees-list-${step._id}`}>
-                                                                        {employees.filter(emp => !step.assignedEmployees?.some(ae => (ae.employeeId?._id || ae.employeeId) === emp._id)).map(emp => (
-                                                                            <option key={emp._id} value={emp.name || emp.fullName} />
-                                                                        ))}
-                                                                    </datalist>
-                                                                    <UserPlus size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Dates Section */}
-                                                            {(step.targetStartDate || step.targetDeadline) && (
-                                                                <div className="flex gap-2 mb-2 p-1.5 bg-slate-50 rounded border border-slate-100">
-                                                                    {step.targetStartDate && (
-                                                                        <div className="flex-1 text-[8px] font-bold text-slate-500 uppercase truncate">
-                                                                            <span className="opacity-50">Start:</span> {new Date(step.targetStartDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                                                                        </div>
-                                                                    )}
-                                                                    {step.targetDeadline && (
-                                                                        <div className="flex-1 text-[8px] font-bold text-rose-500 uppercase truncate text-right">
-                                                                            <span className="opacity-50">End:</span> {new Date(step.targetDeadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            )}
-
-                                                            {/* Buttons Section */}
-                                                            <div className="grid grid-cols-2 gap-1">
-                                                                <button
-                                                                    onClick={() => handleAssignEmployee(job._id, step._id, step.employeeId)}
-                                                                    className="col-span-2 py-1 bg-slate-100 text-slate-600 rounded text-[9px] font-bold hover:bg-slate-200 transition uppercase tracking-wider"
-                                                                >Save Assign</button>
-                                                                <button
-                                                                    onClick={() => handleStepStatusUpdate(job._id, step._id, 'in-progress')}
-                                                                    disabled={step.status !== 'pending'}
-                                                                    className={`py-1 text-[9px] font-bold rounded uppercase transition ${step.status === 'in-progress' ? 'bg-amber-100 text-amber-700 opacity-50 cursor-not-allowed' :
-                                                                        step.status === 'completed' ? 'opacity-20 cursor-not-allowed bg-slate-100' :
-                                                                            'bg-amber-50 text-amber-600 hover:bg-amber-100'
-                                                                        }`}
-                                                                >Start</button>
-                                                                <button
-                                                                    onClick={() => handleStepStatusUpdate(job._id, step._id, 'completed')}
-                                                                    disabled={step.status === 'completed'}
-                                                                    className={`py-1 text-[9px] font-bold rounded uppercase transition ${step.status === 'completed' ? 'bg-emerald-100 text-emerald-700 opacity-50 cursor-not-allowed' :
-                                                                        'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-                                                                        }`}
-                                                                >Finish</button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {filteredJobs.length === 0 && (
-                                    <div className="bg-white rounded-lg p-20 text-center border-2 border-dashed border-slate-200">
-                                        <Package size={48} className="mx-auto text-slate-200 mb-4" />
-                                        <h3 className="text-xl font-bold text-slate-800">No Job Cards Found</h3>
-                                        <p className="text-slate-400 text-sm max-w-sm mx-auto mt-2 italic">Allocate production batches in the Planning Stage to see active jobs here.</p>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="flex gap-6 overflow-x-auto pb-4 h-[calc(100vh-250px)]">
-                                {[
-                                    { id: 'Created', label: 'To Do / Pending', color: 'bg-slate-100 border-slate-200', dot: 'bg-slate-400' },
-                                    { id: 'InProgress', label: 'In Execution', color: 'bg-amber-50 border-amber-100', dot: 'bg-amber-500' },
-                                    { id: 'Completed', label: 'Finished Batches', color: 'bg-emerald-50 border-emerald-100', dot: 'bg-emerald-500' }
-                                ].map(col => (
-                                    <div key={col.id} className={`flex-1 min-w-[320px] rounded-lg border flex flex-col ${col.color}`}>
-                                        <div className="p-4 border-b border-white/50 bg-white/50 flex justify-between items-center rounded-t-lg">
-                                            <div className="flex items-center gap-2">
-                                                <span className={`w-2 h-2 rounded-full ${col.dot}`}></span>
-                                                <h3 className="text-sm font-black text-slate-700 uppercase tracking-wide">{col.label}</h3>
-                                            </div>
-                                            <span className="bg-white px-2 py-0.5 rounded text-[10px] font-bold text-slate-400 border border-slate-100">
-                                                {getJobsByStatus(col.id).length}
-                                            </span>
-                                        </div>
-                                        <div className="p-4 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
-                                            {getJobsByStatus(col.id).map(job => (
-                                                <div key={job._id} className="bg-white p-4 rounded-md border border-slate-200 shadow-sm hover:shadow-md transition-all group cursor-pointer">
-                                                    <div className="mb-2">
-                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">#{job.jobNumber}</span>
-                                                    </div>
-                                                    <h4 className="text-sm font-bold text-slate-800 mb-1 leading-snug">{job.itemId?.name}</h4>
-
-                                                    <div className="flex items-center gap-3 mb-4">
-                                                        <span className="text-xs font-medium text-slate-500">{job.quantity} {job.itemId?.unit}</span>
-                                                        {job.extraQty > 0 && (
-                                                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">
-                                                                +{job.extraQty} Extra
-                                                            </span>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="mb-4">
-                                                        <div className="flex justify-between items-center mb-1">
-                                                            <span className="text-[8px] font-bold text-slate-400 uppercase">Step Progress</span>
-                                                            <span className="text-[8px] font-bold text-indigo-600">{job.steps ? Math.round((job.steps.filter(s => s.status === 'completed').length / job.steps.length) * 100) : 0}%</span>
-                                                        </div>
-                                                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full rounded-full transition-all duration-500 ${col.id === 'Completed' ? 'bg-emerald-500' : 'bg-indigo-600'}`}
-                                                                style={{ width: `${job.steps ? (job.steps.filter(s => s.status === 'completed').length / job.steps.length) * 100 : 0}%` }}
-                                                            ></div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex items-center justify-between pt-3 border-t border-slate-50">
-                                                        <div className="text-[9px] font-bold text-slate-400 flex items-center gap-4">
-                                                            <span>PO: {job.orderId?.poNumber}</span>
-                                                            {job.deliveryDate && (
-                                                                <span className="flex items-center gap-1 text-rose-500">
-                                                                    <Calendar size={10} /> {new Date(job.deliveryDate).toLocaleDateString()}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </>
                 )}
-            </div>
+            </div >
 
             {/* PLANNING MODAL */}
             {

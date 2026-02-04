@@ -2,8 +2,8 @@ import React, { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createItem, getItemById, updateItem, getAllItems, deleteItem, completeItem, getInventory, getRawMaterials } from "../services/api";
 import { canCreate, canEdit, canDelete, canExportReports } from "../utils/permissions";
-import { Package, X, Trash2 } from "lucide-react";
-import PopupNotification from "../components/PopupNotification";
+import { Package, X, Trash2, FileText } from "lucide-react";
+import { useNotification } from "../contexts/NotificationContext";
 
 const defaultForm = () => ({
   type: "product",
@@ -81,11 +81,8 @@ const defaultForm = () => ({
 });
 
 export default function ItemPage() {
+  const { showNotification } = useNotification();
   const [form, setForm] = useState(defaultForm());
-  const [activeTab, setActiveTab] = useState("pricing");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
-  const [error, setError] = useState(null);
 
   // New states for list view
   const [showForm, setShowForm] = useState(false);
@@ -128,6 +125,7 @@ export default function ItemPage() {
   const [copySearchQuery, setCopySearchQuery] = useState("");
 
   const fileInputRef = useRef(null);
+  const pdfInputRef = useRef(null); // Separate ref for PDF uploads
   const qcFileInputRef = useRef(null);
 
   const location = useLocation();
@@ -268,7 +266,7 @@ export default function ItemPage() {
       }
     } catch (err) {
       console.error("Failed to load items:", err);
-      setError("Failed to load items");
+      showNotification("Failed to load items", "error");
     } finally {
       setLoadingItems(false);
     }
@@ -333,7 +331,7 @@ export default function ItemPage() {
         })
         .catch((err) => {
           console.error("load item error", err);
-          setError("Failed to load item for editing");
+          showNotification("Failed to load item for editing", "error");
         })
         .finally(() => setLoading(false));
     }
@@ -696,8 +694,7 @@ export default function ItemPage() {
     setCategorySearch(item.category || "");
     setUnitSearch(item.unit || "");
     setShowCopyModal(false);
-    setMessage(`Successfully copied details from "${item.name}"`);
-    setTimeout(() => setMessage(null), 3000);
+    showNotification(`Successfully copied details from "${item.name}"`);
   };
 
   const handleImageSelect = (e) => {
@@ -724,18 +721,16 @@ export default function ItemPage() {
 
   const validate = () => {
     if (!form.name || form.name.trim() === "") {
-      setError("Item Name is required");
+      showNotification("Item Name is required", "warning");
       return false;
     }
-    setError(null);
     return true;
   };
 
   const submit = async (resetAfter = false) => {
     if (!validate()) return;
     setLoading(true);
-    setMessage(null);
-    setError(null);
+    setLoading(true);
 
     try {
       const params = new URLSearchParams(location.search);
@@ -773,10 +768,7 @@ export default function ItemPage() {
 
       if (id) {
         await updateItem(id, payload);
-        setMessage("Saved Successfully!");
-      } else {
-        await createItem(payload);
-        setMessage("Saved Successfully!");
+        showNotification("Saved Successfully!");
       }
 
       // Reload items list
@@ -796,7 +788,7 @@ export default function ItemPage() {
       }
     } catch (err) {
       console.error("save item error", err);
-      setError(err?.response?.data?.message || "Failed to save item");
+      showNotification(err?.response?.data?.message || "Failed to save item", "error");
     } finally {
       setLoading(false);
     }
@@ -806,8 +798,6 @@ export default function ItemPage() {
     setForm(defaultForm());
     setItemNameSearch("");
     setShowForm(true);
-    setMessage(null);
-    setError(null);
   };
 
   const handleEditItem = (item) => {
@@ -843,7 +833,6 @@ export default function ItemPage() {
     setProgressProcesses(item.processes || []);
     setShowProgress(true);
     setMessage(null);
-    setError(null);
   };
 
   const handleProcessCheckboxChange = (processId) => {
@@ -879,7 +868,6 @@ export default function ItemPage() {
 
     setLoading(true);
     setMessage(null);
-    setError(null);
 
     try {
       const payload = {
@@ -992,7 +980,7 @@ export default function ItemPage() {
       }, 2000);
     } catch (error) {
       console.error('Error completing item:', error);
-      setError('Failed to mark item as completed: ' + (error.response?.data?.message || error.message));
+      showNotification('Failed to mark item as completed: ' + (error.response?.data?.message || error.message), 'error');
     } finally {
       setCompletingItem(false);
     }
@@ -1016,16 +1004,7 @@ export default function ItemPage() {
       <div className="p-6">
         <div className="max-w-7xl mx-auto">
           {/* Messages - Show at top level */}
-          {message && (
-            <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded text-sm">
-              {message}
-            </div>
-          )}
-          {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
-              {error}
-            </div>
-          )}
+
 
           {showProgress ? (
             // View Progress View
@@ -1045,9 +1024,9 @@ export default function ItemPage() {
                 <div className="mb-6 p-4 bg-slate-50 rounded-md">
                   <h3 className="text-lg font-semibold text-slate-800 mb-4">Item Details</h3>
                   <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-sm text-slate-600">Item Name</p>
-                      <p className="text-sm font-medium text-slate-900">{selectedItem?.name}</p>
+                    <div className="col-span-3 pb-2 border-b border-slate-100">
+                      <p className="text-sm text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Item Name</p>
+                      <p className="text-xl font-bold text-slate-900 break-words">{selectedItem?.name}</p>
                     </div>
                     <div>
                       <p className="text-sm text-slate-600">Type</p>
@@ -1374,20 +1353,8 @@ export default function ItemPage() {
               </div>
 
               <div className="px-6 py-6">
-                {/* Row 1: Item Code, Item Name, HSN, Category */}
-                <div className="grid grid-cols-4 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm text-slate-600 mb-1.5">
-                      Item Code
-                    </label>
-                    <input
-                      value={form.code}
-                      onChange={(e) => updateField("code", e.target.value)}
-                      placeholder="Item Code"
-                      className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
+                {/* Row 1: Item Name - Full Width */}
+                <div className="mb-4">
                   <div className="relative item-name-dropdown-container">
                     <label className="block text-sm text-slate-600 mb-1.5">
                       Item Name *
@@ -1396,13 +1363,12 @@ export default function ItemPage() {
                       <input
                         value={itemNameSearch}
                         onChange={(e) => {
-                          // Only update the name field, don't auto-fill other fields
                           setItemNameSearch(e.target.value);
                           updateField("name", e.target.value);
                           setShowItemDropdown(true);
                         }}
                         onFocus={() => setShowItemDropdown(true)}
-                        className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-8"
+                        className="w-full border border-slate-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-8"
                         placeholder="Type or select item name"
                       />
                       <button
@@ -1425,7 +1391,7 @@ export default function ItemPage() {
                                 onClick={() => handleItemNameSelect(item)}
                                 className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-slate-100 last:border-b-0"
                               >
-                                <div className="font-medium text-slate-900">{item.name}</div>
+                                <div className="font-medium text-slate-900 truncate">{item.name}</div>
                                 {item.code && (
                                   <div className="text-xs text-slate-500">Code: {item.code}</div>
                                 )}
@@ -1441,6 +1407,21 @@ export default function ItemPage() {
                         </div>
                       )}
                     </div>
+                  </div>
+                </div>
+
+                {/* Row 2: Item Code, HSN, Category */}
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm text-slate-600 mb-1.5">
+                      Item Code
+                    </label>
+                    <input
+                      value={form.code}
+                      onChange={(e) => updateField("code", e.target.value)}
+                      placeholder="Item Code"
+                      className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                   </div>
 
                   <div>
@@ -1572,65 +1553,116 @@ export default function ItemPage() {
                     </div>
                   </div>
 
-                  <div className="col-span-3">
-                    <label className="block text-sm text-slate-600 mb-1.5">
-                      Item Images / Files
-                    </label>
-                    <div className="p-4 border-2 border-dashed border-slate-300 rounded-md bg-slate-50">
-                      <div className="flex flex-col items-center justify-center mb-4">
-                        <button
-                          className="bg-blue-100 text-blue-600 px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 hover:bg-blue-200"
-                          onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                        >
-                          <span>+ Upload Files</span>
-                        </button>
-                        <p className="text-xs text-slate-500 mt-2">Supports Images and PDFs</p>
-                      </div>
-
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*,.pdf"
-                        multiple
-                        className="hidden"
-                        onChange={handleImageSelect}
-                      />
-
-                      {form.images && form.images.length > 0 && (
-                        <div className="flex flex-wrap gap-4 mt-4">
-                          {form.images.map((img, idx) => (
+                  <div className="col-span-3 space-y-6">
+                    {/* Section 1: Product Images */}
+                    <div>
+                      <label className="block text-sm text-slate-600 mb-1.5 font-bold flex items-center gap-2">
+                        Product Images <span className="text-xs font-normal text-slate-400">(Visible in Job Cards)</span>
+                      </label>
+                      <div className="p-4 border-2 border-dashed border-slate-300 rounded-md bg-white">
+                        <div className="flex flex-wrap gap-4">
+                          {/* Image List */}
+                          {form.images && form.images.filter(img => !img.startsWith('data:application/pdf')).map((img, idx) => (
                             <div key={idx} className="relative group w-24 h-24">
-                              {img.startsWith('data:application/pdf') ? (
-                                <div className="w-full h-full flex items-center justify-center bg-red-50 border border-red-200 rounded text-red-500 font-bold text-xs p-2 text-center">
-                                  PDF Document
-                                </div>
-                              ) : (
-                                <img
-                                  src={img}
-                                  alt={`Item ${idx}`}
-                                  className="w-full h-full object-cover rounded border border-slate-300"
-                                />
-                              )}
-
+                              <img
+                                src={img}
+                                alt={`Product ${idx}`}
+                                className="w-full h-full object-cover rounded border border-slate-300 shadow-sm"
+                              />
                               <button
                                 onClick={() => {
-                                  const newImages = form.images.filter((_, i) => i !== idx);
+                                  const newImages = form.images.filter(existing => existing !== img);
                                   updateField("images", newImages);
-                                  // If we removed the main image (imageBase64 matches this one), update it
                                   if (form.imageBase64 === img) {
-                                    // Set new main image to first available, or empty
-                                    updateField("imageBase64", newImages.length > 0 ? newImages[0] : "");
+                                    const nextImage = newImages.find(i => !i.startsWith('data:application/pdf')) || "";
+                                    updateField("imageBase64", nextImage);
                                   }
                                 }}
-                                className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 opacity-100 shadow-sm hover:bg-red-200 transition-colors"
                                 type="button"
                               >
                                 <X size={14} />
                               </button>
                             </div>
                           ))}
+
+                          {/* Upload Button */}
+                          <div className="w-24 h-24 flex flex-col items-center justify-center border border-slate-200 bg-slate-50 rounded cursor-pointer hover:bg-slate-100 transition-colors"
+                            onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                          >
+                            <span className="text-2xl text-slate-400 mb-1">+</span>
+                            <span className="text-[10px] text-slate-500 font-bold uppercase">Add Image</span>
+                          </div>
                         </div>
-                      )}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={handleImageSelect}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Section 2: Documents (PDFs) */}
+                    <div>
+                      <label className="block text-sm text-slate-600 mb-1.5 font-bold flex items-center gap-2">
+                        Documents & Specifications <span className="text-xs font-normal text-slate-400">(PDF Drawings, Specs)</span>
+                      </label>
+                      <div className="p-4 border border-slate-200 rounded-md bg-slate-50">
+                        {form.images && form.images.filter(img => img.startsWith('data:application/pdf')).length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                            {form.images.filter(img => img.startsWith('data:application/pdf')).map((pdf, idx) => (
+                              <div key={idx} className="flex items-center justify-between bg-white p-3 rounded border border-slate-200 shadow-sm">
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                  <div className="bg-red-100 text-red-600 p-2 rounded">
+                                    <FileText size={20} />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold text-slate-700 truncate">Document {idx + 1}</p>
+                                    <a href={pdf} download={`document-${idx + 1}.pdf`} className="text-[10px] text-blue-600 hover:underline flex items-center gap-1">
+                                      Download PDF
+                                    </a>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    const newImages = form.images.filter(existing => existing !== pdf);
+                                    updateField("images", newImages);
+                                  }}
+                                  className="text-slate-400 hover:text-red-600 p-1"
+                                  type="button"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 text-slate-400 text-xs italic mb-3">
+                            No documents attached
+                          </div>
+                        )}
+
+                        <button
+                          className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 hover:bg-slate-50 hover:border-slate-400"
+                          onClick={() => pdfInputRef.current && pdfInputRef.current.click()}
+                          type="button"
+                        >
+                          <FileText size={16} className="text-red-500" />
+                          <span>+ Upload PDF Document</span>
+                        </button>
+
+                        <input
+                          ref={pdfInputRef}
+                          type="file"
+                          accept=".pdf"
+                          multiple
+                          className="hidden"
+                          onChange={handleImageSelect}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2042,9 +2074,9 @@ export default function ItemPage() {
 
                             <div className="col-span-1">
                               <label className="block text-sm text-slate-600 mb-1.5">
-                                Time to Complete <span className="text-xs text-slate-400">(HH:MM)</span>
+                                Time to Complete
                               </label>
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-2 bg-slate-50 border border-slate-300 rounded px-3 py-2 h-12">
                                 <input
                                   type="number"
                                   min="0"
@@ -2057,10 +2089,11 @@ export default function ItemPage() {
                                     newProcesses[index].timeToComplete = `${hours}:${currentMins}`;
                                     updateField("processes", newProcesses);
                                   }}
-                                  placeholder="HH"
-                                  className="w-16 h-12 border border-slate-300 rounded px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  placeholder="0"
+                                  className="w-12 bg-transparent text-center text-sm font-medium focus:outline-none"
                                 />
-                                <span className="text-slate-400 font-bold">:</span>
+                                <span className="text-xs text-slate-500 font-medium">hrs</span>
+                                <span className="text-slate-300">:</span>
                                 <input
                                   type="number"
                                   min="0"
@@ -2073,10 +2106,10 @@ export default function ItemPage() {
                                     newProcesses[index].timeToComplete = `${currentHours}:${mins.toString().padStart(2, '0')}`;
                                     updateField("processes", newProcesses);
                                   }}
-                                  placeholder="MM"
-                                  className="w-16 h-12 border border-slate-300 rounded px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  placeholder="00"
+                                  className="w-12 bg-transparent text-center text-sm font-medium focus:outline-none"
                                 />
-                                <span className="text-xs text-slate-400 ml-1">hrs</span>
+                                <span className="text-xs text-slate-500 font-medium">min</span>
                               </div>
                             </div>
 
@@ -3189,7 +3222,8 @@ export default function ItemPage() {
                 </div >
               </div >
             </div >
-          )}
+          )
+          }
         </div >
       </div >
 
@@ -3403,99 +3437,91 @@ export default function ItemPage() {
         )
       }
       {/* Copy From Existing Item Modal */}
-      {showCopyModal && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-md shadow-md w-full max-w-2xl max-h-[80vh] flex flex-col">
-            <div className="p-6 border-b border-slate-200 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">Copy From Existing Item</h3>
-                <p className="text-sm text-slate-500">Pick an item to copy its configuration, processes, and materials.</p>
+      {
+        showCopyModal && (
+          <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+            <div className="bg-white rounded-md shadow-md w-full max-w-2xl max-h-[80vh] flex flex-col">
+              <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Copy From Existing Item</h3>
+                  <p className="text-sm text-slate-500">Pick an item to copy its configuration, processes, and materials.</p>
+                </div>
+                <button
+                  onClick={() => setShowCopyModal(false)}
+                  className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+                >
+                  <X size={24} />
+                </button>
               </div>
-              <button
-                onClick={() => setShowCopyModal(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors p-1"
-              >
-                <X size={24} />
-              </button>
-            </div>
 
-            <div className="p-4 border-b border-slate-100">
-              <div className="relative">
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder="Search by item name or code..."
-                  value={copySearchQuery}
-                  onChange={(e) => setCopySearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-                <Package className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <div className="p-4 border-b border-slate-100">
+                <div className="relative">
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Search by item name or code..."
+                    value={copySearchQuery}
+                    onChange={(e) => setCopySearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                  <Package className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                </div>
               </div>
-            </div>
 
-            <div className="flex-1 overflow-y-auto p-2">
-              <div className="space-y-1">
-                {items
-                  .filter(item =>
-                    item.name.toLowerCase().includes(copySearchQuery.toLowerCase()) ||
-                    (item.code && item.code.toLowerCase().includes(copySearchQuery.toLowerCase()))
-                  )
-                  .map(item => (
-                    <button
-                      key={item._id}
-                      onClick={() => handleCopySelection(item)}
-                      className="w-full text-left p-4 hover:bg-blue-50 rounded-md border border-transparent hover:border-blue-100 transition-all group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-bold text-slate-900 group-hover:text-blue-700">{item.name}</p>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                            <span className="bg-slate-100 px-2 py-0.5 rounded uppercase font-semibold">{item.code || 'NO CODE'}</span>
-                            <span>{item.category || 'NO CATEGORY'}</span>
-                            <span>{item.processes?.length || 0} Steps</span>
+              <div className="flex-1 overflow-y-auto p-2">
+                <div className="space-y-1">
+                  {items
+                    .filter(item =>
+                      item.name.toLowerCase().includes(copySearchQuery.toLowerCase()) ||
+                      (item.code && item.code.toLowerCase().includes(copySearchQuery.toLowerCase()))
+                    )
+                    .map(item => (
+                      <button
+                        key={item._id}
+                        onClick={() => handleCopySelection(item)}
+                        className="w-full text-left p-4 hover:bg-blue-50 rounded-md border border-transparent hover:border-blue-100 transition-all group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-bold text-slate-900 group-hover:text-blue-700">{item.name}</p>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                              <span className="bg-slate-100 px-2 py-0.5 rounded uppercase font-semibold">{item.code || 'NO CODE'}</span>
+                              <span>{item.category || 'NO CATEGORY'}</span>
+                              <span>{item.processes?.length || 0} Steps</span>
+                            </div>
+                          </div>
+                          <div className="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity font-bold text-xs uppercase tracking-widest">
+                            Copy Details →
                           </div>
                         </div>
-                        <div className="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity font-bold text-xs uppercase tracking-widest">
-                          Copy Details →
-                        </div>
+                      </button>
+                    ))}
+                  {items.filter(item =>
+                    item.name.toLowerCase().includes(copySearchQuery.toLowerCase()) ||
+                    (item.code && item.code.toLowerCase().includes(copySearchQuery.toLowerCase()))
+                  ).length === 0 && (
+                      <div className="py-20 text-center text-slate-500 flex flex-col items-center">
+                        <Package size={48} className="text-slate-200 mb-4" />
+                        <p className="font-medium">No blueprint found matches your search.</p>
+                        <p className="text-xs">Try searching with a different name or code.</p>
                       </div>
-                    </button>
-                  ))}
-                {items.filter(item =>
-                  item.name.toLowerCase().includes(copySearchQuery.toLowerCase()) ||
-                  (item.code && item.code.toLowerCase().includes(copySearchQuery.toLowerCase()))
-                ).length === 0 && (
-                    <div className="py-20 text-center text-slate-500 flex flex-col items-center">
-                      <Package size={48} className="text-slate-200 mb-4" />
-                      <p className="font-medium">No blueprint found matches your search.</p>
-                      <p className="text-xs">Try searching with a different name or code.</p>
-                    </div>
-                  )}
+                    )}
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-slate-200 bg-slate-50 rounded-b-xl flex justify-end">
+                <button
+                  onClick={() => setShowCopyModal(false)}
+                  className="px-6 py-2 text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors"
+                >
+                  CANCEL
+                </button>
               </div>
             </div>
-
-            <div className="p-4 border-t border-slate-200 bg-slate-50 rounded-b-xl flex justify-end">
-              <button
-                onClick={() => setShowCopyModal(false)}
-                className="px-6 py-2 text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors"
-              >
-                CANCEL
-              </button>
-            </div>
           </div>
-        </div>
-      )}
-      <PopupNotification
-        message={error}
-        type="error"
-        onClose={() => setError(null)}
-      />
-      <PopupNotification
-        message={message}
-        type="success"
-        onClose={() => setMessage(null)}
-      />
-    </div>
+        )
+      }
+    </div >
   );
 }
 

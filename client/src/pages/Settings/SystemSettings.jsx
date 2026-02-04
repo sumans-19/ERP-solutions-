@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Globe, Percent, Bell, Moon, Sun, Info, Save, CheckCircle, AlertTriangle, Smartphone, MapPin, Monitor } from 'lucide-react';
+import { Settings, Globe, Percent, Bell, Moon, Sun, Info, Save, CheckCircle, AlertTriangle, Smartphone, MapPin, Monitor, Database, Download, Mail, CreditCard, Hash } from 'lucide-react';
 import { getSystemSettings, updateSystemSettings } from '../../services/api';
+import { generateFullBackupPDF } from '../../utils/backupExport';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const SystemSettings = () => {
+    const { showNotification } = useNotification();
     const [activeTab, setActiveTab] = useState('general');
-    const [activeSectionName, setActiveSectionName] = useState('General Information');
-    const [loading, setLoading] = useState(false);
-    const [fetching, setFetching] = useState(true);
-    const [message, setMessage] = useState(null);
 
     const [settings, setSettings] = useState({
         businessName: '',
+        companyLogo: '',
+        email: '',
         address: '',
         phone: '',
         website: '',
+        pan: '',
+        tan: '',
         gstEnabled: true,
+        gstNumber: '',
         gstRate: 18,
         defaultCurrency: 'INR',
         theme: 'light',
@@ -39,14 +43,12 @@ const SystemSettings = () => {
 
     const handleSave = async () => {
         setLoading(true);
-        setMessage(null);
         try {
             await updateSystemSettings(settings);
-            setMessage({ type: 'success', text: 'System settings updated successfully' });
-            setTimeout(() => setMessage(null), 3000);
+            showNotification('System settings updated successfully');
         } catch (error) {
             console.error('Error saving settings:', error);
-            setMessage({ type: 'error', text: 'Failed to update system settings' });
+            showNotification('Failed to update system settings', 'error');
         } finally {
             setLoading(false);
         }
@@ -58,6 +60,7 @@ const SystemSettings = () => {
         { id: 'tax', label: 'Tax & Currency', icon: Percent, title: 'Financial Configuration' },
         { id: 'display', label: 'Appearance', icon: Monitor, title: 'Theme & Display' },
         { id: 'notifications', label: 'Notifications', icon: Bell, title: 'Alert Preferences' },
+        { id: 'data', label: 'Backups & Data', icon: Database, title: 'System Maintenance & Export' },
     ];
 
     const tabChange = (tabId) => {
@@ -98,17 +101,7 @@ const SystemSettings = () => {
                 </button>
             </motion.div>
 
-            {message && (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className={`mb-6 p-4 rounded-md flex items-center gap-3 shadow-sm border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
-                        }`}
-                >
-                    {message.type === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
-                    <span className="font-medium">{message.text}</span>
-                </motion.div>
-            )}
+
 
             <div className="bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row min-h-[600px]">
                 {/* Sidebar Navigation */}
@@ -214,6 +207,18 @@ const SystemSettings = () => {
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                                <Mail size={16} className="text-slate-400" /> Business Email
+                                            </label>
+                                            <input
+                                                type="email"
+                                                value={settings.email}
+                                                onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-md text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all outline-none"
+                                                placeholder="business@example.com"
+                                            />
+                                        </div>
+                                        <div className="space-y-2 md:col-span-2">
+                                            <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                                 <Globe size={16} className="text-slate-400" /> Website
                                             </label>
                                             <input
@@ -238,14 +243,26 @@ const SystemSettings = () => {
                                             <h3 className="font-bold text-slate-800">GST Settings</h3>
                                         </div>
                                         <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Default Rate (%)</label>
-                                                <input
-                                                    type="number"
-                                                    value={settings.gstRate}
-                                                    onChange={(e) => setSettings({ ...settings, gstRate: e.target.value })}
-                                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-md text-slate-900 font-medium focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all outline-none"
-                                                />
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">GST Number</label>
+                                                    <input
+                                                        type="text"
+                                                        value={settings.gstNumber}
+                                                        onChange={(e) => setSettings({ ...settings, gstNumber: e.target.value })}
+                                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-md text-slate-900 font-medium focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all outline-none"
+                                                        placeholder="22AAAAA0000A1Z5"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Default Rate (%)</label>
+                                                    <input
+                                                        type="number"
+                                                        value={settings.gstRate}
+                                                        onChange={(e) => setSettings({ ...settings, gstRate: e.target.value })}
+                                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-md text-slate-900 font-medium focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all outline-none"
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="flex items-center gap-2 text-sm text-slate-500">
                                                 <input
@@ -255,6 +272,37 @@ const SystemSettings = () => {
                                                     className="rounded border-slate-300 text-green-600 focus:ring-green-500"
                                                 />
                                                 <span>Enable GST Calculation</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-6 bg-slate-50 rounded-md border border-slate-200/60 hover:border-blue-200 transition bg-white shadow-sm">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="p-2 bg-amber-100 text-amber-600 rounded-md">
+                                                <CreditCard size={20} />
+                                            </div>
+                                            <h3 className="font-bold text-slate-800">Tax Identification</h3>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">PAN Number</label>
+                                                <input
+                                                    type="text"
+                                                    value={settings.pan}
+                                                    onChange={(e) => setSettings({ ...settings, pan: e.target.value })}
+                                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-md text-slate-900 font-medium focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all outline-none"
+                                                    placeholder="ABCDE1234F"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">TAN Number</label>
+                                                <input
+                                                    type="text"
+                                                    value={settings.tan}
+                                                    onChange={(e) => setSettings({ ...settings, tan: e.target.value })}
+                                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-md text-slate-900 font-medium focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all outline-none"
+                                                    placeholder="CHEP01234G"
+                                                />
                                             </div>
                                         </div>
                                     </div>
@@ -351,6 +399,61 @@ const SystemSettings = () => {
                                                     onClick={() => setSettings({ ...settings, emailNotifications: !settings.emailNotifications })}
                                                     className={`toggle-label block overflow-hidden h-6 rounded-full bg-slate-300 cursor-pointer ${settings.emailNotifications ? 'bg-blue-600' : 'bg-slate-200'}`}
                                                 ></label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'data' && (
+                                <div className="max-w-2xl">
+                                    <div className="space-y-6">
+                                        <div className="p-6 bg-slate-50 rounded-md border border-slate-200">
+                                            <div className="flex items-start gap-4 mb-6">
+                                                <div className="p-3 bg-blue-100 text-blue-600 rounded-md">
+                                                    <Database size={24} />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-bold text-slate-900 text-lg">Full System Backup</h3>
+                                                    <p className="text-sm text-slate-500 mt-1">
+                                                        Generate a comprehensive PDF report containing all system data (Items, Orders, Parties, Inventory, etc.).
+                                                        Use this to keep a physical or digital record for auditing purposes.
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col gap-4">
+                                                <button
+                                                    onClick={async () => {
+                                                        setLoading(true);
+                                                        const result = await generateFullBackupPDF();
+                                                        if (result.success) {
+                                                            showNotification(`Backup generated: ${result.filename}`);
+                                                        } else {
+                                                            showNotification(`Backup failed: ${result.error}`, 'error');
+                                                        }
+                                                        setLoading(false);
+                                                    }}
+                                                    disabled={loading}
+                                                    className="flex items-center justify-center gap-3 px-6 py-4 bg-slate-900 text-white rounded-md font-bold hover:bg-slate-800 transition shadow-lg shadow-slate-200 disabled:bg-slate-300 disabled:shadow-none uppercase tracking-widest text-xs"
+                                                >
+                                                    <Download size={18} />
+                                                    {loading ? 'Processing Backup...' : 'Generate & Download PDF Backup'}
+                                                </button>
+                                                <p className="text-[10px] text-slate-400 text-center font-medium">
+                                                    Note: Large databases may take a few seconds to generate.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-6 bg-amber-50 rounded-md border border-amber-200 flex items-start gap-3">
+                                            <AlertTriangle size={20} className="text-amber-600 mt-0.5" />
+                                            <div>
+                                                <p className="text-sm font-bold text-amber-900">Important Note</p>
+                                                <p className="text-xs text-amber-700 mt-1">
+                                                    This backup tool generates a visual report (PDF). It is meant for printing and digital archiving,
+                                                    not for restoring database state. For technical database backups, please consult your system administrator.
+                                                </p>
                                             </div>
                                         </div>
                                     </div>

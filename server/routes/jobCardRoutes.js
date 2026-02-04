@@ -61,7 +61,7 @@ router.use(authenticateToken);
 router.get('/', checkPermission('viewOrders'), async (req, res) => {
     try {
         const jobs = await JobCard.find()
-            .populate('itemId', 'name code unit finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
+            .populate('itemId', 'name code unit image images finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
             .populate('orderId', 'partyName poNumber')
             .sort({ createdAt: -1 });
         res.json(jobs);
@@ -177,7 +177,7 @@ router.get('/state/:stage', checkPermission('viewOrders'), async (req, res) => {
 
         // 2. Fetch JobCards
         const jobs = await JobCard.find({ stage: stage })
-            .populate('itemId', 'name code unit finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
+            .populate('itemId', 'name code unit image images finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
             .populate('orderId', 'partyName poNumber')
             .sort({ createdAt: -1 });
 
@@ -285,7 +285,7 @@ router.get('/employee/:employeeId', checkPermission('viewOrders'), async (req, r
         const jobs = await JobCard.find({
             'steps.assignedEmployees.employeeId': searchId
         })
-            .populate('itemId', 'name code unit finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
+            .populate('itemId', 'name code unit image images finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
             .populate('orderId', 'partyName poNumber')
             .populate('steps.assignedEmployees.employeeId', 'name fullName email')
             .sort({ createdAt: -1 });

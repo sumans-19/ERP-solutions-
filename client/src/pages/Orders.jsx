@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit2, Trash2, Calendar, Package, ShoppingCart, User, ChevronDown, Settings, X, Layers, List, Search, Filter, ArrowUpRight, Ban, CheckCircle2, CheckCircle, Activity, PlayCircle, FileText } from 'lucide-react';
-import PopupNotification from '../components/PopupNotification';
+import { Plus, Edit2, Trash2, Calendar, Package, ShoppingCart, User, ChevronDown, Settings, X, Layers, List, Search, Filter, ArrowUpRight, Ban, CheckCircle2, CheckCircle, Activity, PlayCircle, FileText, AlertTriangle } from 'lucide-react';
+import { useNotification } from '../contexts/NotificationContext';
 import { getAllItems, getAllOrders, createOrder, updateOrder, deleteOrder, updateOrderStatus, getAllParties, getEmployees, getRawMaterials } from '../services/api';
 import axios from 'axios';
 import OrderTreeView from './Orders/OrderTreeView';
@@ -24,6 +24,7 @@ const createNewItemRow = () => ({
 });
 
 export default function Orders() {
+  const { showNotification } = useNotification();
   const [activeView, setActiveView] = useState('stages');
   const [orders, setOrders] = useState([]);
   const [items, setItems] = useState([]);
@@ -31,8 +32,6 @@ export default function Orders() {
   const [employees, setEmployees] = useState([]);
   const [rawMaterialsMap, setRawMaterialsMap] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [message, setMessage] = useState(null);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [showStepModal, setShowStepModal] = useState(false);
   const [selectedRowIndex, setSelectedRowIndex] = useState(null);
@@ -66,7 +65,7 @@ export default function Orders() {
       return { items: Array.isArray(itemsRes) ? itemsRes : itemsRes.data || [] };
     } catch (err) {
       console.error('Error loading data:', err);
-      setError('Failed to load data');
+      showNotification('Failed to load data', 'error');
       return { items: [] };
     }
   };
@@ -171,18 +170,50 @@ export default function Orders() {
     return itemRows.reduce((sum, row) => sum + (parseFloat(row.quantity) || 0), 0);
   }, [itemRows]);
 
+  // Aggregate raw materials across all items - combine same RM from different items
+  const aggregatedRawMaterials = useMemo(() => {
+    const rmMap = {};
+
+    itemRows.forEach(row => {
+      if (row.rmRequirements && row.rmRequirements.length > 0) {
+        row.rmRequirements.forEach(rm => {
+          const key = rm.name?.toLowerCase().trim();
+          if (!key) return;
+
+          if (rmMap[key]) {
+            // Same material - add the required amounts
+            rmMap[key].totalRequired += rm.required || 0;
+          } else {
+            // New material - initialize entry
+            rmMap[key] = {
+              name: rm.name,
+              totalRequired: rm.required || 0,
+              available: rm.available || 0,
+              unit: rm.unit || 'Units'
+            };
+          }
+        });
+      }
+    });
+
+    // Calculate shortage for each aggregated material
+    return Object.values(rmMap).map(rm => ({
+      ...rm,
+      shortage: Math.max(0, rm.totalRequired - rm.available)
+    }));
+  }, [itemRows]);
+
   const handleSaveOrder = async () => {
     if (!partyName.trim()) {
-      setError('Customer name is required');
+      showNotification('Customer name is required', 'warning');
       return;
     }
     if (itemRows.length === 0) {
-      setError('Add at least one item');
+      showNotification('Add at least one item', 'warning');
       return;
     }
 
     setLoading(true);
-    setError(null);
     try {
       const orderData = {
         partyName: partyName.trim(),
@@ -212,10 +243,10 @@ export default function Orders() {
 
       if (editingOrderId) {
         await updateOrder(editingOrderId, orderData);
-        setMessage('Order updated successfully!');
+        showNotification('Order updated successfully!');
       } else {
         await createOrder(orderData);
-        setMessage('Order created successfully!');
+        showNotification('Order created successfully!');
       }
 
       // Reload orders
@@ -225,10 +256,9 @@ export default function Orders() {
       // Reset form
       handleCancel();
 
-      setTimeout(() => setMessage(null), 3000);
     } catch (err) {
       console.error('Error saving order:', err);
-      setError(err?.response?.data?.message || err.message || 'Failed to save order');
+      showNotification(err?.response?.data?.message || err.message || 'Failed to save order', 'error');
     } finally {
       setLoading(false);
     }
@@ -239,13 +269,12 @@ export default function Orders() {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
       await axios.patch(`${apiUrl}/api/orders/${orderId}/stage`, { stage: newStage, reason });
-      setMessage(`Order moved to ${newStage}`);
+      showNotification(`Order moved to ${newStage}`);
 
       const ordersRes = await getAllOrders();
       setOrders(Array.isArray(ordersRes) ? ordersRes : ordersRes.data || []);
-      setTimeout(() => setMessage(null), 3000);
     } catch (err) {
-      setError('Failed to update stage');
+      showNotification('Failed to update stage', 'error');
     } finally {
       setStageUpdating(null);
     }
@@ -259,17 +288,16 @@ export default function Orders() {
         const reason = window.prompt('Enter reason for Hold:');
         if (reason === null) return;
         await axios.patch(`${apiUrl}/api/orders/${order._id}/hold`, { reason });
-        setMessage('Order put ON HOLD');
+        showNotification('Order put ON HOLD', 'info');
       } else {
         await axios.patch(`${apiUrl}/api/orders/${order._id}/resume`);
-        setMessage('Order Resumed');
+        showNotification('Order Resumed');
       }
 
       const ordersRes = await getAllOrders();
       setOrders(Array.isArray(ordersRes) ? ordersRes : ordersRes.data || []);
-      setTimeout(() => setMessage(null), 3000);
     } catch (err) {
-      setError(`Failed to ${action} order`);
+      showNotification(`Failed to ${action} order`, 'error');
     } finally {
       setStageUpdating(null);
     }
@@ -309,7 +337,6 @@ export default function Orders() {
       manufacturingSteps: item.manufacturingSteps || []
     })));
     setActiveView('create');
-    setError(null);
   };
 
   const handleCancel = () => {
@@ -321,7 +348,6 @@ export default function Orders() {
     setEstDate('');
     setItemRows([createNewItemRow()]);
     setNotes('');
-    setError(null);
   };
 
   const handleDeleteOrder = async (id) => {
@@ -329,16 +355,15 @@ export default function Orders() {
       try {
         setLoading(true);
         await deleteOrder(id);
-        setMessage('Order deleted successfully');
+        showNotification('Order deleted successfully');
 
         // Reload orders
         const ordersRes = await getAllOrders();
         setOrders(Array.isArray(ordersRes) ? ordersRes : ordersRes.data || []);
 
-        setTimeout(() => setMessage(null), 2000);
       } catch (err) {
         console.error('Delete error:', err);
-        setError('Failed to delete order: ' + (err?.response?.data?.message || err.message));
+        showNotification('Failed to delete order: ' + (err?.response?.data?.message || err.message), 'error');
       } finally {
         setLoading(false);
       }
@@ -466,7 +491,7 @@ export default function Orders() {
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="p-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">#</th>
-                  <th className="p-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider w-32">Part No</th>
+                  <th className="p-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider w-32">Item No</th>
                   <th className="p-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider w-64">Item Name</th>
                   <th className="p-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Delivery</th>
                   <th className="p-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider w-24">Qty</th>
@@ -484,13 +509,23 @@ export default function Orders() {
                     <tr className="hover:bg-slate-50 group transition-colors">
                       <td className="p-3 text-slate-400 font-medium">{index + 1}</td>
                       <td className="p-3">
-                        <input
-                          type="text"
-                          className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                          value={row.itemCode || ''}
-                          onChange={e => handleItemRowChange(index, 'itemCode', e.target.value)}
-                          placeholder="Part No"
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            list={`items-code-list-${index}`}
+                            className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                            value={row.itemCode || ''}
+                            onChange={e => handleItemRowChange(index, 'itemCode', e.target.value)}
+                            placeholder="Item No"
+                          />
+                          <datalist id={`items-code-list-${index}`}>
+                            {items.map(i => (
+                              <option key={i._id} value={i.code || ''}>
+                                {i.name}
+                              </option>
+                            ))}
+                          </datalist>
+                        </div>
                       </td>
                       <td className="p-3">
                         <input
@@ -524,12 +559,18 @@ export default function Orders() {
                       <td className="p-3 text-xs text-slate-500 font-bold uppercase">{row.unit}</td>
                       <td className="p-3">
                         <select
-                          className={`w-full border rounded px-2 py-1.5 text-xs font-bold uppercase outline-none ${row.priority === 'High' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-slate-300 text-slate-600'}`}
+                          className={`w-full border rounded px-2 py-1.5 text-xs font-bold uppercase outline-none ${row.priority === 'High' ? 'bg-red-50 border-red-200 text-red-600' :
+                            row.priority === 'Today' ? 'bg-amber-50 border-amber-200 text-amber-600' :
+                              row.priority === 'Low' ? 'bg-slate-50 border-slate-200 text-slate-500' :
+                                'bg-white border-slate-300 text-slate-600'
+                            }`}
                           value={row.priority}
                           onChange={e => handleItemRowChange(index, 'priority', e.target.value)}
                         >
-                          <option>Normal</option>
-                          <option>High</option>
+                          <option value="Normal">Normal</option>
+                          <option value="High">High</option>
+                          <option value="Low">Low</option>
+                          <option value="Today">Today</option>
                         </select>
                       </td>
                       <td className="p-3">
@@ -642,6 +683,54 @@ export default function Orders() {
               <Plus size={14} /> Add Item Line
             </button>
           </div>
+
+          {/* Aggregated Raw Materials Summary - Shows combined RM from all items */}
+          {aggregatedRawMaterials.length > 0 && (
+            <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-md border border-slate-200 p-5 mb-6 shadow-sm">
+              <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Package size={16} className="text-slate-500" />
+                Total Raw Material Requirements (All Items Combined)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {aggregatedRawMaterials.map((rm, idx) => (
+                  <div key={idx} className={`bg-white p-4 rounded-lg border-2 transition-all ${rm.shortage > 0 ? 'border-red-300 shadow-red-100 shadow-md' : 'border-emerald-200 shadow-sm'}`}>
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="font-bold text-slate-800 text-sm">{rm.name}</span>
+                      {rm.shortage > 0 ? (
+                        <span className="text-[10px] font-black text-white bg-red-500 px-2 py-0.5 rounded uppercase">Shortage</span>
+                      ) : (
+                        <span className="text-[10px] font-black text-white bg-emerald-500 px-2 py-0.5 rounded uppercase">Available</span>
+                      )}
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500 font-semibold uppercase">Total Required:</span>
+                        <span className="font-bold text-slate-800">{rm.totalRequired.toFixed(2)} {rm.unit}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500 font-semibold uppercase">In Stock:</span>
+                        <span className="font-bold text-slate-800">{rm.available.toFixed(2)} {rm.unit}</span>
+                      </div>
+                      {rm.shortage > 0 && (
+                        <div className="flex justify-between items-center pt-2 mt-2 border-t border-red-100">
+                          <span className="text-red-600 font-black uppercase">Short By:</span>
+                          <span className="font-black text-red-600 text-sm">{rm.shortage.toFixed(2)} {rm.unit}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {aggregatedRawMaterials.some(rm => rm.shortage > 0) && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-xs text-red-700 font-bold flex items-center gap-2">
+                    <AlertTriangle size={14} />
+                    Warning: Some raw materials have insufficient stock. Review individual items above for production options.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="md:col-span-2">
@@ -840,10 +929,10 @@ export default function Orders() {
                                 try {
                                   setOrders(prev => prev.map(o => o._id === order._id ? { ...o, status: 'Processing', orderStage: 'Processing' } : o));
                                   await updateOrderStatus(order._id, 'Processing');
-                                  setMessage('Order moved to Production Planning!');
+                                  showNotification('Order moved to Production Planning!');
                                   getAllOrders().then(res => setOrders(Array.isArray(res) ? res : res.data || []));
                                 } catch (err) {
-                                  setError('Failed to update status');
+                                  showNotification('Failed to update status', 'error');
                                   fetchData();
                                 }
                               }
@@ -1115,7 +1204,7 @@ export default function Orders() {
                       setOrders(prev => prev.map(o => o._id === productionConfirmOrder._id ? { ...o, status: 'Processing', orderStage: 'Processing' } : o));
 
                       await updateOrderStatus(productionConfirmOrder._id, 'Processing');
-                      setMessage('Order moved to Production Planning!');
+                      showNotification('Order moved to Production Planning!');
                       setProductionConfirmOrder(null);
 
                       // Background Sync
@@ -1125,7 +1214,7 @@ export default function Orders() {
 
                     } catch (err) {
                       console.error(err);
-                      setError('Failed to update status');
+                      showNotification('Failed to update status', 'error');
                       fetchData(); // Revert
                     } finally {
                       setLoading(false);
@@ -1141,16 +1230,6 @@ export default function Orders() {
           </div>
         )
       }
-      <PopupNotification
-        message={error}
-        type="error"
-        onClose={() => setError(null)}
-      />
-      <PopupNotification
-        message={message}
-        type="success"
-        onClose={() => setMessage(null)}
-      />
     </div >
   );
 }

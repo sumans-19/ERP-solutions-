@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { User, Mail, Building, Lock, Save, Shield, Camera, Key, CheckCircle } from 'lucide-react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 const ProfileSettings = () => {
+    const { showNotification } = useNotification();
     const [user, setUser] = useState(null);
     const [formData, setFormData] = useState({
         companyName: '',
@@ -15,7 +17,6 @@ const ProfileSettings = () => {
         confirmPassword: ''
     });
     const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState(null);
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
@@ -37,10 +38,9 @@ const ProfileSettings = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setMessage(null);
 
         if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-            setMessage({ type: 'error', text: 'Passwords do not match' });
+            showNotification('Passwords do not match', 'error');
             setLoading(false);
             return;
         }
@@ -56,11 +56,11 @@ const ProfileSettings = () => {
                 const updatedUser = { ...user, name: formData.companyName, email: formData.email };
                 localStorage.setItem('user', JSON.stringify(updatedUser));
                 setUser(updatedUser);
-                setMessage({ type: 'success', text: 'Profile updated successfully' });
+                showNotification('Profile updated successfully');
             }
         } catch (error) {
             console.error('Update profile error:', error);
-            setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to update profile' });
+            showNotification(error.response?.data?.message || 'Failed to update profile', 'error');
         } finally {
             setLoading(false);
         }
@@ -79,17 +79,7 @@ const ProfileSettings = () => {
                 <p className="text-slate-500 mt-2">Manage your personal profile and security preferences</p>
             </motion.div>
 
-            {message && (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className={`mb-6 p-4 rounded-md flex items-center gap-3 shadow-sm border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
-                        }`}
-                >
-                    {message.type === 'success' ? <CheckCircle size={20} /> : <Shield size={20} />}
-                    <span className="font-medium">{message.text}</span>
-                </motion.div>
-            )}
+
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left Column: Profile Card */}

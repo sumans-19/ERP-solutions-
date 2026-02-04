@@ -45,7 +45,7 @@ const orderItemSchema = new mongoose.Schema({
   },
   priority: {
     type: String,
-    enum: ['Normal', 'High'],
+    enum: ['Normal', 'High', 'Low', 'Today'],
     default: 'Normal'
   },
   // Master snapshot from Item (can be modified per order)

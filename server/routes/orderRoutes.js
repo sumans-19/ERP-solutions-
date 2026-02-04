@@ -662,7 +662,19 @@ router.post('/:id/items/:itemId/plan-production', checkPermission('editOrders'),
           // Robust Deduction Logic: Try exact Code match first, then Name
           let deduced = await RawMaterial.findOneAndUpdate(
             { code: rm.itemCode || rm.code },
-            { $inc: { qty: -rm.required } },
+            {
+              $inc: { qty: -rm.required },
+              $push: {
+                consumptionHistory: {
+                  jobNumber: savedJob.jobNumber,
+                  poNumber: order.poNumber || 'N/A',
+                  itemName: masterItem?.name || item.itemName || 'Unknown',
+                  quantityConsumed: rm.required,
+                  consumedAt: new Date(),
+                  remarks: `Consumed for job ${savedJob.jobNumber}`
+                }
+              }
+            },
             { new: true }
           );
 
@@ -671,7 +683,19 @@ router.post('/:id/items/:itemId/plan-production', checkPermission('editOrders'),
             console.log(`  ⚠️  Code match failed, trying by Name: "${rm.name}"`);
             deduced = await RawMaterial.findOneAndUpdate(
               { name: rm.name },
-              { $inc: { qty: -rm.required } },
+              {
+                $inc: { qty: -rm.required },
+                $push: {
+                  consumptionHistory: {
+                    jobNumber: savedJob.jobNumber,
+                    poNumber: order.poNumber || 'N/A',
+                    itemName: masterItem?.name || item.itemName || 'Unknown',
+                    quantityConsumed: rm.required,
+                    consumedAt: new Date(),
+                    remarks: `Consumed for job ${savedJob.jobNumber}`
+                  }
+                }
+              },
               { new: true }
             );
           }
