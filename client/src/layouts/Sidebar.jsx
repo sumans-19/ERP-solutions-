@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Home, Package, Activity, Archive, Users, BarChart3,
-  LogOut, X, ChevronDown, Eye, Settings, ShoppingCart, Shield, ClipboardCheck, Calendar
+  LogOut, X, ChevronDown, Eye, Settings, ShoppingCart, Shield, ClipboardCheck, Calendar, FileText, LayoutDashboard
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -89,6 +89,15 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
     },
     { id: 'calendar', label: 'Calendar', icon: Calendar, type: 'item' },
     { id: 'inventory', label: 'Inventory', icon: Archive, type: 'item' },
+    {
+      id: 'documentation', label: 'Documentation', icon: FileText, type: 'group',
+      children: [
+        { id: 'docs-dashboard', label: 'Docs Dashboard', icon: LayoutDashboard },
+        { id: 'docs-invoicing', label: 'Invoicing', icon: FileText },
+        { id: 'docs-packing', label: 'Packing Slip', icon: Archive },
+        { id: 'docs-dispatch', label: 'Dispatch', icon: Activity }
+      ]
+    },
     { id: 'parties', label: 'Parties', icon: Users, type: 'item' },
     { id: 'reports', label: 'Reports', icon: BarChart3, type: 'item' },
     {

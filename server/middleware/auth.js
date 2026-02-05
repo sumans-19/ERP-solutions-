@@ -11,7 +11,8 @@ const authenticateToken = (req, res, next) => {
 
   req.user = {
     role: userRole,
-    id: userId
+    id: userId,
+    _id: userId  // Set both for compatibility
   };
   next();
 };

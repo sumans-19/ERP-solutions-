@@ -2,8 +2,9 @@ import React, { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createItem, getItemById, updateItem, getAllItems, deleteItem, completeItem, getInventory, getRawMaterials } from "../services/api";
 import { canCreate, canEdit, canDelete, canExportReports } from "../utils/permissions";
-import { Package, X, Trash2, FileText } from "lucide-react";
+import { Package, X, Trash2, FileText, ClipboardCheck } from "lucide-react";
 import { useNotification } from "../contexts/NotificationContext";
+import axios from 'axios';
 
 const defaultForm = () => ({
   type: "product",
@@ -77,8 +78,18 @@ const defaultForm = () => ({
   finalQualityCheckImages: [],
 
   // Number of required samples
-  finalQualityCheckSampleSize: 1
+  finalQualityCheckSampleSize: 1,
+
+  // Overall QC Config
+  fqcOverallRemark: "",
+  fqcPositiveMessage: "",
+  fqcNegativeMessage: ""
 });
+
+const getUserRole = () => {
+  const user = localStorage.getItem('user');
+  return user ? JSON.parse(user).role : null;
+};
 
 export default function ItemPage() {
   const { showNotification } = useNotification();
@@ -89,6 +100,7 @@ export default function ItemPage() {
   const [items, setItems] = useState([]);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // New states for view progress
   const [showProgress, setShowProgress] = useState(false);
@@ -143,6 +155,10 @@ export default function ItemPage() {
     }
   }, [form.name]);
 
+  // State for active tab in form
+  const [activeTab, setActiveTab] = useState("pricing");
+  const userRole = getUserRole(); // Assuming getUserRole is globally available or imported, checking imports next
+
   // Sync categorySearch and unitSearch with form values
   useEffect(() => {
     if (form.category && !categorySearch) {
@@ -180,24 +196,21 @@ export default function ItemPage() {
   const loadItems = async () => {
     setLoadingItems(true);
     try {
-      const userRole = getUserRole();
+      // userRole is accessible from component scope
 
       if (userRole === 'employee') {
-        // For employees, fetch only assigned items from their orders
-        const ordersResponse = await fetch('http://localhost:5001/api/employees/my-orders', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        const ordersData = await ordersResponse.json();
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+
+        // For employees, fetch only assigned items from their orders - using axios for consistency
+        const token = localStorage.getItem('token');
+        const config = { headers: { 'Authorization': `Bearer ${token}` } };
+
+        const ordersResponse = await axios.get(`${apiUrl}/api/employees/my-orders`, config);
+        const ordersData = ordersResponse.data;
 
         // Fetch employee tracking data
-        const trackingResponse = await fetch('http://localhost:5001/api/employees/my-items', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        const trackingData = await trackingResponse.json();
+        const trackingResponse = await axios.get(`${apiUrl}/api/employees/my-items`, config);
+        const trackingData = trackingResponse.data;
 
         // Build completion status map from Mappings data
         const completionMap = {};
@@ -244,7 +257,8 @@ export default function ItemPage() {
                 type: fullItem?.type,
                 category: fullItem?.category,
                 openingQty: fullItem?.openingQty || 0,
-                currentStock: fullItem?.currentStock || fullItem?.openingQty || 0
+                currentStock: fullItem?.currentStock || fullItem?.openingQty || 0,
+                stage: fullItem?.state || 'New'
               });
             }
           });
@@ -266,7 +280,7 @@ export default function ItemPage() {
       }
     } catch (err) {
       console.error("Failed to load items:", err);
-      showNotification("Failed to load items", "error");
+      showNotification("Failed to load items: " + (err.response?.data?.message || err.message), "error");
     } finally {
       setLoadingItems(false);
     }
@@ -321,6 +335,9 @@ export default function ItemPage() {
             finalQualityCheck: data.finalQualityCheck || f.finalQualityCheck,
             finalQualityCheckImages: data.finalQualityCheckImages || [],
             finalQualityCheckSampleSize: data.finalQualityCheckSampleSize || 1,
+            fqcOverallRemark: data.fqcOverallRemark || "",
+            fqcPositiveMessage: data.fqcPositiveMessage || "",
+            fqcNegativeMessage: data.fqcNegativeMessage || "",
             qualityCheckImage: data.qualityCheckImage || "",
             images: data.images || []
           }));
@@ -762,6 +779,9 @@ export default function ItemPage() {
         finalQualityCheck: form.finalQualityCheck,
         finalQualityCheckImages: form.finalQualityCheckImages, // FQC reference images
         finalQualityCheckSampleSize: form.finalQualityCheckSampleSize,
+        fqcOverallRemark: form.fqcOverallRemark || "",
+        fqcPositiveMessage: form.fqcPositiveMessage || "",
+        fqcNegativeMessage: form.fqcNegativeMessage || "",
         qualityCheckImage: form.qualityCheckImage,
         images: form.images
       };
@@ -987,16 +1007,7 @@ export default function ItemPage() {
   };
 
   // Get user role to determine which actions to show
-  const getUserRole = () => {
-    try {
-      const user = JSON.parse(localStorage.getItem('user'));
-      return user?.role || 'user';
-    } catch {
-      return 'user';
-    }
-  };
 
-  const userRole = getUserRole();
 
   return (
     <div className="flex-1 overflow-auto bg-slate-50">
@@ -2741,7 +2752,46 @@ export default function ItemPage() {
                           <h3 className="text-sm font-semibold text-slate-700">
                             Final Quality Check Details
                           </h3>
+                        </div>
 
+                        {/* Overall QC Configuration */}
+                        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">
+                              Overall QC Remark
+                            </label>
+                            <textarea
+                              value={form.fqcOverallRemark || ""}
+                              onChange={(e) => updateField("fqcOverallRemark", e.target.value)}
+                              placeholder="Standard instructions for QC officers..."
+                              rows="2"
+                              className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold text-green-700 mb-1">
+                              Positive Message (On Pass)
+                            </label>
+                            <textarea
+                              value={form.fqcPositiveMessage || ""}
+                              onChange={(e) => updateField("fqcPositiveMessage", e.target.value)}
+                              placeholder="e.g. QC Passed. Good to go!"
+                              rows="2"
+                              className="w-full border border-green-300 bg-green-50 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold text-red-700 mb-1">
+                              Negative Message (On Fail)
+                            </label>
+                            <textarea
+                              value={form.fqcNegativeMessage || ""}
+                              onChange={(e) => updateField("fqcNegativeMessage", e.target.value)}
+                              placeholder="e.g. QC Failed. Rework required."
+                              rows="2"
+                              className="w-full border border-red-300 bg-red-50 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                            />
+                          </div>
                         </div>
 
                         {form.finalQualityCheck && form.finalQualityCheck.length > 0 ? (
@@ -2873,6 +2923,22 @@ export default function ItemPage() {
                                   placeholder="Enter the expected value or standard"
                                   className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 font-medium"
                                 />
+                              </div>
+
+                              {/* Calculated Range Display */}
+                              <div className="mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-md">
+                                <p className="text-xs font-bold text-indigo-600 uppercase mb-1">Calculated Acceptance Range</p>
+                                <p className="text-sm font-mono font-bold text-indigo-900">
+                                  {inspection.valueType === 'number' && inspection.actualValue && inspection.positiveTolerance && inspection.negativeTolerance ? (
+                                    <>
+                                      {Number(Number(inspection.actualValue) - Number(inspection.negativeTolerance)).toFixed(3)}
+                                      <span className="text-indigo-400 mx-2">to</span>
+                                      {Number(Number(inspection.actualValue) + Number(inspection.positiveTolerance)).toFixed(3)}
+                                    </>
+                                  ) : (
+                                    <span className="text-indigo-400 italic font-normal">Enter numeric Standard Value & Tolerances to see range</span>
+                                  )}
+                                </p>
                               </div>
 
                               <div className="mb-0">

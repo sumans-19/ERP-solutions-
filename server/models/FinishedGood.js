@@ -16,7 +16,25 @@ const finishedGoodSchema = new mongoose.Schema({
     invoiceNo: String,
     jobNo: String,   // Traceability
     batchCode: String, // Traceability
-    initialQty: Number // Original Job Quantity
+    initialQty: Number, // Original Job Quantity
+
+    // Recovery Tracking
+    sourceJobNo: String,
+    rejectionId: String,
+    recoveryRef: String,
+    isRecovered: {
+        type: Boolean,
+        default: false
+    },
+    status: {
+        type: String,
+        enum: ['In Stock', 'In Documentation', 'Invoiced', 'Packed', 'Dispatched'],
+        default: 'In Stock'
+    },
+    currentStageRef: {
+        type: String, // ID of Invoice or Packing Slip
+        default: null
+    }
 }, {
     timestamps: true
 });

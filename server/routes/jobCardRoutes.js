@@ -61,7 +61,7 @@ router.use(authenticateToken);
 router.get('/', checkPermission('viewOrders'), async (req, res) => {
     try {
         const jobs = await JobCard.find()
-            .populate('itemId', 'name code unit image images finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
+            .populate('itemId', 'name code unit finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
             .populate('orderId', 'partyName poNumber')
             .sort({ createdAt: -1 });
         res.json(jobs);
@@ -177,7 +177,7 @@ router.get('/state/:stage', checkPermission('viewOrders'), async (req, res) => {
 
         // 2. Fetch JobCards
         const jobs = await JobCard.find({ stage: stage })
-            .populate('itemId', 'name code unit image images finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
+            .populate('itemId', 'name code unit finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
             .populate('orderId', 'partyName poNumber')
             .sort({ createdAt: -1 });
 
@@ -242,8 +242,8 @@ router.get('/state/:stage', checkPermission('viewOrders'), async (req, res) => {
     }
 });
 
-// Get job cards by employee ID
-router.get('/employee/:employeeId', checkPermission('viewOrders'), async (req, res) => {
+// Get job cards by employee ID (No permission check - employees can view their own jobs)
+router.get('/employee/:employeeId', async (req, res) => {
     try {
         const rawId = req.params.employeeId;
         const employeeId = rawId ? rawId.trim() : rawId;
@@ -302,7 +302,7 @@ router.get('/employee/:employeeId', checkPermission('viewOrders'), async (req, r
 router.get('/:id', checkPermission('viewOrders'), async (req, res) => {
     try {
         const job = await JobCard.findById(req.params.id)
-            .populate('itemId', 'name code unit finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
+            .populate('itemId', 'name code unit image images finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
             .populate('orderId', 'partyName poNumber')
             .populate('steps.assignedEmployees.employeeId', 'name fullName email'); // Added this populate
         if (!job) return res.status(404).json({ message: 'Job Card not found' });
@@ -434,6 +434,11 @@ router.post('/:id/split', checkPermission('editOrders'), async (req, res) => {
             quantity: remainingQty,
             priority: originalJob.priority,
             deliveryDate: originalJob.deliveryDate,
+            // Copy FQC Details
+            fqcOverallRemark: originalJob.fqcOverallRemark,
+            fqcPositiveMessage: originalJob.fqcPositiveMessage,
+            fqcNegativeMessage: originalJob.fqcNegativeMessage,
+            fqcStatus: 'Pending', // Reset status for new job
             steps: originalJob.steps.map(s => ({ ...s.toObject(), status: 'pending', startTime: null, endTime: null })),
             status: 'Created'
         });

@@ -8,14 +8,26 @@ console.log('--- SERVER BOOT SEQUENCE [VERSION 4.6-STABLE] ---');
 
 const app = express();
 
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-user-role, x-user-id');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  console.log(`[REQUEST] ${new Date().toISOString()} - ${req.method} ${req.url} (Origin: ${origin || 'none'})`);
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
 // 2. Middleware
 app.use(express.json({ limit: '50mb' }));
-app.use(cors({
-  origin: true,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-role', 'x-user-id', 'Accept']
-}));
+// app.use(cors({ ... })); // Replaced with manual middleware above
 
 // 3. Database Connection
 mongoose.connect(process.env.MONGO_URI)
@@ -25,6 +37,9 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => console.error('❌ DATABASE ERROR:', err.message));
 
 // 4. Functional Routes
+console.log('🔄 MOUNTING: /api/rejected-goods');
+app.use('/api/rejected-goods', require('./routes/rejectedGoodRoutes'));
+
 app.use('/api/items', require('./routes/itemRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/employees', require('./routes/employeeRoutes'));
@@ -39,7 +54,11 @@ app.use('/api/material-requests', require('./routes/materialRequestRoutes'));
 app.use('/api/grn', require('./routes/grnRoutes'));
 app.use('/api/wip-stock', require('./routes/wipRoutes'));
 app.use('/api/finished-goods', require('./routes/fgRoutes'));
-app.use('/api/rejected-goods', require('./routes/rejectedGoodRoutes'));
+app.use('/api/documentation', require('./routes/documentationRoutes'));
+app.use('/api/invoices', require('./routes/invoiceRoutes'));
+app.use('/api/packing-slips', require('./routes/packingSlipRoutes'));
+app.use('/api/dispatch', require('./routes/dispatchRoutes'));
+// app.use('/api/rejected-goods', require('./routes/rejectedGoodRoutes')); // Moved to top of section
 app.use('/api/todos', require('./routes/todoRoutes'));
 app.use('/api/role-permissions', require('./routes/rolePermissionRoutes'));
 app.use('/api/bulletins', require('./routes/bulletinRoutes'));

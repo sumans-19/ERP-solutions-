@@ -9,7 +9,25 @@ const FinishedGood = require('../models/FinishedGood');
 const RejectedGood = require('../models/RejectedGood');
 const authenticateToken = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permissions');
-const { User } = require('../models/User'); // Ensure User model is available for ID bridge
+const { User } = require('../models/User');
+const Counter = require('../models/Counter');
+
+// Helper to generate Rejection ID
+const generateRejectionId = async (prefix = 'REJ-PROD') => {
+    try {
+        const year = new Date().getFullYear();
+        const counter = await Counter.findOneAndUpdate(
+            { id: 'rejectionId' },
+            { $inc: { seq: 1 } },
+            { new: true, upsert: true }
+        );
+        const seq = String(counter?.seq || 1).padStart(5, '0');
+        // Format: REJ-PROD-2026-00045 or REJ-CUST-2026-00045
+        return `${prefix}-${year}-${seq}`;
+    } catch (e) {
+        return `REJ-${Date.now()}`; // Fallback
+    }
+};
 
 router.use(authenticateToken);
 
@@ -266,18 +284,42 @@ router.patch('/jobs/:jobId/steps/:stepId/execute', async (req, res) => {
                             console.error('[Sync] Failed to fetch employee name:', empErr);
                         }
 
+                        // Generate or Reuse Rejection ID for this Job
+                        let rejectionId;
+                        const existingRejection = await RejectedGood.findOne({
+                            jobId: job._id,
+                            source: 'Production',
+                            status: 'Pending'
+                        }).sort({ createdAt: -1 });
+
+                        if (existingRejection) {
+                            rejectionId = existingRejection.rejectionId;
+                            console.log(`[Sync] Reusing existing Rejection ID: ${rejectionId}`);
+                        } else {
+                            rejectionId = await generateRejectionId('REJ-PROD');
+                            console.log(`[Sync] Generated NEW Rejection ID: ${rejectionId}`);
+                        }
+
                         const rejectedEntry = new RejectedGood({
+                            rejectionId: rejectionId,
+                            itemId: item._id, // Explicitly use _id
                             partNo: item?.code || 'N/A',
                             partName: item?.name || 'Unknown',
                             qty: rejectedVal,
-                            reason: `Rejected during step: ${step.stepName}`,
+                            // Use remarks from request if available, otherwise default
+                            reason: remarks || `Rejected during step: ${step.stepName}`,
                             poNo: job.orderId?.poNumber || '',
                             jobNo: job.jobNumber,
+                            jobId: job._id,
                             stepName: step.stepName,
+                            employeeId: employeeId,
                             employeeName: employeeName,
+                            source: 'Production', // Explicitly set source
+                            status: 'Pending',
                             mfgDate: new Date()
                         });
                         await rejectedEntry.save();
+                        console.log(`[Sync] Created RejectedGood entry: ${rejectionId}`);
                     } catch (rejErr) {
                         console.error('[Sync] Rejection log failed:', rejErr);
                     }
@@ -330,10 +372,13 @@ router.patch('/jobs/:jobId/steps/:stepId/complete-outward', async (req, res) => 
 router.post('/jobs/:jobId/fqc', async (req, res) => {
     try {
         const { jobId } = req.params;
-        const { results, processed, rejected, stepId, employeeId, images } = req.body; // Array of { parameterId, parameterName, samples: [], remarks }
+        const { results, processed, rejected, stepId, employeeId, images, fqcStatus } = req.body; // Array of { parameterId, parameterName, samples: [], remarks }
 
         const job = await JobCard.findById(jobId).populate('itemId').populate('orderId');
         if (!job) return res.status(404).json({ message: 'Job Card not found' });
+
+        // Update Job Status
+        if (fqcStatus) job.fqcStatus = fqcStatus;
 
         // Update FQC parameters in JobCard
         results.forEach(res => {
@@ -417,19 +462,39 @@ router.post('/jobs/:jobId/fqc', async (req, res) => {
                         console.error('[FQC] Failed to fetch employee name:', empErr);
                     }
 
+                    // Generate or Reuse Rejection ID for this Job (Group by Job)
+                    let rejectionId;
+                    const existingRejection = await RejectedGood.findOne({
+                        jobId: job._id,
+                        source: 'Production',
+                        status: 'Pending'
+                    }).sort({ createdAt: -1 });
+
+                    if (existingRejection) {
+                        rejectionId = existingRejection.rejectionId;
+                        console.log(`[FQC] Reusing existing Rejection ID: ${rejectionId}`);
+                    } else {
+                        rejectionId = await generateRejectionId('REJ-PROD');
+                        console.log(`[FQC] Generated NEW Rejection ID: ${rejectionId}`);
+                    }
+
                     const rejectedEntry = new RejectedGood({
+                        rejectionId: rejectionId,
+                        itemId: item._id,
                         partNo: item?.code || 'N/A',
                         partName: item?.name || 'Unknown',
                         qty: Number(rejected),
                         reason: `Rejected during Final Quality Check (FQC)`,
                         poNo: job.orderId?.poNumber || '',
                         jobNo: job.jobNumber,
+                        jobId: job._id,
                         stepName: 'Final Quality Check',
                         employeeName: employeeName,
+                        source: 'Production',
                         mfgDate: new Date()
                     });
                     await rejectedEntry.save();
-                    console.log(`[FQC] Moved ${rejected} rejected units to Rejected Inventory.`);
+                    console.log(`[FQC] Moved ${rejected} rejected units to Rejected Inventory: ${rejectionId}`);
                 } catch (rejErr) {
                     console.error('[FQC] Failed to log rejection:', rejErr);
                 }

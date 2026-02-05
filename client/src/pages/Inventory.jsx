@@ -36,7 +36,7 @@ import {
     getGRNs, createGRN, updateGRN, deleteGRN, getNextGRNNumber,
     getWIPStock, createWIPStock, updateWIPStock, deleteWIPStock,
     getFinishedGoods, createFinishedGood, updateFinishedGood, deleteFinishedGood,
-    getRejectedGoods, createRejectedGood, updateRejectedGood, deleteRejectedGood,
+    getRejectedGoods, createRejectedGood, updateRejectedGood, deleteRejectedGood, handleRejectedAction, handleRejectedBatchAction,
     recalculateRMStock,
     getAllParties
 } from '../services/api';
@@ -62,6 +62,27 @@ const Inventory = () => {
 
     // Centralized Notification & Remark State
     const [remarkModal, setRemarkModal] = useState(null); // { type, action, id, data }
+    const [actionModal, setActionModal] = useState({ isOpen: false, type: null, item: null, isBatch: false });
+
+    // New Action Handler
+    const handleActionClick = (item, type, isBatch = false) => {
+        setActionModal({ isOpen: true, type, item, isBatch });
+    };
+
+    const confirmAction = async (id, action, payload) => {
+        try {
+            if (actionModal.isBatch) {
+                await handleRejectedBatchAction(id, action, payload);
+            } else {
+                await handleRejectedAction(id, action, payload);
+            }
+            showNotification(`Action ${action} completed successfully`, 'success');
+            setActionModal({ isOpen: false, type: null, item: null, isBatch: false });
+            fetchData(); // Refresh list
+        } catch (error) {
+            showNotification(error.response?.data?.message || 'Action failed', 'error');
+        }
+    };
 
     useEffect(() => {
         fetchData();
@@ -98,6 +119,8 @@ const Inventory = () => {
                 case 'rejected':
                     const rej = await getRejectedGoods();
                     setRejectedGoods(rej || []);
+                    const rms = await getRawMaterials(); // Needed for manual entry dropdown
+                    setRawMaterials(rms || []);
                     break;
             }
         } catch (error) {
@@ -218,7 +241,7 @@ const Inventory = () => {
     const tabs = [
         {
             id: 'material-request',
-            label: 'Material Request',
+            label: 'Material Requisition',
             icon: FileText,
             style: {
                 activeBg: 'bg-purple-100',
@@ -228,7 +251,7 @@ const Inventory = () => {
         },
         {
             id: 'grn',
-            label: 'GRN',
+            label: 'Goods Receipt Note',
             icon: Truck,
             style: {
                 activeBg: 'bg-orange-100',
@@ -238,7 +261,7 @@ const Inventory = () => {
         },
         {
             id: 'raw-materials',
-            label: 'Raw Materials',
+            label: 'Raw Material Stock',
             icon: Package,
             style: {
                 activeBg: 'bg-blue-100',
@@ -248,7 +271,7 @@ const Inventory = () => {
         },
         {
             id: 'wip',
-            label: 'WIP',
+            label: 'Work In Progress',
             icon: Factory,
             style: {
                 activeBg: 'bg-amber-100',
@@ -258,7 +281,7 @@ const Inventory = () => {
         },
         {
             id: 'finished',
-            label: 'Finished Goods',
+            label: 'Finished Goods Stock',
             icon: CheckCircle2,
             style: {
                 activeBg: 'bg-emerald-100',
@@ -268,7 +291,7 @@ const Inventory = () => {
         },
         {
             id: 'rejected',
-            label: 'Rejected Goods',
+            label: 'Rejected Goods Stock',
             icon: AlertTriangle,
             style: {
                 activeBg: 'bg-red-100',
@@ -375,7 +398,7 @@ const Inventory = () => {
                             )}
                             {activeTab === 'wip' && <WIPView data={wipStock} onEdit={(item) => { setEditingItem(item); setIsAddModalOpen(true); }} onDelete={handleDelete} />}
                             {activeTab === 'finished' && <FinishedGoodsView data={finishedGoods} onEdit={(item) => { setEditingItem(item); setIsAddModalOpen(true); }} onDelete={handleDelete} />}
-                            {activeTab === 'rejected' && <RejectedGoodsView data={rejectedGoods} onEdit={(item) => { setEditingItem(item); setIsAddModalOpen(true); }} onDelete={handleDelete} />}
+                            {activeTab === 'rejected' && <RejectedGoodsView data={rejectedGoods} onEdit={(item) => { setEditingItem(item); setIsAddModalOpen(true); }} onDelete={handleDelete} onAction={handleActionClick} searchTerm={searchTerm} />}
                         </motion.div>
                     </AnimatePresence>
                 )}
@@ -398,50 +421,76 @@ const Inventory = () => {
             {/* Center Remark Modal for Deletes/Adjustments */}
             <AnimatePresence>
                 {remarkModal && (
-                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
-                        >
-                            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-red-100 text-red-600 rounded-lg">
-                                        <Trash2 size={20} />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-slate-900">Mandatory Remark</h3>
-                                </div>
-                                <button onClick={() => setRemarkModal(null)} className="text-slate-400 hover:text-slate-600 transition"><X size={24} /></button>
-                            </div>
-                            <div className="p-8">
-                                <p className="text-slate-600 mb-6 font-medium">Please provide a reason or remark for this action. This will be logged for audit purposes.</p>
-                                <textarea
-                                    autoFocus
-                                    className="w-full p-4 border-2 border-slate-100 rounded-xl focus:border-blue-500 focus:ring-0 transition-all outline-none text-slate-700 font-medium"
-                                    rows="4"
-                                    placeholder="Enter your remark here..."
-                                    value={remarkModal.remark || ''}
-                                    onChange={(e) => setRemarkModal({ ...remarkModal, remark: e.target.value })}
-                                />
-                            </div>
-                            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
-                                <button onClick={() => setRemarkModal(null)} className="flex-1 px-6 py-3 border-2 border-slate-200 rounded-xl hover:bg-white transition text-slate-600 font-bold">Cancel</button>
-                                <button
-                                    disabled={!remarkModal.remark?.trim()}
-                                    onClick={() => {
-                                        remarkModal.onConfirm(remarkModal.remark);
-                                        setRemarkModal(null);
-                                    }}
-                                    className="flex-1 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition font-bold shadow-lg shadow-red-200 disabled:opacity-50 disabled:shadow-none"
-                                >
-                                    Confirm Action
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
+                    <RemarkModal
+                        action={remarkModal.action}
+                        onClose={() => setRemarkModal(null)}
+                        onConfirm={(remark) => {
+                            remarkModal.onConfirm(remark);
+                            setRemarkModal(null);
+                        }}
+                    />
                 )}
             </AnimatePresence>
+
+            {/* Action Workflow Modal (Recover/Scrap/Hold) */}
+            <AnimatePresence>
+                {actionModal.isOpen && (
+                    <ActionModal
+                        isOpen={actionModal.isOpen}
+                        type={actionModal.type}
+                        item={actionModal.item}
+                        onClose={() => setActionModal({ isOpen: false, type: null, item: null })}
+                        onConfirm={confirmAction}
+                    />
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
+// --- Modal Components ---
+
+const RemarkModal = ({ action, onClose, onConfirm }) => {
+    const [remark, setRemark] = useState('');
+    return (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+            <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            >
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-red-100 text-red-600 rounded-lg">
+                            <Trash2 size={20} />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900">Mandatory Remark</h3>
+                    </div>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition"><X size={24} /></button>
+                </div>
+                <div className="p-8">
+                    <p className="text-slate-600 mb-6 font-medium">Please provide a reason or remark for this action ({action}). This will be logged for audit purposes.</p>
+                    <textarea
+                        autoFocus
+                        className="w-full p-4 border-2 border-slate-100 rounded-xl focus:border-blue-500 focus:ring-0 transition-all outline-none text-slate-700 font-medium"
+                        rows="4"
+                        placeholder="Enter your remark here..."
+                        value={remark}
+                        onChange={(e) => setRemark(e.target.value)}
+                    />
+                </div>
+                <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+                    <button onClick={onClose} className="flex-1 px-6 py-3 border-2 border-slate-200 rounded-xl hover:bg-white transition text-slate-600 font-bold">Cancel</button>
+                    <button
+                        disabled={!remark.trim()}
+                        onClick={() => onConfirm(remark)}
+                        className="flex-1 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition font-bold shadow-lg shadow-red-200 disabled:opacity-50 disabled:shadow-none"
+                    >
+                        Confirm Action
+                    </button>
+                </div>
+            </motion.div>
         </div>
     );
 };
@@ -1067,18 +1116,32 @@ const FinishedGoodsView = ({ data, onEdit, onDelete }) => (
     </div>
 );
 
-const RejectedGoodsView = ({ data, onEdit, onDelete }) => {
+const RejectedGoodsView = ({ data, onEdit, onDelete, onAction, searchTerm = '' }) => {
+    // Filter by searchTerm
+    const filteredData = React.useMemo(() => {
+        if (!searchTerm) return data;
+        const lowSearch = searchTerm.toLowerCase();
+        return data.filter(item =>
+            item.partName?.toLowerCase().includes(lowSearch) ||
+            item.partNo?.toLowerCase().includes(lowSearch) ||
+            item.jobNo?.toLowerCase().includes(lowSearch) ||
+            item.rejectionId?.toLowerCase().includes(lowSearch) ||
+            item.employeeName?.toLowerCase().includes(lowSearch) ||
+            item.reason?.toLowerCase().includes(lowSearch)
+        );
+    }, [data, searchTerm]);
+
     // Group by Part Name
     const groupedData = React.useMemo(() => {
         const groups = {};
-        data.forEach(item => {
+        filteredData.forEach(item => {
             const name = item.partName || 'Unknown Item';
             if (!groups[name]) groups[name] = { totalQty: 0, items: [] };
             groups[name].totalQty += (item.qty || 0);
             groups[name].items.push(item);
         });
         return groups;
-    }, [data]);
+    }, [filteredData]);
 
     return (
         <div className="space-y-4">
@@ -1090,14 +1153,34 @@ const RejectedGoodsView = ({ data, onEdit, onDelete }) => {
                     items={group.items}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    onAction={onAction}
                 />
             ))}
+            {filteredData.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-24 bg-white border-2 border-dashed border-slate-200 rounded-3xl text-slate-300">
+                    <AlertTriangle size={64} className="text-slate-100 mb-4" strokeWidth={1} />
+                    <p className="font-black text-xl text-slate-400 uppercase tracking-widest">{searchTerm ? 'No matches found' : 'No Rejected Goods found'}</p>
+                    <p className="text-sm font-medium">{searchTerm ? 'Try adjusting your search criteria.' : 'Items rejected during production will appear here.'}</p>
+                </div>
+            )}
         </div>
     );
 };
 
-const RejectedItemCard = ({ partName, totalQty, items, onEdit, onDelete }) => {
+const RejectedItemCard = ({ partName, totalQty, items, onEdit, onDelete, onAction }) => {
     const [isExpanded, setIsExpanded] = React.useState(false);
+
+    // Sub-group by Rejection ID
+    const batchGroups = React.useMemo(() => {
+        const groups = {};
+        items.forEach(item => {
+            const rid = item.rejectionId || 'MANUAL-ENTRY';
+            if (!groups[rid]) groups[rid] = { qty: 0, items: [], status: item.status, jobNo: item.jobNo };
+            groups[rid].qty += (item.qty || 0);
+            groups[rid].items.push(item);
+        });
+        return groups;
+    }, [items]);
 
     return (
         <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
@@ -1109,7 +1192,7 @@ const RejectedItemCard = ({ partName, totalQty, items, onEdit, onDelete }) => {
                     {isExpanded ? <ChevronUp size={16} className="text-blue-500" /> : <ChevronDown size={16} className="text-slate-400" />}
                     <div>
                         <h4 className="font-bold text-slate-900">{partName}</h4>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{items.length} Rejection Events</p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{Object.keys(batchGroups).length} Rejection Events</p>
                     </div>
                 </div>
                 <div className="text-right">
@@ -1126,59 +1209,104 @@ const RejectedItemCard = ({ partName, totalQty, items, onEdit, onDelete }) => {
                         exit={{ height: 0, opacity: 0 }}
                         className="border-t border-slate-100"
                     >
-                        <table className="w-full text-left text-xs bg-slate-50/30">
-                            <thead>
-                                <tr className="border-b border-slate-100 text-slate-500">
-                                    <th className="px-6 py-3 font-bold uppercase">Job / Step</th>
-                                    <th className="px-6 py-3 font-bold uppercase">Rejected By</th>
-                                    <th className="px-6 py-3 font-bold uppercase text-right">Qty</th>
-                                    <th className="px-6 py-3 font-bold uppercase">Reason & Date</th>
-                                    <th className="px-6 py-3 font-bold uppercase text-center">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {items.map((rej, i) => {
-                                    // Check if this rejection is from Final Quality Check
-                                    const isFQC = rej.stepName?.toLowerCase().includes('final quality check') ||
-                                        rej.stepName?.toLowerCase().includes('final qc');
+                        <div className="p-4 space-y-4 bg-slate-50/30">
+                            {Object.entries(batchGroups).map(([rid, group], idx) => (
+                                <div key={rid} className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                                    {/* Batch Header */}
+                                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex flex-wrap justify-between items-center gap-4">
+                                        <div className="flex items-center gap-4">
+                                            <div>
+                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rejection ID</div>
+                                                <div className="font-black text-slate-900">{rid}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Job Number</div>
+                                                <div className="font-black text-blue-600 uppercase italic">{group.jobNo || 'MANUAL'}</div>
+                                            </div>
+                                            <div className="px-3 py-1 bg-red-100 text-red-700 rounded text-xs font-black">
+                                                {group.qty} REJECTED
+                                            </div>
+                                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${group.status === 'Pending' ? 'bg-amber-100 text-amber-700' :
+                                                group.status === 'Hold' ? 'bg-blue-100 text-blue-700' :
+                                                    group.status === 'Recovered' ? 'bg-emerald-100 text-emerald-700' :
+                                                        'bg-slate-100 text-slate-700'
+                                                }`}>
+                                                {group.status || 'Pending'}
+                                            </span>
+                                        </div>
 
-                                    return (
-                                        <tr key={rej._id || i} className={`transition-colors border-b border-slate-50 last:border-none ${isFQC
-                                            ? 'bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border-l-4 border-l-purple-500'
-                                            : 'hover:bg-red-50/20'
-                                            }`}>
-                                            <td className="px-6 py-3">
-                                                <div className="font-black text-blue-600 uppercase">{rej.jobNo || 'N/A'}</div>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <div className="text-[10px] font-bold text-slate-500">{rej.stepName || 'Unknown Step'}</div>
-                                                    {isFQC && (
-                                                        <span className="px-2 py-0.5 bg-purple-600 text-white text-[8px] font-black rounded-full uppercase tracking-wide">
-                                                            FQC
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-3">
-                                                <div className="font-bold text-slate-700">{rej.employeeName || 'Admin'}</div>
-                                            </td>
-                                            <td className="px-6 py-3 text-right">
-                                                <span className="font-black text-red-600 text-sm">{rej.qty}</span>
-                                            </td>
-                                            <td className="px-6 py-3">
-                                                <div className="italic text-slate-600">{rej.reason}</div>
-                                                <div className="text-[10px] text-slate-400 mt-1 uppercase font-bold">{new Date(rej.mfgDate || rej.createdAt).toLocaleDateString()}</div>
-                                            </td>
-                                            <td className="px-6 py-3 text-center">
-                                                <div className="flex justify-center gap-2">
-                                                    <button onClick={(e) => { e.stopPropagation(); onEdit(rej); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition"><Edit2 size={14} /></button>
-                                                    <button onClick={(e) => { e.stopPropagation(); onDelete(rej._id); }} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition"><Trash2 size={14} /></button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase mr-1">Batch Actions:</span>
+                                            <button
+                                                disabled={group.qty <= 0 || group.status === 'Recovered'}
+                                                onClick={() => onAction({ _id: rid, qty: group.qty, partName }, 'push_to_fg', true)}
+                                                className="flex items-center gap-1 bg-emerald-600 text-white px-3 py-1.5 rounded-md hover:bg-emerald-700 disabled:opacity-50 transition font-black text-[10px] shadow-sm uppercase tracking-wider"
+                                            >
+                                                <CheckCircle2 size={12} /> Recover All
+                                            </button>
+                                            <button
+                                                disabled={group.qty <= 0}
+                                                onClick={() => onAction({ _id: rid, qty: group.qty, partName }, 'scrap', true)}
+                                                className="flex items-center gap-1 bg-white text-rose-600 border border-red-200 px-3 py-1.5 rounded-md hover:bg-rose-50 disabled:opacity-50 transition font-black text-[10px] uppercase tracking-wider"
+                                            >
+                                                <Trash2 size={12} /> Scrap
+                                            </button>
+                                            <button
+                                                disabled={group.qty <= 0}
+                                                onClick={() => onAction({ _id: rid, qty: group.qty, partName }, group.status === 'Hold' ? 'release' : 'hold', true)}
+                                                className="flex items-center gap-1 bg-white text-blue-600 border border-blue-200 px-3 py-1.5 rounded-md hover:bg-blue-50 disabled:opacity-50 transition font-black text-[10px] uppercase tracking-wider"
+                                            >
+                                                <Package size={12} /> {group.status === 'Hold' ? 'Release' : 'Hold'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Individual Steps Table */}
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-[11px]">
+                                            <thead className="bg-slate-50/50 text-slate-500 border-b border-slate-100">
+                                                <tr>
+                                                    <th className="px-6 py-2 font-bold uppercase">Manufacturing Step</th>
+                                                    <th className="px-6 py-2 font-bold uppercase">Rejected By</th>
+                                                    <th className="px-6 py-2 font-bold uppercase text-right">Qty</th>
+                                                    <th className="px-6 py-2 font-bold uppercase">Reason / Remarks</th>
+                                                    <th className="px-6 py-2 font-bold uppercase text-center">Admin</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50">
+                                                {group.items.map((rej, i) => {
+                                                    const isFQC = rej.stepName?.toLowerCase().includes('quality check') || rej.stepName?.toLowerCase().includes('qc');
+                                                    return (
+                                                        <tr key={rej._id || i} className={`hover:bg-slate-50/50 transition-colors ${isFQC ? 'bg-purple-50/40' : ''}`}>
+                                                            <td className="px-6 py-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="font-bold text-slate-800">{rej.stepName || 'Manual Entry'}</div>
+                                                                    {isFQC && <span className="px-1 py-0.5 bg-purple-100 text-purple-700 text-[8px] font-black rounded uppercase">FQC</span>}
+                                                                </div>
+                                                                <div className="text-[10px] text-slate-400 mt-0.5 font-bold uppercase">{new Date(rej.createdAt || rej.mfgDate).toLocaleDateString()}</div>
+                                                            </td>
+                                                            <td className="px-6 py-3 font-medium text-slate-700">{rej.employeeName || 'Admin'}</td>
+                                                            <td className="px-6 py-3 text-right">
+                                                                <span className="font-black text-red-600">{rej.qty}</span>
+                                                            </td>
+                                                            <td className="px-6 py-3">
+                                                                <div className="italic text-slate-500 line-clamp-1 max-w-[200px]" title={rej.reason}>{rej.reason}</div>
+                                                            </td>
+                                                            <td className="px-6 py-3">
+                                                                <div className="flex justify-center gap-2">
+                                                                    <button onClick={() => onEdit(rej)} className="p-1 text-blue-600 hover:bg-blue-50 rounded transition"><Edit2 size={14} /></button>
+                                                                    <button onClick={() => onDelete(rej._id)} className="p-1 text-red-600 hover:bg-red-50 rounded transition"><Trash2 size={14} /></button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -1553,12 +1681,61 @@ const InventoryModal = ({ type, item, rawMaterialsList = [], partiesList = [], o
             case 'rejected':
                 return (
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Rejected Item Name</label><input required className="w-full p-2 border rounded" value={formData.partName || ''} onChange={e => updateField('partName', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Job / Step Ref</label><input required className="w-full p-2 border rounded" value={formData.jobNo || ''} onChange={e => updateField('jobNo', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Employee / Inspector</label><input required className="w-full p-2 border rounded" value={formData.employee || ''} onChange={e => updateField('employee', e.target.value)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Rejected Qty</label><input required type="number" className="w-full p-2 border rounded text-red-600 font-bold" value={formData.qty || ''} onChange={e => updateField('qty', parseFloat(e.target.value) || 0)} /></div>
-                        <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Rejection Date</label><input type="date" className="w-full p-2 border rounded" value={formData.mfgDate ? formData.mfgDate.slice(0, 10) : ''} onChange={e => updateField('mfgDate', e.target.value)} /></div>
-                        <div className="col-span-2"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Why was it rejected? (Mandatory)</label><textarea required rows="3" className="w-full p-2 border rounded" value={formData.reason || ''} onChange={e => updateField('reason', e.target.value)} /></div>
+                        <div className="col-span-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Rejected Item Name *</label>
+                            <select
+                                required
+                                className="w-full p-2 border rounded"
+                                value={formData.partNo || ''}
+                                onChange={e => {
+                                    const selectedRM = rawMaterialsList.find(rm => rm.code === e.target.value);
+                                    if (selectedRM) {
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            partNo: selectedRM.code,
+                                            partName: selectedRM.name,
+                                            itemId: selectedRM._id
+                                        }));
+                                    }
+                                }}
+                            >
+                                <option value="">-- Select Item --</option>
+                                {rawMaterialsList.map(rm => (
+                                    <option key={rm._id} value={rm.code}>{rm.name} ({rm.code})</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Part Number</label>
+                            <input readOnly className="w-full p-2 border rounded bg-slate-50" value={formData.partNo || ''} />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Job Number (Optional)</label>
+                            <input className="w-full p-2 border rounded" value={formData.jobNo || ''} onChange={e => updateField('jobNo', e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Rejected Qty *</label>
+                            <input required type="number" className="w-full p-2 border rounded text-red-600 font-bold" value={formData.qty || ''} onChange={e => updateField('qty', parseFloat(e.target.value) || 0)} />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Rejection Date *</label>
+                            <input required type="date" className="w-full p-2 border rounded" value={formData.rejectionDate ? formData.rejectionDate.slice(0, 10) : new Date().toISOString().slice(0, 10)} onChange={e => updateField('rejectionDate', e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Invoice Number</label>
+                            <input className="w-full p-2 border rounded" value={formData.invoiceNo || ''} onChange={e => updateField('invoiceNo', e.target.value)} />
+                        </div>
+                        <div className="col-span-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Common Remarks / Reasons *</label>
+                            <textarea
+                                required
+                                rows="3"
+                                className="w-full p-2 border rounded bg-white focus:border-red-500 outline-none"
+                                value={formData.reason || ''}
+                                onChange={e => updateField('reason', e.target.value)}
+                                placeholder="Mandatory reason for rejection..."
+                            />
+                        </div>
                     </div>
                 );
             default: return null;
@@ -1588,6 +1765,112 @@ const InventoryModal = ({ type, item, rawMaterialsList = [], partiesList = [], o
                         {saving ? 'Saving...' : `Save ${type.replace(/-/g, ' ')}`}
                     </button>
                 </div>
+            </motion.div>
+        </div>
+    );
+};
+
+const ActionModal = ({ isOpen, type, item, onClose, onConfirm }) => {
+    const [payload, setPayload] = useState({
+        recoveredQty: item?.qty || 0,
+        targetBatchNumber: '',
+        remarks: ''
+    });
+    const [saving, setSaving] = useState(false);
+
+    if (!isOpen || !item) return null;
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            await onConfirm(item._id, type, payload);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const getTitle = () => {
+        switch (type) {
+            case 'push_to_fg': return 'Recover to Finished Goods Stock';
+            case 'scrap': return 'Move to Scrap (Permanent)';
+            case 'hold': return 'Move to Hold Section';
+            case 'release': return 'Release from Hold';
+            default: return 'Action';
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
+                <div className={`p-6 flex justify-between items-center ${type === 'scrap' ? 'bg-rose-50' : type === 'push_to_fg' ? 'bg-emerald-50' : 'bg-blue-50'}`}>
+                    <div>
+                        <h3 className={`text-lg font-black uppercase tracking-tight ${type === 'scrap' ? 'text-rose-700' : type === 'push_to_fg' ? 'text-emerald-700' : 'text-blue-700'}`}>{getTitle()}</h3>
+                        <p className="text-xs text-slate-500 font-bold mt-0.5">ITEM: {item.partName} ({item.qty} available)</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition"><X size={20} className="text-slate-400" /></button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="p-8 space-y-5">
+                    {type === 'push_to_fg' && (
+                        <>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block">Quantity to Recover</label>
+                                    <input
+                                        required
+                                        type="number"
+                                        max={item.qty}
+                                        min={0.1}
+                                        step="any"
+                                        className="w-full p-3 border-2 border-slate-100 rounded-xl focus:border-emerald-500 outline-none font-black text-emerald-600"
+                                        value={payload.recoveredQty}
+                                        onChange={e => setPayload({ ...payload, recoveredQty: parseFloat(e.target.value) })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block">Target Batch Code</label>
+                                    <input
+                                        placeholder="e.g. REC-001"
+                                        className="w-full p-3 border-2 border-slate-100 rounded-xl focus:border-emerald-500 outline-none uppercase font-bold text-slate-700"
+                                        value={payload.targetBatchNumber}
+                                        onChange={e => setPayload({ ...payload, targetBatchNumber: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                            <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                                <p className="text-[10px] text-emerald-700 font-bold leading-relaxed uppercase tracking-tight">
+                                    <span className="font-black">Notice:</span> These items will be moved to Finished Goods Stock and marked as "Recovered from Rejection" for full traceability.
+                                </p>
+                            </div>
+                        </>
+                    )}
+
+                    {(type === 'scrap' || type === 'hold' || type === 'release' || type === 'push_to_fg') && (
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block">Mandatory Remark / Reason</label>
+                            <textarea
+                                required={type === 'scrap' || type === 'hold'}
+                                rows={3}
+                                className={`w-full p-4 border-2 border-slate-100 rounded-xl outline-none transition-all ${type === 'scrap' ? 'focus:border-rose-500' : 'focus:border-blue-500'}`}
+                                placeholder={`Please provide a detailed reason for ${type}...`}
+                                value={payload.remarks}
+                                onChange={e => setPayload({ ...payload, remarks: e.target.value })}
+                            />
+                        </div>
+                    )}
+
+                    <div className="flex gap-3 pt-4">
+                        <button type="button" onClick={onClose} className="flex-1 py-3 px-4 border-2 border-slate-100 text-slate-500 rounded-xl font-bold hover:bg-slate-50 transition uppercase tracking-widest text-xs">Cancel Action</button>
+                        <button
+                            type="submit"
+                            disabled={saving}
+                            className={`flex-2 py-3 px-10 rounded-xl text-white font-black shadow-lg transition-all transform active:scale-95 disabled:opacity-50 uppercase tracking-widest text-xs ${type === 'scrap' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200' : type === 'push_to_fg' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'}`}
+                        >
+                            {saving ? 'Processing...' : `Confirm ${type.replace(/_/g, ' ')}`}
+                        </button>
+                    </div>
+                </form>
             </motion.div>
         </div>
     );

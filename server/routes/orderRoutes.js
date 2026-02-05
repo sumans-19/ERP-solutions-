@@ -575,6 +575,10 @@ router.post('/:id/items/:itemId/plan-production', checkPermission('editOrders'),
           reading: ''
         }))
       })),
+      // Copy FQC Messages & Remarks from Item
+      fqcOverallRemark: masterItem?.fqcOverallRemark || '',
+      fqcPositiveMessage: masterItem?.fqcPositiveMessage || '',
+      fqcNegativeMessage: masterItem?.fqcNegativeMessage || '',
       steps: stepsToUse.map(s => ({
         stepId: s.id || s.stepId,
         stepName: s.stepName,

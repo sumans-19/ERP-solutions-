@@ -26,8 +26,11 @@ router.get('/assigned/:employeeId', authenticateToken, async (req, res) => {
 // Get all items
 router.get('/', checkPermission('viewItems'), async (req, res) => {
   try {
-    // Exclude image field from list to reduce payload size and improve performance
-    const items = await Item.find().select('-image').sort({ createdAt: -1 }).lean();
+    // Exclude image fields from list to reduce payload size and prevent hangs
+    const items = await Item.find()
+      .select('-image -images -finalQualityCheckImages')
+      .sort({ createdAt: -1 })
+      .lean();
     res.json(items);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -135,6 +138,7 @@ router.post('/', checkPermission('createItems'), async (req, res) => {
 // Update item
 router.put('/:id', checkPermission('editItems'), async (req, res) => {
   try {
+    console.log(`[PUT /items/${req.params.id}] Update Payload:`, JSON.stringify(req.body, null, 2));
     const item = await Item.findById(req.params.id);
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });

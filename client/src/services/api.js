@@ -533,3 +533,23 @@ export const submitFQCResults = async (jobId, data, overrideUserId = null) => {
 export const getCalendarEvents = async (start, end) => (await axios.get('/api/calendar/events', { params: { start, end } })).data;
 
 export const getAllJobs = async () => (await axios.get('/api/job-cards')).data;
+
+export const handleRejectedAction = async (id, action, payload) => {
+  try {
+    const response = await axios.post(`/api/rejected-goods/${id}/action`, { action, payload });
+    return response.data;
+  } catch (error) {
+    console.error('Error handling rejected action:', error);
+    throw error;
+  }
+};
+
+export const handleRejectedBatchAction = async (rejectionId, action, payload) => {
+  try {
+    const response = await axios.post(`/api/rejected-goods/batch-action`, { rejectionId, action, payload });
+    return response.data;
+  } catch (error) {
+    console.error('Error handling rejected batch action:', error);
+    throw error;
+  }
+};

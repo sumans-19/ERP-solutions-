@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     getJobCardsByEmployee,
     getOpenJobs,
@@ -22,6 +22,25 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEmployeeView } from '../../contexts/EmployeeViewContext';
 import { useNotification } from '../../contexts/NotificationContext';
 
+const validateSample = (value, standard, posTol, negTol, valType) => {
+    if (!value) return null; // No validation if empty
+    if (valType === 'boolean') return value.toLowerCase() === 'pass';
+    if (valType === 'alphanumeric' || valType === 'alphabet') return true;
+
+    // Numeric check
+    const numVal = parseFloat(value);
+    const std = parseFloat(standard);
+    const pos = parseFloat(posTol) || 0;
+    const neg = parseFloat(negTol) || 0;
+
+    if (isNaN(numVal) || isNaN(std)) return null;
+
+    const min = std - neg;
+    const max = std + pos;
+
+    return numVal >= min && numVal <= max;
+};
+
 const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
     const { showNotification } = useNotification();
     const { selectedEmployeeId } = useEmployeeView();
@@ -30,6 +49,7 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
     const [globalJobs, setGlobalJobs] = useState([]); // For Global Search
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
+    const loadingRef = useRef(false); // Track loading without triggering re-renders
 
     // Initialize tab based on mode
     const [activeTab, setActiveTab] = useState(viewMode === 'global' ? 'open' : 'assigned');
@@ -72,15 +92,51 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
         }
     }, [selectedEmployeeId, activeTab]);
 
-    const refreshData = async () => {
+    const refreshData = useCallback(async () => {
+        // Aggressive throttle to prevent re-render loops
+        const now = Date.now();
+        if (window.lastJobRefresh && now - window.lastJobRefresh < 5000) {
+            console.log('[refreshData] THROTTLED - skipping refresh (last refresh was', Math.round((now - window.lastJobRefresh) / 1000), 'seconds ago)');
+            return;
+        }
+        window.lastJobRefresh = now;
+
+        // Prevent concurrent refreshes
+        if (loadingRef.current) {
+            console.log('[refreshData] BLOCKED - already loading');
+            return;
+        }
+
         try {
+            console.log('[refreshData] STARTING refresh for employee:', selectedEmployeeId);
+            loadingRef.current = true;
             setLoading(true);
 
-            // 1. Always fetch counts for all employee tabs
-            const openData = await getOpenJobs();
+            // Fetch data in parallel to avoid blocking
+            const [openResult, assignedResult] = await Promise.allSettled([
+                getOpenJobs(),
+                getJobCardsByEmployee(selectedEmployeeId)
+            ]);
+
+            const openData = openResult.status === 'fulfilled' ? openResult.value : [];
+            const assignedData = assignedResult.status === 'fulfilled' ? assignedResult.value : [];
+
+            if (openResult.status === 'rejected') {
+                console.error('[EmployeeJobs] Failed to fetch open jobs:', openResult.reason);
+                console.error('[EmployeeJobs] Error details:', openResult.reason?.response?.data);
+                console.error('[EmployeeJobs] Status code:', openResult.reason?.response?.status);
+            }
+            if (assignedResult.status === 'rejected') {
+                console.error('[EmployeeJobs] Failed to fetch assigned jobs:', assignedResult.reason);
+                console.error('[EmployeeJobs] Error details:', assignedResult.reason?.response?.data);
+                console.error('[EmployeeJobs] Status code:', assignedResult.reason?.response?.status);
+            }
+
+            console.log('[EmployeeJobs] Open jobs count:', openData.length);
+            console.log('[EmployeeJobs] Assigned jobs count:', assignedData.length);
+
             setOpenJobs(openData);
 
-            const assignedData = await getJobCardsByEmployee(selectedEmployeeId);
             const activeItems = [];
             const completedItems = [];
 
@@ -105,31 +161,35 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
                 }
             });
 
+            // Update Counts
             setCounts({ active: activeItems.length, completed: completedItems.length, open: openData.length, global: 0 });
 
-            // 2. Mode Specific Fetch
+            // 2. Mode Specific Display Logic
             if (viewMode === 'global') {
                 if (activeTab === 'search') {
-                    const allData = await getAllJobs();
-                    // Map to unified structure if needed, or rely on API
-                    setGlobalJobs(allData);
-                    setCounts(prev => ({ ...prev, global: allData.length }));
+                    // Global Search - Fetch on demand or if not too heavy
+                    // For now, let's lazy load or keep existing logic but separate it
+                    getAllJobs().then(allData => {
+                        setGlobalJobs(allData);
+                        setCounts(prev => ({ ...prev, global: allData.length }));
 
-                    // Client-side filtering
-                    if (searchQuery) {
-                        const lowerQ = searchQuery.toLowerCase();
-                        const filtered = allData.filter(j =>
-                            j.jobNumber?.toLowerCase().includes(lowerQ) ||
-                            j.itemId?.name?.toLowerCase().includes(lowerQ) ||
-                            j.orderId?.poNumber?.toLowerCase().includes(lowerQ) ||
-                            j.orderId?.partyName?.toLowerCase().includes(lowerQ)
-                        );
-                        setJobs(filtered);
-                    } else {
-                        setJobs(allData);
-                    }
+                        if (searchQuery) {
+                            const lowerQ = searchQuery.toLowerCase();
+                            const filtered = allData.filter(j =>
+                                j.jobNumber?.toLowerCase().includes(lowerQ) ||
+                                j.itemId?.name?.toLowerCase().includes(lowerQ) ||
+                                j.orderId?.poNumber?.toLowerCase().includes(lowerQ) ||
+                                j.orderId?.partyName?.toLowerCase().includes(lowerQ)
+                            );
+                            setJobs(filtered);
+                        } else {
+                            setJobs(allData);
+                        }
+                    }).catch(err => console.error('Error fetching global jobs:', err));
+
                 } else if (activeTab === 'open') {
-                    // Open jobs already fetched
+                    // Open jobs already fetched and set in openJobs state
+                    // We don't set 'jobs' state for 'open' tab because it uses 'openJobs' state directly in render
                 }
             } else {
                 // My Jobs Logic
@@ -138,26 +198,38 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
                 } else if (activeTab === 'completed') {
                     setJobs(completedItems);
                 } else if (activeTab === 'fqc') {
-                    const fqcStageData = await getJobCardsByStage('Verification');
-                    const myFqcAssignments = assignedData.filter(job =>
-                        job.steps.some(s =>
-                            (s.stepType === 'testing' || s.stepName?.toLowerCase().includes('qc')) &&
-                            s.assignedEmployees?.some(ae => String(ae.employeeId?._id || ae.employeeId) === String(selectedEmployeeId)) &&
-                            s.status !== 'completed'
-                        )
-                    );
-                    const unionMap = new Map();
-                    fqcStageData.forEach(j => unionMap.set(j._id, j));
-                    myFqcAssignments.forEach(j => unionMap.set(j._id, j));
-                    setJobs(Array.from(unionMap.values()));
+                    // Fetch FQC jobs specifically if tab is active
+                    // This avoids blocking other tabs for FQC query
+                    try {
+                        const fqcStageData = await getJobCardsByStage('Verification');
+                        const myFqcAssignments = assignedData.filter(job =>
+                            job.steps.some(s =>
+                                (s.stepType === 'testing' || s.stepName?.toLowerCase().includes('qc')) &&
+                                s.assignedEmployees?.some(ae => String(ae.employeeId?._id || ae.employeeId) === String(selectedEmployeeId)) &&
+                                s.status !== 'completed'
+                            )
+                        );
+
+                        // Merge logic
+                        const unionMap = new Map();
+                        fqcStageData.forEach(j => unionMap.set(j._id, j));
+                        myFqcAssignments.forEach(j => unionMap.set(j._id, j));
+                        setJobs(Array.from(unionMap.values()));
+                    } catch (fqcErr) {
+                        console.error('Error fetching FQC jobs:', fqcErr);
+                        setJobs([]);
+                    }
                 }
             }
         } catch (error) {
-            console.error('Error refreshing data:', error);
+            console.error('CRITICAL Error refreshing data:', error);
+            showNotification('Failed to refresh jobs. Please try again.', 'error');
         } finally {
+            console.log('[refreshData] COMPLETED refresh');
+            loadingRef.current = false;
             setLoading(false);
         }
-    };
+    }, [selectedEmployeeId, viewMode, activeTab, searchQuery]);
 
     const handleOpenFQC = (job, targetStep = null) => {
         console.log('[FQC] Opening job:', job.jobNumber);
@@ -253,21 +325,47 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
             return;
         }
 
+        // Auto-Evaluation Logic
+        let overallPass = true;
+        const evaluatedResults = fqcValues.map(v => {
+            const isParamPass = v.samples.every(s => {
+                const valid = validateSample(s, v.standardValue || v.actualValue, v.positiveTolerance, v.negativeTolerance, v.valueType);
+                return valid === true;
+            });
+
+            if (!isParamPass) overallPass = false;
+
+            return {
+                ...v,
+                status: isParamPass ? 'Passed' : 'Failed'
+            };
+        });
+
         // Validation: Quantity consistency
         if (Number(fqcQty.processed) + Number(fqcQty.rejected) > Number(fqcQty.received)) {
             showNotification(`Quantity Mismatch: Pass (${fqcQty.processed}) + Fail (${fqcQty.rejected}) exceeds Total Received (${fqcQty.received})`, 'error');
             return;
         }
 
+        // Message & Confirmation
+        const message = overallPass
+            ? (selectedJob.fqcPositiveMessage || "✅ FQC Passed! All parameters are within range. Approve Job?")
+            : (selectedJob.fqcNegativeMessage || "❌ FQC Failed! Some parameters are out of range. Reject Job?");
+
+        if (!window.confirm(message)) {
+            return;
+        }
+
         try {
             await submitFQCResults(selectedJob._id, {
-                results: fqcValues,
+                results: evaluatedResults,
+                fqcStatus: overallPass ? 'Passed' : 'Failed', // Send Overall Status
                 processed: fqcQty.processed,
                 rejected: fqcQty.rejected,
                 stepId: fqcQty.stepId,
                 images: fqcImages // Include uploaded images
             }, selectedEmployeeId);
-            showNotification('FQC results submitted');
+            showNotification('FQC results submitted successfully');
             setIsFqcMode(false);
             refreshData();
             setSelectedJob(null);
@@ -277,11 +375,18 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
     };
 
     const handleAcceptJob = async (jobId, stepId) => {
+        console.log('[handleAcceptJob] CALLED with:', { jobId, stepId, selectedEmployeeId });
         try {
-            await acceptOpenJob(jobId, stepId, selectedEmployeeId);
+            console.log('[handleAcceptJob] Calling acceptOpenJob API...');
+            const result = await acceptOpenJob(jobId, stepId, selectedEmployeeId);
+            console.log('[handleAcceptJob] API SUCCESS:', result);
             showNotification('Job accepted and moved to your assignments');
+            await refreshData(); // Refresh data to update job lists
             setActiveTab('assigned');
         } catch (error) {
+            console.error('[handleAcceptJob] API FAILED:', error);
+            console.error('[handleAcceptJob] Error response:', error.response?.data);
+            console.error('[handleAcceptJob] Status code:', error.response?.status);
             showNotification(error.response?.data?.message || 'Failed to accept job', 'error');
         }
     };
@@ -620,16 +725,21 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
                                     placeholder="Search all jobs..."
                                     value={searchQuery}
                                     onChange={(e) => {
-                                        setSearchQuery(e.target.value);
-                                        // Local filter logic
+                                        const newVal = e.target.value;
+                                        setSearchQuery(newVal);
+
+                                        // Robust local filter logic
                                         if (viewMode === 'global' && globalJobs.length > 0) {
-                                            const lowerQ = e.target.value.toLowerCase();
+                                            const lowerQ = newVal.toLowerCase() || '';
+                                            console.log(`[Search] Filtering ${globalJobs.length} jobs with "${lowerQ}"`);
+
                                             const filtered = globalJobs.filter(j =>
-                                                j.jobNumber?.toLowerCase().includes(lowerQ) ||
-                                                j.itemId?.name?.toLowerCase().includes(lowerQ) ||
-                                                j.orderId?.poNumber?.toLowerCase().includes(lowerQ) ||
-                                                j.orderId?.partyName?.toLowerCase().includes(lowerQ)
+                                                (j.jobNumber && j.jobNumber.toLowerCase().includes(lowerQ)) ||
+                                                (j.itemId?.name && j.itemId.name.toLowerCase().includes(lowerQ)) ||
+                                                (j.orderId?.poNumber && j.orderId.poNumber.toLowerCase().includes(lowerQ)) ||
+                                                (j.orderId?.partyName && j.orderId.partyName.toLowerCase().includes(lowerQ))
                                             );
+                                            console.log(`[Search] Found ${filtered.length} matches`);
                                             setJobs(filtered);
                                         }
                                     }}
@@ -904,9 +1014,19 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
                                             </div>
                                         </div>
 
+                                        {/* Overall QC Remark - High Visibility */}
+                                        {selectedJob.fqcOverallRemark && (
+                                            <div className="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-r shadow-sm">
+                                                <h5 className="text-[10px] font-black text-yellow-600 uppercase tracking-widest mb-1 flex items-center gap-2">
+                                                    <AlertTriangle size={12} /> Special QC Instructions
+                                                </h5>
+                                                <p className="text-sm font-bold text-slate-800">{selectedJob.fqcOverallRemark}</p>
+                                            </div>
+                                        )}
+
                                         {/* QC REFERENCE IMAGES */}
                                         {selectedJob.itemId?.finalQualityCheckImages?.length > 0 && (
-                                            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                                            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg mb-4">
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Reference Images / Documents</p>
                                                 <div className="flex gap-4 overflow-x-auto pb-2">
                                                     {selectedJob.itemId.finalQualityCheckImages.map((img, i) => (
@@ -937,6 +1057,7 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
                                                         <th className="p-3 border-r border-slate-700 text-center">+Tol</th>
                                                         <th className="p-3 border-r border-slate-700 text-center">-Tol</th>
                                                         <th className="p-3 border-r border-slate-700 text-center">Expected</th>
+                                                        <th className="p-3 border-r border-slate-700 text-center bg-indigo-900 text-indigo-100">Range</th>
                                                         {fqcValues[0]?.samples.map((_, i) => (
                                                             <th key={i} className="p-3 border-r border-slate-700 text-center min-w-[80px]">Sample {i + 1}</th>
                                                         ))}
@@ -944,45 +1065,63 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {fqcValues.map((v, pIdx) => (
-                                                        <tr key={pIdx} className="hover:bg-blue-50/30 transition-colors">
-                                                            <td className="p-3 border-t border-r border-slate-200 font-black text-slate-800 bg-slate-50/50">
-                                                                {v.parameterName}
-                                                            </td>
-                                                            <td className="p-3 border-t border-r border-slate-200 text-center font-mono text-blue-600 font-bold">
-                                                                {v.notation || '-'}
-                                                            </td>
-                                                            <td className="p-3 border-t border-r border-slate-200 text-center text-emerald-600 font-bold">
-                                                                {v.positiveTolerance || '-'}
-                                                            </td>
-                                                            <td className="p-3 border-t border-r border-slate-200 text-center text-rose-600 font-bold">
-                                                                {v.negativeTolerance || '-'}
-                                                            </td>
-                                                            <td className="p-3 border-t border-r border-slate-200 text-center text-purple-600 font-bold">
-                                                                {v.actualValue || v.standardValue || '-'}
-                                                            </td>
-                                                            {v.samples.map((s, sIdx) => (
-                                                                <td key={sIdx} className="p-2 border-t border-r border-slate-200 bg-white">
+                                                    {fqcValues.map((v, pIdx) => {
+                                                        const std = parseFloat(v.standardValue || v.actualValue);
+                                                        const pos = parseFloat(v.positiveTolerance) || 0;
+                                                        const neg = parseFloat(v.negativeTolerance) || 0;
+                                                        const min = !isNaN(std) ? (std - neg).toFixed(2) : '-';
+                                                        const max = !isNaN(std) ? (std + pos).toFixed(2) : '-';
+
+                                                        return (
+                                                            <tr key={pIdx} className="hover:bg-blue-50/30 transition-colors">
+                                                                <td className="p-3 border-t border-r border-slate-200 font-black text-slate-800 bg-slate-50/50">
+                                                                    {v.parameterName}
+                                                                </td>
+                                                                <td className="p-3 border-t border-r border-slate-200 text-center font-mono text-blue-600 font-bold">
+                                                                    {v.notation || '-'}
+                                                                </td>
+                                                                <td className="p-3 border-t border-r border-slate-200 text-center text-emerald-600 font-bold">
+                                                                    {v.positiveTolerance || '-'}
+                                                                </td>
+                                                                <td className="p-3 border-t border-r border-slate-200 text-center text-rose-600 font-bold">
+                                                                    {v.negativeTolerance || '-'}
+                                                                </td>
+                                                                <td className="p-3 border-t border-r border-slate-200 text-center text-purple-600 font-bold">
+                                                                    {v.actualValue || v.standardValue || '-'}
+                                                                </td>
+                                                                <td className="p-3 border-t border-r border-slate-200 text-center font-mono font-bold bg-indigo-50 text-indigo-700 border-indigo-100">
+                                                                    {!isNaN(std) ? `${min} - ${max}` : '-'}
+                                                                </td>
+                                                                {v.samples.map((s, sIdx) => {
+                                                                    const isValid = validateSample(s, v.standardValue || v.actualValue, v.positiveTolerance, v.negativeTolerance, v.valueType);
+                                                                    let bgClass = "bg-blue-50/50 border-blue-200 text-blue-900";
+                                                                    if (s && isValid === true) bgClass = "bg-emerald-100 border-emerald-400 text-emerald-900 ring-2 ring-emerald-200";
+                                                                    if (s && isValid === false) bgClass = "bg-rose-100 border-rose-400 text-rose-900 ring-2 ring-rose-200";
+
+                                                                    return (
+                                                                        <td key={sIdx} className="p-2 border-t border-r border-slate-200 bg-white">
+                                                                            <input
+                                                                                type="text"
+                                                                                value={s}
+                                                                                onChange={(e) => handleFqcSampleChange(pIdx, sIdx, e.target.value)}
+                                                                                className={`w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none font-black text-center ${bgClass}`}
+                                                                                placeholder="..."
+                                                                            />
+                                                                        </td>
+                                                                    );
+                                                                })}
+                                                                <td className="p-2 border-t border-slate-200">
                                                                     <input
                                                                         type="text"
-                                                                        value={s}
-                                                                        onChange={(e) => handleFqcSampleChange(pIdx, sIdx, e.target.value)}
-                                                                        className="w-full p-2 bg-blue-50/50 border border-blue-200 rounded focus:ring-2 focus:ring-blue-500 outline-none font-black text-center text-blue-900"
-                                                                        placeholder="..."
+                                                                        value={v.remarks}
+                                                                        placeholder="Results..."
+                                                                        onChange={(e) => handleFqcRemarksChange(pIdx, e.target.value)}
+                                                                        className="w-full p-2 bg-white border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-[11px]"
                                                                     />
                                                                 </td>
-                                                            ))}
-                                                            <td className="p-2 border-t border-slate-200">
-                                                                <input
-                                                                    type="text"
-                                                                    value={v.remarks}
-                                                                    placeholder="Results..."
-                                                                    onChange={(e) => handleFqcRemarksChange(pIdx, e.target.value)}
-                                                                    className="w-full p-2 bg-white border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-[11px]"
-                                                                />
-                                                            </td>
-                                                        </tr>
-                                                    ))}
+                                                            </tr>
+                                                        )
+                                                    })}
                                                 </tbody>
                                             </table>
                                         </div>

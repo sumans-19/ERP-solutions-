@@ -30,6 +30,12 @@ import ShiftTimeSettings from './pages/Settings/ShiftTimeSettings';
 import ReportManage from './pages/ReportManage';
 import ProductionModule from './pages/Production/ProductionModule';
 
+// Documentation Module Imports
+import DocumentationDashboard from './pages/Documentation/DocumentationDashboard';
+import Invoicing from './pages/Documentation/Invoicing';
+import PackingSlip from './pages/Documentation/PackingSlip';
+import Dispatch from './pages/Documentation/Dispatch';
+
 
 // Employee View Imports
 import EmployeeDashboard from './pages/EmployeeView/EmployeeDashboard';
@@ -348,6 +354,14 @@ const DashboardLayout = ({ onLogout, user }) => {
         return <SystemSettings />;
       case 'calendar':
         return <CalendarPage />;
+      case 'docs-dashboard':
+        return <DocumentationDashboard setActiveSection={setActiveSection} />;
+      case 'docs-invoicing':
+        return <Invoicing setActiveSection={setActiveSection} />;
+      case 'docs-packing':
+        return <PackingSlip setActiveSection={setActiveSection} />;
+      case 'docs-dispatch':
+        return <Dispatch setActiveSection={setActiveSection} />;
       case 'reports':
         return <ReportManage />;
       case 'dashboard':

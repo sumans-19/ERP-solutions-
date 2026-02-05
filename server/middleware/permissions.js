@@ -22,9 +22,12 @@ const checkPermission = (requiredPermission) => {
   return async (req, res, next) => {
     const userRole = req.user?.role || 'employee';
 
+    console.log(`[PERMISSION CHECK] Route: ${req.method} ${req.path}, Required: ${requiredPermission}, User Role: ${userRole}, User ID: ${req.user?._id || req.user?.id}`);
+
     // 1. SUPREME AUTHORITY BYPASS
     // The development role (dev@elints.com) has absolute priority and bypasses all checks.
     if (userRole === 'development') {
+      console.log('[PERMISSION CHECK] ✅ Development role - bypassing all checks');
       return next();
     }
 
@@ -32,7 +35,8 @@ const checkPermission = (requiredPermission) => {
       // 2. FETCH DYNAMIC PERMISSIONS
       // Priority 1: Check for INDIVIDUAL overrides in Employee/Staff master
       const Employee = require('../models/Employee');
-      const employee = await Employee.findById(req.user.id);
+      const userId = req.user._id || req.user.id;
+      const employee = await Employee.findById(userId);
 
       let roleConfig = null;
       if (employee && employee.individualPermissions && employee.individualPermissions.length > 0) {
@@ -41,7 +45,6 @@ const checkPermission = (requiredPermission) => {
           permissions: employee.individualPermissions
         };
       } else {
-        // Priority 2: Standard ROLE-BASED permissions
         roleConfig = await RolePermission.findOne({ role: userRole });
       }
 

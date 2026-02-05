@@ -256,6 +256,20 @@ const itemSchema = new mongoose.Schema({
   // Final Quality Check Section
   finalQualityCheck: [finalQualityCheckSchema],
 
+  // Overall QC Remark & Messages
+  fqcOverallRemark: {
+    type: String,
+    default: ''
+  },
+  fqcPositiveMessage: {
+    type: String,
+    default: ''
+  },
+  fqcNegativeMessage: {
+    type: String,
+    default: ''
+  },
+
   // Multiple images upload for Final Quality Check
   finalQualityCheckImages: [{
     type: String

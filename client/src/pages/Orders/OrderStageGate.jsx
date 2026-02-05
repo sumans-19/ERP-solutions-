@@ -26,6 +26,9 @@ const COLOR_MAP = {
     green: { border: 'border-green-500', bg: 'bg-green-50', text: 'text-green-600', darkText: 'text-green-700', deepText: 'text-green-800' }
 };
 
+// Global throttle to prevent loop
+let lastFetchTimestamp = 0;
+
 const OrderStageGate = () => {
     const [counts, setCounts] = useState({ New: 0, Planned: 0, Production: 0, QC: 0, Finalization: 0, Done: 0, Hold: 0 });
     const [selectedGate, setSelectedGate] = useState(null);
@@ -56,7 +59,15 @@ const OrderStageGate = () => {
         }
     }, []);
 
+    let lastFetch = 0;
+
     const fetchCounts = useCallback(async () => {
+        const now = Date.now();
+        if (now - lastFetch < 2000) { // Throttle 2s
+            return;
+        }
+        lastFetch = now;
+
         try {
             setLoading(true);
             console.log('📊 Fetching order stage counts...');

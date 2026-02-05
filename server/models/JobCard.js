@@ -137,10 +137,20 @@ const jobCardSchema = new mongoose.Schema({
         }],
         remarks: String
     }],
+
     // FQC Execution Images (Proofs)
     fqcImages: [{
         type: String // Base64 or URL
     }],
+    // Overall QC Fields (Copied from Item)
+    fqcOverallRemark: String,
+    fqcPositiveMessage: String,
+    fqcNegativeMessage: String,
+    fqcStatus: {
+        type: String,
+        enum: ['Pending', 'Passed', 'Failed'],
+        default: 'Pending'
+    },
     requiredSamples: {
         type: Number,
         default: 1
