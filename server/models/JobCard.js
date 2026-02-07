@@ -201,6 +201,8 @@ const jobCardSchema = new mongoose.Schema({
 jobCardSchema.index({ orderId: 1 });
 jobCardSchema.index({ itemId: 1 });
 jobCardSchema.index({ status: 1 });
+jobCardSchema.index({ 'steps.assignedEmployees.employeeId': 1 }); // Performance for employee jobs
+jobCardSchema.index({ 'steps.isOpenJob': 1, 'steps.status': 1 }); // Performance for open jobs
 
 
 // Method to calculate stage based on progress

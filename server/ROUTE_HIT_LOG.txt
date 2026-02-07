@@ -1,68 +1,20 @@
 
 
-=== PLAN PRODUCTION CALLED at 2026-02-03T11:45:23.627Z ===
-Order ID: 6981dd93e6537f235f6938cf
-Item ID: 6981ddd7e6537f235f693e82
-Body: {"batchQty":20000,"extraQty":250,"customSteps":[{"id":1,"stepName":"Check for protection sheet is present in both sides","description":"Place the PC sheet upside (Green sheet should be at the top)","stepType":"testing","timeToComplete":"1min","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-03T11:40:25.938Z"},{"employeeId":"697de6384243a3f325b4343f","assignedAt":"2026-02-03T11:42:33.628Z"}],"isOpenJob":false,"isOutward":false,"targetStartDate":"2026-02-03","targetDeadline":"2026-02-03","status":"pending","subSteps":[{"id":1770117042511,"name":"Make sure the distance between PC & nozzle is correct","description":"Use the gap tester every time","status":"pending","_id":"6981dd93e6537f235f6938d2"}],"_id":"6981dd93e6537f235f6938d1"},{"id":1770117157470,"stepName":"select the correct file in the laser control panel","description":"ಎಲೆಕ್ಟ್ರಾನಿಕ್ ಗುಪ್ತಚರ","stepType":"execution","timeToComplete":"1min","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-03T11:40:43.371Z"}],"isOpenJob":true,"isOutward":false,"targetStartDate":"2026-02-03","targetDeadline":"2026-02-03","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938d3"},{"id":1770117017111,"stepName":"Place the PC sheet with fixed READY Some change","description":"Use frame check & align the sheet","stepType":"execution","timeToComplete":"1min","assignedEmployees":[],"isOpenJob":true,"isOutward":false,"targetStartDate":"2026-02-03","targetDeadline":"2026-02-03","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938d4"},{"id":1770117252350,"stepName":"Start cutting the PC","description":"Check the cutting is happening","stepType":"execution","timeToComplete":"35min","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-03T11:40:48.474Z"}],"isOpenJob":false,"isOutward":false,"targetStartDate":"2026-02-03","targetDeadline":"2026-02-03","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938d5"},{"id":1770117311807,"stepName":"check the output with the drawing","description":"make sure the PC sheet is not moving while cutting","stepType":"testing","timeToComplete":"1min","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-03T11:41:34.393Z"}],"isOpenJob":true,"isOutward":false,"targetStartDate":"2026-02-03","targetDeadline":"2026-02-03","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938d6"},{"id":1770117384007,"stepName":"Collect the parts","description":"Make sure the bed is no left over","stepType":"execution","timeToComplete":"2min","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-03T11:41:29.914Z"}],"isOpenJob":true,"isOutward":false,"targetStartDate":"2026-02-03","targetDeadline":"2026-02-03","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938d7","outwardDetails":{"partyName":"","sentDate":"","returnDate":"","internalHandler":""}}]}
+=== PLAN PRODUCTION CALLED at 2026-02-06T10:10:17.012Z ===
+Order ID: 6985bda11de9032caf413b4c
+Item ID: 6985bda11de9032caf413b4d
+Body: {"batchQty":1000,"extraQty":0,"customSteps":[{"id":1,"stepName":"Check for protection sheet is present in both sides","description":"Place the PC sheet upside (Green sheet should be at the top)","stepType":"testing","timeToComplete":"1min","isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[{"id":1770117042511,"name":"Make sure the distance between PC & nozzle is correct","description":"Use the gap tester every time","status":"pending","_id":"6985bda11de9032caf413b4f"}],"_id":"6985bda11de9032caf413b4e","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-06T10:10:04.794Z"}]},{"id":1770117157470,"stepName":"select the correct file in the laser control panel","description":"ಎಲೆಕ್ಟ್ರಾನಿಕ್ ಗುಪ್ತಚರ","stepType":"execution","timeToComplete":"1min","isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6985bda11de9032caf413b50","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-06T10:10:07.450Z"}]},{"id":1770117017111,"stepName":"Place the PC sheet with fixed READY","description":"Use frame check & align the sheet","stepType":"execution","timeToComplete":"1min","isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6985bda11de9032caf413b51","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-06T10:10:09.283Z"}]},{"id":1770117252350,"stepName":"Start cutting the PC","description":"Check the cutting is happening","stepType":"execution","timeToComplete":"35min","isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6985bda11de9032caf413b52","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-06T10:10:11.338Z"}]},{"id":1770117311807,"stepName":"check the output with the drawing","description":"make sure the PC sheet is not moving while cutting","stepType":"testing","timeToComplete":"1min","isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6985bda11de9032caf413b53","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-06T10:10:13.648Z"}]},{"id":1770117384007,"stepName":"Collect the parts","description":"Make sure the bed is no left over","stepType":"execution","timeToComplete":"2min","isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6985bda11de9032caf413b54","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-06T10:10:15.856Z"}]}]}
 
 --- RM DEDUCTION SECTION ---
 Total RM Requirements: 1
 RM Data: [
   {
     "name": "Polycarbonate 0.5mm glossy",
-    "required": 0,
-    "_id": "6981dfd3e6537f235f69c37d"
-  }
-]
-
-
-=== PLAN PRODUCTION CALLED at 2026-02-03T12:30:50.735Z ===
-Order ID: 6981dd93e6537f235f6938cf
-Item ID: 6981ddd7e6537f235f693e8a
-Body: {"batchQty":10000,"extraQty":250,"customSteps":[{"id":1,"stepName":"Check for protection sheet is present in both sides","description":"Place the PC sheet upside (Green sheet should be at the top)","stepType":"testing","timeToComplete":"1min","assignedEmployees":[],"isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[{"id":1770117042511,"name":"Make sure the distance between PC & nozzle is correct","description":"Use the gap tester every time","status":"pending","_id":"6981dd93e6537f235f6938db"}],"_id":"6981dd93e6537f235f6938da"},{"id":1770117157470,"stepName":"select the correct file in the laser control panel","description":"ಎಲೆಕ್ಟ್ರಾನಿಕ್ ಗುಪ್ತಚರ","stepType":"execution","timeToComplete":"1min","assignedEmployees":[],"isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938dc"},{"id":1770117017111,"stepName":"Place the PC sheet with fixed READY","description":"Use frame check & align the sheet","stepType":"execution","timeToComplete":"1min","assignedEmployees":[],"isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938dd"},{"id":1770117252350,"stepName":"Start cutting the PC","description":"Check the cutting is happening","stepType":"execution","timeToComplete":"35min","assignedEmployees":[],"isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938de"},{"id":1770117311807,"stepName":"check the output with the drawing","description":"make sure the PC sheet is not moving while cutting","stepType":"testing","timeToComplete":"1min","assignedEmployees":[],"isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938df"},{"id":1770117384007,"stepName":"Collect the parts","description":"Make sure the bed is no left over","stepType":"execution","timeToComplete":"2min","assignedEmployees":[],"isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938e0"}]}
-
---- RM DEDUCTION SECTION ---
-Total RM Requirements: 1
-RM Data: [
-  {
-    "name": "Polycarbonate 0.5mm glossy",
-    "required": 0,
-    "_id": "6981ea7ae6537f235f6acf1d"
-  }
-]
-
-
-=== PLAN PRODUCTION CALLED at 2026-02-03T12:31:20.193Z ===
-Order ID: 6981dd93e6537f235f6938cf
-Item ID: 6981ddd7e6537f235f693e8a
-Body: {"batchQty":9750,"extraQty":0,"customSteps":[{"id":1,"stepName":"Check for protection sheet is present in both sides","description":"Place the PC sheet upside (Green sheet should be at the top)","stepType":"testing","timeToComplete":"1min","assignedEmployees":[],"isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[{"id":1770117042511,"name":"Make sure the distance between PC & nozzle is correct","description":"Use the gap tester every time","status":"pending","_id":"6981dd93e6537f235f6938db"}],"_id":"6981dd93e6537f235f6938da"},{"id":1770117157470,"stepName":"select the correct file in the laser control panel","description":"ಎಲೆಕ್ಟ್ರಾನಿಕ್ ಗುಪ್ತಚರ","stepType":"execution","timeToComplete":"1min","assignedEmployees":[],"isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938dc"},{"id":1770117017111,"stepName":"Place the PC sheet with fixed READY","description":"Use frame check & align the sheet","stepType":"execution","timeToComplete":"1min","assignedEmployees":[],"isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938dd"},{"id":1770117252350,"stepName":"Start cutting the PC","description":"Check the cutting is happening","stepType":"execution","timeToComplete":"35min","assignedEmployees":[],"isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938de"},{"id":1770117311807,"stepName":"check the output with the drawing","description":"make sure the PC sheet is not moving while cutting","stepType":"testing","timeToComplete":"1min","assignedEmployees":[],"isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938df"},{"id":1770117384007,"stepName":"Collect the parts","description":"Make sure the bed is no left over","stepType":"execution","timeToComplete":"2min","assignedEmployees":[],"isOpenJob":false,"isOutward":false,"targetStartDate":"","targetDeadline":"","status":"pending","subSteps":[],"_id":"6981dd93e6537f235f6938e0"}]}
-
---- RM DEDUCTION SECTION ---
-Total RM Requirements: 1
-RM Data: [
-  {
-    "name": "Polycarbonate 0.5mm glossy",
-    "required": 0,
-    "_id": "6981ea98e6537f235f6ada8e"
-  }
-]
-
-
-=== PLAN PRODUCTION CALLED at 2026-02-04T11:43:37.244Z ===
-Order ID: 69832b60bfd4f060560abe06
-Item ID: 69832b60bfd4f060560abe07
-Body: {"batchQty":1000,"extraQty":100,"customSteps":[{"id":1,"stepName":"Check for protection sheet is present in both sides","description":"Place the PC sheet upside (Green sheet should be at the top)","stepType":"testing","timeToComplete":"1min","isOpenJob":false,"isOutward":false,"targetStartDate":"2026-02-04","targetDeadline":"2026-02-04","status":"pending","subSteps":[{"id":1770117042511,"name":"Make sure the distance between PC & nozzle is correct","description":"Use the gap tester every time","status":"pending","_id":"69832b60bfd4f060560abe09"}],"_id":"69832b60bfd4f060560abe08","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-04T11:42:13.435Z"}]},{"id":1770117157470,"stepName":"select the correct file in the laser control panel","description":"ಎಲೆಕ್ಟ್ರಾನಿಕ್ ಗುಪ್ತಚರ","stepType":"execution","timeToComplete":"1min","isOpenJob":true,"isOutward":false,"targetStartDate":"2026-02-04","targetDeadline":"2026-02-04","status":"pending","subSteps":[],"_id":"69832b60bfd4f060560abe0a","assignedEmployees":[]},{"id":1770117017111,"stepName":"Place the PC sheet with fixed READY","description":"Use frame check & align the sheet","stepType":"execution","timeToComplete":"1min","isOpenJob":false,"isOutward":false,"targetStartDate":"2026-02-04","targetDeadline":"2026-02-04","status":"pending","subSteps":[],"_id":"69832b60bfd4f060560abe0b","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-04T11:42:45.250Z"},{"employeeId":"697de6384243a3f325b4343f","assignedAt":"2026-02-04T11:42:48.287Z"}]},{"id":1770117252350,"stepName":"Start cutting the PC","description":"Check the cutting is happening","stepType":"execution","timeToComplete":"35min","isOpenJob":false,"isOutward":false,"targetStartDate":"2026-02-04","targetDeadline":"2026-02-04","status":"pending","subSteps":[],"_id":"69832b60bfd4f060560abe0c","assignedEmployees":[{"employeeId":"697de6384243a3f325b4343f","assignedAt":"2026-02-04T11:42:51.282Z"}]},{"id":1770117311807,"stepName":"check the output with the drawing","description":"make sure the PC sheet is not moving while cutting","stepType":"testing","timeToComplete":"1min","isOpenJob":false,"isOutward":false,"targetStartDate":"2026-02-04","targetDeadline":"2026-02-04","status":"pending","subSteps":[],"_id":"69832b60bfd4f060560abe0d","assignedEmployees":[{"employeeId":"697de64e4243a3f325b43443","assignedAt":"2026-02-04T11:42:53.618Z"}]},{"id":1770117384007,"stepName":"Collect the parts","description":"Make sure the bed is no left over","stepType":"execution","timeToComplete":"2min","isOpenJob":true,"isOutward":false,"targetStartDate":"2026-02-04","targetDeadline":"2026-02-04","status":"pending","subSteps":[],"_id":"69832b60bfd4f060560abe0e","assignedEmployees":[{"employeeId":"697de6384243a3f325b4343f","assignedAt":"2026-02-04T11:42:55.042Z"}]}]}
-
---- RM DEDUCTION SECTION ---
-Total RM Requirements: 1
-RM Data: [
-  {
-    "name": "Polycarbonate 0.5mm glossy",
-    "required": 1.221,
-    "available": 40,
+    "required": 1.11,
+    "available": 37.778999999999996,
     "unit": "sheets",
     "itemCode": "",
-    "_id": "69832b60bfd4f060560abe0f"
+    "_id": "6985bda11de9032caf413b55"
   }
 ]
 

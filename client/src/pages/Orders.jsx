@@ -267,7 +267,7 @@ export default function Orders() {
   const handleUpdateStage = async (orderId, newStage, reason = '') => {
     setStageUpdating(orderId);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
       await axios.patch(`${apiUrl}/api/orders/${orderId}/stage`, { stage: newStage, reason });
       showNotification(`Order moved to ${newStage}`);
 
@@ -283,7 +283,7 @@ export default function Orders() {
   const handleHoldResume = async (order, action) => {
     setStageUpdating(order._id);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
       if (action === 'hold') {
         const reason = window.prompt('Enter reason for Hold:');
         if (reason === null) return;

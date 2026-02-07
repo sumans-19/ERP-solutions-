@@ -11,7 +11,7 @@ import { useEmployeeView } from '../../contexts/EmployeeViewContext';
 import { motion } from 'framer-motion';
 // ... items ...
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
 
 const PieChart = ({ percentage, color = '#2563EB', size = 120 }) => {
     const strokeWidth = 8;

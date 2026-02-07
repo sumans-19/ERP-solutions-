@@ -4,7 +4,7 @@ import { Package, Activity, ShoppingCart, ChevronRight, Users, UserCheck, AlertC
 import OrderTrendsChart from '../components/OrderTrendsChart';
 import { canRead } from '../utils/permissions';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
 
 const PlanningDashboard = ({ setActiveSection }) => {
     const [stats, setStats] = useState({

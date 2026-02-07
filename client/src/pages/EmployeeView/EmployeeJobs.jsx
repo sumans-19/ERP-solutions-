@@ -49,6 +49,8 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
     const [globalJobs, setGlobalJobs] = useState([]); // For Global Search
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
+    const [rawAssignedJobs, setRawAssignedJobs] = useState([]); // Cache for all assigned jobs
+    const [rawOpenJobs, setRawOpenJobs] = useState([]);         // Cache for all open jobs
     const loadingRef = useRef(false); // Track loading without triggering re-renders
 
     // Initialize tab based on mode
@@ -67,7 +69,7 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
     const [isFqcMode, setIsFqcMode] = useState(false);
     const [showExecutionModal, setShowExecutionModal] = useState(false);
 
-    const [counts, setCounts] = useState({ active: 0, completed: 0, open: 0, global: 0 });
+    const [counts, setCounts] = useState({ active: 0, completed: 0, open: 0, global: 0, outsource: 0 });
 
     // Execution Step State
     const [qtyInputs, setQtyInputs] = useState({
@@ -85,34 +87,108 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
 
     useEffect(() => {
         if (selectedEmployeeId) {
-            console.log('EmployeeJobs: Refreshing data for Employee ID:', selectedEmployeeId);
-            refreshData();
-        } else {
-            console.log('EmployeeJobs: No employee selected in context yet.');
+            console.log('EmployeeJobs: Initial data load for Employee ID:', selectedEmployeeId);
+            refreshData(true); // Force network fetch on employee change
         }
-    }, [selectedEmployeeId, activeTab]);
+    }, [selectedEmployeeId]);
 
-    const refreshData = useCallback(async () => {
+    // Handle Tab/Search changes with in-memory filtering
+    useEffect(() => {
+        if (rawAssignedJobs.length > 0 || rawOpenJobs.length > 0) {
+            applyFilters();
+        }
+    }, [activeTab, searchQuery, rawAssignedJobs, rawOpenJobs, viewMode]);
+
+    const applyFilters = useCallback(() => {
+        const activeItems = [];
+        const completedItems = [];
+
+        rawAssignedJobs.forEach(job => {
+            if (job.steps) {
+                job.steps.forEach(step => {
+                    const isAssigned = step.assignedEmployees?.some(ae => {
+                        if (!ae || !ae.employeeId) return false;
+                        const empIdOfStep = ae.employeeId._id || ae.employeeId.id || ae.employeeId;
+                        return String(empIdOfStep) === String(selectedEmployeeId);
+                    });
+
+                    if (isAssigned) {
+                        const entry = { ...job, currentStep: step, type: 'internal' };
+                        if (step.status === 'completed') {
+                            completedItems.push(entry);
+                        } else {
+                            activeItems.push(entry);
+                        }
+                    }
+                });
+            }
+        });
+
+        // Outsource Jobs
+        const outsourceItems = rawAssignedJobs.filter(job =>
+            job.steps?.some(s =>
+                s.isOutward &&
+                (
+                    s.assignedEmployees?.some(ae => String(ae.employeeId?._id || ae.employeeId) === String(selectedEmployeeId)) ||
+                    String(s.outwardDetails?.internalEmployeeId?._id || s.outwardDetails?.internalEmployeeId) === String(selectedEmployeeId)
+                ) &&
+                s.status !== 'completed'
+            )
+        );
+
+        // Update Counts
+        setCounts(prev => ({
+            ...prev,
+            active: activeItems.length,
+            completed: completedItems.length,
+            open: rawOpenJobs.length,
+            outsource: outsourceItems.length
+        }));
+
+        if (viewMode === 'global') {
+            if (activeTab === 'search') {
+                if (searchQuery) {
+                    const lowerQ = searchQuery.toLowerCase();
+                    const filtered = globalJobs.filter(j =>
+                        j.jobNumber?.toLowerCase().includes(lowerQ) ||
+                        j.itemId?.name?.toLowerCase().includes(lowerQ) ||
+                        j.orderId?.poNumber?.toLowerCase().includes(lowerQ) ||
+                        j.orderId?.partyName?.toLowerCase().includes(lowerQ)
+                    );
+                    setJobs(filtered);
+                } else {
+                    setJobs(globalJobs);
+                }
+            }
+        } else {
+            if (activeTab === 'assigned') {
+                setJobs(activeItems);
+            } else if (activeTab === 'completed') {
+                setJobs(completedItems);
+            } else if (activeTab === 'outsource') {
+                setJobs(outsourceItems);
+            }
+        }
+
+        // Search is handled separately for global jobs for now to avoid massive initial fetch
+    }, [rawAssignedJobs, rawOpenJobs, activeTab, searchQuery, viewMode, selectedEmployeeId, globalJobs]);
+
+    const refreshData = useCallback(async (force = false) => {
         // Aggressive throttle to prevent re-render loops
         const now = Date.now();
-        if (window.lastJobRefresh && now - window.lastJobRefresh < 5000) {
-            console.log('[refreshData] THROTTLED - skipping refresh (last refresh was', Math.round((now - window.lastJobRefresh) / 1000), 'seconds ago)');
+        if (!force && window.lastJobRefresh && now - window.lastJobRefresh < 5000) {
+            console.log('[refreshData] THROTTLED - skipping refresh');
             return;
         }
         window.lastJobRefresh = now;
 
-        // Prevent concurrent refreshes
-        if (loadingRef.current) {
-            console.log('[refreshData] BLOCKED - already loading');
-            return;
-        }
+        if (loadingRef.current) return;
 
         try {
-            console.log('[refreshData] STARTING refresh for employee:', selectedEmployeeId);
+            console.log('[refreshData] FETCHING from server for employee:', selectedEmployeeId);
             loadingRef.current = true;
             setLoading(true);
 
-            // Fetch data in parallel to avoid blocking
             const [openResult, assignedResult] = await Promise.allSettled([
                 getOpenJobs(),
                 getJobCardsByEmployee(selectedEmployeeId)
@@ -121,115 +197,26 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
             const openData = openResult.status === 'fulfilled' ? openResult.value : [];
             const assignedData = assignedResult.status === 'fulfilled' ? assignedResult.value : [];
 
-            if (openResult.status === 'rejected') {
-                console.error('[EmployeeJobs] Failed to fetch open jobs:', openResult.reason);
-                console.error('[EmployeeJobs] Error details:', openResult.reason?.response?.data);
-                console.error('[EmployeeJobs] Status code:', openResult.reason?.response?.status);
-            }
-            if (assignedResult.status === 'rejected') {
-                console.error('[EmployeeJobs] Failed to fetch assigned jobs:', assignedResult.reason);
-                console.error('[EmployeeJobs] Error details:', assignedResult.reason?.response?.data);
-                console.error('[EmployeeJobs] Status code:', assignedResult.reason?.response?.status);
-            }
-
-            console.log('[EmployeeJobs] Open jobs count:', openData.length);
-            console.log('[EmployeeJobs] Assigned jobs count:', assignedData.length);
-
+            setRawOpenJobs(openData);
+            setRawAssignedJobs(assignedData);
             setOpenJobs(openData);
 
-            const activeItems = [];
-            const completedItems = [];
-
-            assignedData.forEach(job => {
-                if (job.steps) {
-                    job.steps.forEach(step => {
-                        const isAssigned = step.assignedEmployees?.some(ae => {
-                            if (!ae || !ae.employeeId) return false;
-                            const empIdOfStep = ae.employeeId._id || ae.employeeId.id || ae.employeeId;
-                            return String(empIdOfStep) === String(selectedEmployeeId);
-                        });
-
-                        if (isAssigned) {
-                            const entry = { ...job, currentStep: step, type: 'internal' };
-                            if (step.status === 'completed') {
-                                completedItems.push(entry);
-                            } else {
-                                activeItems.push(entry);
-                            }
-                        }
-                    });
-                }
-            });
-
-            // Update Counts
-            setCounts({ active: activeItems.length, completed: completedItems.length, open: openData.length, global: 0 });
-
-            // 2. Mode Specific Display Logic
-            if (viewMode === 'global') {
-                if (activeTab === 'search') {
-                    // Global Search - Fetch on demand or if not too heavy
-                    // For now, let's lazy load or keep existing logic but separate it
-                    getAllJobs().then(allData => {
-                        setGlobalJobs(allData);
-                        setCounts(prev => ({ ...prev, global: allData.length }));
-
-                        if (searchQuery) {
-                            const lowerQ = searchQuery.toLowerCase();
-                            const filtered = allData.filter(j =>
-                                j.jobNumber?.toLowerCase().includes(lowerQ) ||
-                                j.itemId?.name?.toLowerCase().includes(lowerQ) ||
-                                j.orderId?.poNumber?.toLowerCase().includes(lowerQ) ||
-                                j.orderId?.partyName?.toLowerCase().includes(lowerQ)
-                            );
-                            setJobs(filtered);
-                        } else {
-                            setJobs(allData);
-                        }
-                    }).catch(err => console.error('Error fetching global jobs:', err));
-
-                } else if (activeTab === 'open') {
-                    // Open jobs already fetched and set in openJobs state
-                    // We don't set 'jobs' state for 'open' tab because it uses 'openJobs' state directly in render
-                }
-            } else {
-                // My Jobs Logic
-                if (activeTab === 'assigned') {
-                    setJobs(activeItems);
-                } else if (activeTab === 'completed') {
-                    setJobs(completedItems);
-                } else if (activeTab === 'fqc') {
-                    // Fetch FQC jobs specifically if tab is active
-                    // This avoids blocking other tabs for FQC query
-                    try {
-                        const fqcStageData = await getJobCardsByStage('Verification');
-                        const myFqcAssignments = assignedData.filter(job =>
-                            job.steps.some(s =>
-                                (s.stepType === 'testing' || s.stepName?.toLowerCase().includes('qc')) &&
-                                s.assignedEmployees?.some(ae => String(ae.employeeId?._id || ae.employeeId) === String(selectedEmployeeId)) &&
-                                s.status !== 'completed'
-                            )
-                        );
-
-                        // Merge logic
-                        const unionMap = new Map();
-                        fqcStageData.forEach(j => unionMap.set(j._id, j));
-                        myFqcAssignments.forEach(j => unionMap.set(j._id, j));
-                        setJobs(Array.from(unionMap.values()));
-                    } catch (fqcErr) {
-                        console.error('Error fetching FQC jobs:', fqcErr);
-                        setJobs([]);
-                    }
-                }
+            // If in global search mode, pre-fetch global jobs or wait for demand
+            if (viewMode === 'global' && activeTab === 'search' && globalJobs.length === 0) {
+                getAllJobs().then(allData => {
+                    setGlobalJobs(allData);
+                    setCounts(prev => ({ ...prev, global: allData.length }));
+                });
             }
+
         } catch (error) {
-            console.error('CRITICAL Error refreshing data:', error);
-            showNotification('Failed to refresh jobs. Please try again.', 'error');
+            console.error('Error refreshing data:', error);
+            showNotification('Failed to refresh data', 'error');
         } finally {
-            console.log('[refreshData] COMPLETED refresh');
             loadingRef.current = false;
             setLoading(false);
         }
-    }, [selectedEmployeeId, viewMode, activeTab, searchQuery]);
+    }, [selectedEmployeeId, viewMode, activeTab, globalJobs.length]);
 
     const handleOpenFQC = (job, targetStep = null) => {
         console.log('[FQC] Opening job:', job.jobNumber);
@@ -526,7 +513,8 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
     const renderJobSteps = (job) => {
         // Steps are already sorted by order in DB, which represents the sequence
         const renderStepCard = (step, idx) => {
-            const isMyStep = step.assignedEmployees?.some(ae => String(ae.employeeId?._id || ae.employeeId) === String(selectedEmployeeId));
+            const isMyStep = step.assignedEmployees?.some(ae => String(ae.employeeId?._id || ae.employeeId) === String(selectedEmployeeId)) ||
+                (step.isOutward && String(step.outwardDetails?.internalEmployeeId?._id || step.outwardDetails?.internalEmployeeId) === String(selectedEmployeeId));
             const isQC = step.stepType === 'testing' || step.stepName?.toLowerCase().includes('qc');
 
             return (
@@ -565,28 +553,37 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
                             </p>
 
                             {/* Assigned Employees Display */}
-                            {step.assignedEmployees?.length > 0 && (
-                                <div className="mb-2 flex flex-wrap gap-2">
-                                    {step.assignedEmployees.map((ae, aeIdx) => {
-                                        const emp = ae.employeeId;
-                                        const empId = emp?._id || emp?.id || emp;
-                                        const empName = emp?.fullName || emp?.name || 'Unknown';
-                                        const empCode = emp?.employeeId || '';
-                                        const isMe = String(empId) === String(selectedEmployeeId);
-                                        return (
-                                            <div key={aeIdx} className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold border ${isMe
-                                                ? 'bg-blue-100 text-blue-800 border-blue-300'
-                                                : 'bg-slate-100 text-slate-600 border-slate-200'
-                                                }`}>
-                                                <Users size={10} />
-                                                <span>{empName}</span>
-                                                {empCode && <span className="text-[9px] opacity-70">({empCode})</span>}
-                                                {isMe && <span className="ml-1 text-[9px] bg-blue-200 px-1 rounded">YOU</span>}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
+                            <div className="mb-2 flex flex-wrap gap-2">
+                                {step.assignedEmployees?.map((ae, aeIdx) => {
+                                    const emp = ae.employeeId;
+                                    const empId = emp?._id || emp?.id || emp;
+                                    const empName = emp?.fullName || emp?.name || 'Unknown';
+                                    const empCode = emp?.employeeId || '';
+                                    const isMe = String(empId) === String(selectedEmployeeId);
+                                    return (
+                                        <div key={aeIdx} className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold border ${isMe
+                                            ? 'bg-blue-100 text-blue-800 border-blue-300'
+                                            : 'bg-slate-100 text-slate-600 border-slate-200'
+                                            }`}>
+                                            <Users size={10} />
+                                            <span>{empName}</span>
+                                            {empCode && <span className="text-[9px] opacity-70">({empCode})</span>}
+                                            {isMe && <span className="ml-1 text-[9px] bg-blue-200 px-1 rounded">YOU</span>}
+                                        </div>
+                                    );
+                                })}
+                                {/* Display Internal Coordinator for Outward Steps */}
+                                {step.isOutward && step.outwardDetails?.internalEmployeeId && (
+                                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold border ${String(step.outwardDetails.internalEmployeeId?._id || step.outwardDetails.internalEmployeeId) === String(selectedEmployeeId)
+                                        ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                                        }`}>
+                                        <Users size={10} />
+                                        <span>Coordinator: {step.outwardDetails.internalEmployeeId?.fullName || step.outwardDetails.internalEmployeeId?.name || 'Assigned'}</span>
+                                        {String(step.outwardDetails.internalEmployeeId?._id || step.outwardDetails.internalEmployeeId) === String(selectedEmployeeId) && <span className="ml-1 text-[9px] bg-amber-200 px-1 rounded">YOU</span>}
+                                    </div>
+                                )}
+                            </div>
                             {step.isOpenJob && step.assignedEmployees?.length === 0 && (
                                 <div className="mb-2">
                                     <span className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded border border-green-200">Available for any employee to accept</span>
@@ -670,13 +667,13 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
                             <Briefcase size={14} /> Assigned <span className="ml-1 bg-white/20 px-1.5 py-0.5 rounded text-[10px]">{counts.active}</span>
                         </button>
                         <button
-                            onClick={() => { setLoading(true); setActiveTab('fqc'); setSelectedJob(null); }}
-                            className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'fqc'
-                                ? 'bg-purple-600 text-white shadow-md shadow-purple-200'
+                            onClick={() => { setLoading(true); setActiveTab('outsource'); setSelectedJob(null); }}
+                            className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'outsource'
+                                ? 'bg-amber-600 text-white shadow-md shadow-amber-200'
                                 : 'bg-white text-slate-500 border border-slate-200'
                                 }`}
                         >
-                            <ClipboardCheck size={14} /> FQC Check
+                            <ArrowLeftRight size={14} /> Outsource <span className="ml-1 bg-white/20 px-1.5 py-0.5 rounded text-[10px]">{counts.outsource}</span>
                         </button>
                         <button
                             onClick={() => { setLoading(true); setActiveTab('completed'); setSelectedJob(null); }}
@@ -826,14 +823,14 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
                             </div>
                         ))}
 
-                        {!loading && activeTab === 'fqc' && jobs.map((job, idx) => (
+                        {!loading && activeTab === 'outsource' && jobs.map((job, idx) => (
                             <div
                                 key={`${job._id}-${idx}`}
                                 onClick={() => setSelectedJob(job)}
                                 className={`p-4 border rounded-lg cursor-pointer transition-all hover:bg-slate-50 ${selectedJob?._id === job._id ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}
                             >
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">WAITING FQC</span>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">OUTSOURCE</span>
                                     <span className="text-[10px] font-mono text-slate-400">{job.jobNumber}</span>
                                 </div>
                                 <h4 className="font-bold text-slate-900 text-sm mb-1">{job.itemId?.name}</h4>
@@ -845,12 +842,12 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
                             </div>
                         ))}
 
-                        {!loading && (activeTab === 'assigned' || activeTab === 'open' || activeTab === 'fqc' || activeTab === 'completed' || activeTab === 'search') &&
+                        {!loading && (activeTab === 'assigned' || activeTab === 'open' || activeTab === 'outsource' || activeTab === 'completed' || activeTab === 'search') &&
                             ((activeTab === 'assigned' && jobs.length === 0) ||
                                 (activeTab === 'open' && openJobs.length === 0) ||
                                 (activeTab === 'completed' && jobs.length === 0) ||
                                 (activeTab === 'search' && jobs.length === 0) ||
-                                (activeTab === 'fqc' && jobs.length === 0)) && (
+                                (activeTab === 'outsource' && jobs.length === 0)) && (
                                 <div className="text-center py-20 text-slate-400 text-sm italic">
                                     No {activeTab} jobs found.
                                 </div>
@@ -988,7 +985,7 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
                                     </div>
                                 )}
 
-                                {(activeTab === 'fqc' || isFqcMode) ? (
+                                {isFqcMode ? (
                                     <div className="space-y-6">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
@@ -997,7 +994,7 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
                                                         onClick={() => setIsFqcMode(false)}
                                                         className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
                                                     >
-                                                        <ArrowLeftRight size={20} />
+                                                        <ArrowLeft size={20} />
                                                     </button>
                                                 )}
                                                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
@@ -1295,6 +1292,29 @@ const EmployeeJobs = ({ user, viewMode = 'my-jobs' }) => {
                                                     <span className="text-[7px] bg-red-600 text-white px-1 rounded font-bold uppercase mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">Download</span>
                                                 </a>
                                             ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Outsource Info */}
+                                {selectedJob?.currentStep?.isOutward && (
+                                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-1">
+                                            <Globe size={12} /> Outsource Details
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-4 text-[11px]">
+                                            <div>
+                                                <span className="text-slate-500 font-bold block">VENDOR:</span>
+                                                <span className="text-slate-900 font-black">{selectedJob.currentStep.outwardDetails?.partyName || 'Not Specified'}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-slate-500 font-bold block">EXPECTED RETURN:</span>
+                                                <span className="text-slate-900 font-black">
+                                                    {selectedJob.currentStep.outwardDetails?.expectedReturnDate
+                                                        ? new Date(selectedJob.currentStep.outwardDetails.expectedReturnDate).toLocaleDateString()
+                                                        : 'Not Specified'}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 )}

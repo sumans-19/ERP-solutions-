@@ -4,6 +4,7 @@ import { getJobCards, updateJobCardSteps, splitJobCard, getEmployees, getAllOrde
 import { getParties } from '../../services/partyApi';
 import { useNotification } from '../../contexts/NotificationContext';
 import CollapsibleJobCard from '../../components/CollapsibleJobCard';
+import SearchableEmployeeSelect from '../../components/SearchableEmployeeSelect';
 
 export default function ProductionModule() {
     const { showNotification } = useNotification();
@@ -87,7 +88,8 @@ export default function ProductionModule() {
             const res = await getAllOrders();
             const allOrders = Array.isArray(res) ? res : res.data || [];
             const pendingOrders = allOrders.filter(
-                order => order.status === 'Pending' && order.items?.some(item => (item.quantity - (item.plannedQty || 0)) > 0)
+                order => (order.status !== 'Completed' && order.status !== 'Cancelled') &&
+                    order.items?.some(item => (item.quantity - (item.plannedQty || 0)) > 0)
             );
             setOrders(pendingOrders);
         } catch (err) {
@@ -747,22 +749,18 @@ export default function ProductionModule() {
                                                                             }} />
                                                                         </span>
                                                                     ))}
-                                                                    <select
-                                                                        className="flex-1 bg-transparent border-none outline-none text-[10px] min-w-[80px]"
-                                                                        onChange={(e) => {
-                                                                            if (!e.target.value) return;
+                                                                    <SearchableEmployeeSelect
+                                                                        employees={employees}
+                                                                        onSelect={(employeeId) => {
                                                                             const newSteps = [...customSteps];
                                                                             if (!newSteps[idx].assignedEmployees) newSteps[idx].assignedEmployees = [];
-                                                                            if (!newSteps[idx].assignedEmployees.some(ae => ae.employeeId === e.target.value)) {
-                                                                                newSteps[idx].assignedEmployees.push({ employeeId: e.target.value, assignedAt: new Date() });
+                                                                            if (!newSteps[idx].assignedEmployees.some(ae => ae.employeeId === employeeId)) {
+                                                                                newSteps[idx].assignedEmployees.push({ employeeId: employeeId, assignedAt: new Date() });
                                                                                 setCustomSteps(newSteps);
                                                                             }
-                                                                            e.target.value = "";
                                                                         }}
-                                                                    >
-                                                                        <option value="">Add Employee...</option>
-                                                                        {employees.map(emp => <option key={emp._id} value={emp._id}>{emp.name || emp.fullName}</option>)}
-                                                                    </select>
+                                                                        placeholder="Search and add employee..."
+                                                                    />
                                                                 </div>
                                                             </div>
                                                         </div>

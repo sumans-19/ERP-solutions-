@@ -4,7 +4,7 @@ import { getParties, getFollowUps, createFollowUp } from '../../services/partyAp
 import { getEmployees } from '../../services/employeeApi';
 import { Search, History, User, Calendar, Save, UserCheck } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
 
 const PartyFollowUpsPage = () => {
     const [parties, setParties] = useState([]);

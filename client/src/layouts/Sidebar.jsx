@@ -12,7 +12,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
   const [roleConfig, setRoleConfig] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
 
   useEffect(() => {
     if (user?.role) {
@@ -137,7 +137,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
 
     if (item.type === 'item') {
       const IconComponent = item.icon;
-      const isActive = activeSection === item.id;
+      const isActive = activeSection === item.id || (item.id === 'employee-view' && activeSection.startsWith('employee-'));
       return (
         <li key={item.id}>
           <button

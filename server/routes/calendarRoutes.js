@@ -17,7 +17,7 @@ router.use(authenticateToken);
 // Get aggregated calendar events
 router.get('/events', async (req, res) => {
     try {
-        const { start, end } = req.query;
+        const { start, end, employeeId } = req.query;
         let dateFilter = {};
 
         if (start && end) {
@@ -27,18 +27,28 @@ router.get('/events', async (req, res) => {
             };
         }
 
-        // 1. Fetch Orders (Delivery Date)
-        const orderQuery = start && end ? { estimatedDeliveryDate: dateFilter } : {};
-        const orders = await Order.find(orderQuery)
-            .select('partyName poNumber estimatedDeliveryDate status items totalAmount')
-            .lean();
+        const isEmployeeView = !!employeeId;
 
-        // 2. Fetch Job Cards (Target Deadline)
-        const jobQuery = start && end ? { 'steps.targetDeadline': dateFilter } : {};
-        // Note: This matches if ANY step has a deadline in range, but for calendar we usually want the Job's main delivery date or specific step deadlines.
-        // For simplicity, let's use the Job's main delivery date if available, or track individual steps.
-        // Let's stick to Job Delivery Date for the main view.
-        const jobQueryMain = start && end ? { deliveryDate: dateFilter } : {};
+        // 1. Fetch Orders (Delivery Date) - Skip for employee view to reduce clutter
+        let orders = [];
+        if (!isEmployeeView) {
+            const orderQuery = start && end ? { estimatedDeliveryDate: dateFilter } : {};
+            orders = await Order.find(orderQuery)
+                .select('partyName poNumber estimatedDeliveryDate status items totalAmount')
+                .lean();
+        }
+
+        // 2. Fetch Job Cards (Main Delivery Date)
+        let jobQueryMain = start && end ? { deliveryDate: dateFilter } : {};
+        if (isEmployeeView) {
+            jobQueryMain = {
+                ...jobQueryMain,
+                $or: [
+                    { 'steps.assignedEmployees.employeeId': employeeId },
+                    { 'steps.outwardDetails.internalEmployeeId': employeeId }
+                ]
+            };
+        }
         const jobs = await JobCard.find(jobQueryMain)
             .populate('itemId', 'name code')
             .populate('orderId', 'partyName')
@@ -46,60 +56,72 @@ router.get('/events', async (req, res) => {
             .lean();
 
         // 3. Fetch Tasks (Due Date)
-        const taskQuery = start && end ? { dueDate: dateFilter } : {};
+        let taskQuery = start && end ? { dueDate: dateFilter } : {};
+        if (isEmployeeView) {
+            taskQuery.employeeId = employeeId;
+        }
         const tasks = await Task.find(taskQuery)
             .select('title priority status dueDate employeeId')
             .lean();
 
-        // 4. Fetch Party Follow-ups (Meeting Date)
-        const followUpQuery = start && end ? { meetingDateTime: dateFilter } : {};
-        const followUps = await PartyFollowUp.find(followUpQuery)
-            .select('partyName meetingDateTime remarks flag')
-            .lean();
+        // 4. Fetch Party Follow-ups (Meeting Date) - Skip for employee view
+        let followUps = [];
+        if (!isEmployeeView) {
+            const followUpQuery = start && end ? { meetingDateTime: dateFilter } : {};
+            followUps = await PartyFollowUp.find(followUpQuery)
+                .select('partyName meetingDateTime remarks flag')
+                .lean();
+        }
 
         // 5. Fetch Todos (Deadline or Start Date)
-        const todoQuery = start && end ? {
+        let todoQuery = start && end ? {
             $or: [
                 { deadlineDate: dateFilter },
                 { date: dateFilter }
             ]
         } : {};
+        if (isEmployeeView) {
+            todoQuery.assignedTo = employeeId;
+        }
         const todos = await Todo.find(todoQuery)
             .select('taskName deadlineDate date status assignmentName')
             .lean();
 
-        // 6. Fetch Inventory Expiry
-        const inventoryQuery = start && end ? { expiry: dateFilter } : {};
-        const inventoryItems = await Inventory.find(inventoryQuery)
-            .select('name code qty unit expiry')
-            .lean();
+        // 6-10. Global Data (Inventory, FG, RM, MR, GRN) - Skip for employee view unless requested
+        let inventoryItems = [];
+        let fgs = [];
+        let grns = [];
+        let rawMaterials = [];
+        let mrs = [];
 
-        // 7. Fetch GRN Expiry
-        const grnQuery = start && end ? { 'items.expDate': dateFilter } : {};
-        const grns = await GRN.find(grnQuery)
-            .select('grnNumber supplierName items receiveDate')
-            .lean();
+        if (!isEmployeeView) {
+            const inventoryQuery = start && end ? { expiry: dateFilter } : {};
+            inventoryItems = await Inventory.find(inventoryQuery).select('name code qty unit expiry').lean();
 
-        // 8. Fetch Raw Material Expiry
-        const rmQuery = start && end ? { expDate: dateFilter } : {};
-        const rawMaterials = await RawMaterial.find(rmQuery)
-            .select('name code qty uom expDate')
-            .lean();
+            const fgQuery = start && end ? { expDate: dateFilter } : {};
+            fgs = await FinishedGood.find(fgQuery).select('partName partNo qty expDate').lean();
 
-        // 9. Fetch Material Request Items Expiry
-        const mrQuery = start && end ? { 'items.expDate': dateFilter } : {};
-        const mrs = await MaterialRequest.find(mrQuery)
-            .select('mrNo items requestDate')
-            .lean();
+            const grnQuery = start && end ? { 'items.expDate': dateFilter } : {};
+            grns = await GRN.find(grnQuery).select('grnNumber supplierName items receiveDate').lean();
 
-        // 10. Fetch Finished Goods Expiry
-        const fgQuery = start && end ? { expDate: dateFilter } : {};
-        const fgs = await FinishedGood.find(fgQuery)
-            .select('partName partNo qty expDate')
-            .lean();
+            const rmQuery = start && end ? { expDate: dateFilter } : {};
+            rawMaterials = await RawMaterial.find(rmQuery).select('name code qty uom expDate').lean();
+
+            const mrQuery = start && end ? { 'items.expDate': dateFilter } : {};
+            mrs = await MaterialRequest.find(mrQuery).select('mrNo items requestDate').lean();
+        }
 
         // 11. Fetch Job Card Step Deadlines
-        const jobStepQuery = start && end ? { 'steps.targetDeadline': dateFilter } : {};
+        let jobStepQuery = start && end ? { 'steps.targetDeadline': dateFilter } : {};
+        if (isEmployeeView) {
+            jobStepQuery = {
+                ...jobStepQuery,
+                $or: [
+                    { 'steps.assignedEmployees.employeeId': employeeId },
+                    { 'steps.outwardDetails.internalEmployeeId': employeeId }
+                ]
+            };
+        }
         const jobSteps = await JobCard.find(jobStepQuery)
             .populate('itemId', 'name')
             .select('jobNumber steps itemId')

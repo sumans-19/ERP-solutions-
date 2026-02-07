@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const { seedUsers } = require('./utils/seed');
 
 console.log('--- SERVER BOOT SEQUENCE [VERSION 4.6-STABLE] ---');
 
@@ -39,8 +38,10 @@ mongoose.connect(process.env.MONGO_URI)
 // 4. Functional Routes
 console.log('🔄 MOUNTING: /api/rejected-goods');
 app.use('/api/rejected-goods', require('./routes/rejectedGoodRoutes'));
+app.use('/api', require('./routes/authRoutes'));
 
 app.use('/api/items', require('./routes/itemRoutes'));
+app.use('/api/activities', require('./routes/activityRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/employees', require('./routes/employeeRoutes'));
 app.use('/api/employees', require('./routes/employeeWorkloadRoutes'));

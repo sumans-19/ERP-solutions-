@@ -5,7 +5,7 @@ import OrderTrendsChart from '../components/OrderTrendsChart';
 import QuickActions from '../components/QuickActions';
 import RecentActivity from '../components/RecentActivity';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
 
 const Dashboard = () => {
   const [orderStats, setOrderStats] = useState({

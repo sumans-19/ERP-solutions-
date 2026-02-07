@@ -38,7 +38,7 @@ router.get('/open-jobs', async (req, res) => {
             'steps.isOpenJob': true,
             'steps.status': 'pending'
         })
-            .populate('itemId', 'name code unit image images finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
+            .populate('itemId', 'name code unit finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize') // Excluded image and images
             .populate('orderId', 'partyName poNumber')
             .populate('steps.assignedEmployees.employeeId', 'fullName name username employeeId');
 
@@ -351,15 +351,105 @@ router.patch('/jobs/:jobId/steps/:stepId/complete-outward', async (req, res) => 
             return res.status(400).json({ message: 'This is not an outward work step' });
         }
 
+        const oldStatus = step.status;
         step.quantities = {
-            received: step.quantities?.received || 0, // This is what we sent out? Actually, maybe received here means what we got back.
-            processed: receivedQty,
-            rejected: rejectedQty
+            received: step.quantities?.received || 0,
+            processed: Number(receivedQty),
+            rejected: Number(rejectedQty)
         };
         step.remarks = remarks;
+        if (!step.outwardDetails) step.outwardDetails = {};
         step.outwardDetails.actualReturnDate = returnDate || new Date();
         step.status = 'completed';
         step.endTime = new Date();
+
+        const stepIndex = job.steps.findIndex(s => s.stepId === stepId);
+
+        // 1. Propagate Quantity to NEXT Step
+        if (stepIndex < job.steps.length - 1) {
+            const nextStep = job.steps[stepIndex + 1];
+            nextStep.quantities.received = Number(receivedQty);
+            console.log(`[Outsource] Propagated Received Qty to Next Step (${nextStep.stepName}): ${receivedQty}`);
+        }
+
+        // 2. Automated Rejection Movement
+        if (oldStatus !== 'completed' && Number(rejectedQty) > 0) {
+            try {
+                const item = await Item.findById(job.itemId);
+                const employeeId = req.user?.id || req.user?._id || req.headers['x-user-id'];
+
+                let employeeName = 'Vendor/Outsource';
+                if (employeeId) {
+                    try {
+                        const employee = await Employee.findById(employeeId);
+                        if (employee) {
+                            employeeName = employee.fullName || employee.name || employee.username || 'Worker';
+                        }
+                    } catch (empErr) {
+                        console.error('[Outsource Rejection] Failed to fetch employee name:', empErr);
+                    }
+                }
+
+                // Generate or Reuse Rejection ID for this Job
+                let rejectionId;
+                const existingRejection = await RejectedGood.findOne({
+                    jobId: job._id,
+                    source: 'Production',
+                    status: 'Pending'
+                }).sort({ createdAt: -1 });
+
+                if (existingRejection) {
+                    rejectionId = existingRejection.rejectionId;
+                } else {
+                    rejectionId = await generateRejectionId('REJ-PROD');
+                }
+
+                const rejectedEntry = new RejectedGood({
+                    rejectionId,
+                    itemId: job.itemId,
+                    partNo: item?.code || 'N/A',
+                    partName: item?.name || 'Unknown',
+                    qty: Number(rejectedQty),
+                    reason: remarks || `Rejected during outsource return: ${step.stepName}`,
+                    poNo: job.orderId?.poNumber || '',
+                    jobNo: job.jobNumber,
+                    jobId: job._id,
+                    stepName: step.stepName,
+                    employeeId: employeeId,
+                    employeeName: employeeName,
+                    source: 'Production',
+                    status: 'Pending',
+                    mfgDate: new Date()
+                });
+                await rejectedEntry.save();
+                console.log(`[Outsource Rejection] Logged ${rejectedQty} rejected units: ${rejectionId}`);
+            } catch (rejErr) {
+                console.error('[Outsource Rejection] Failed to log rejection:', rejErr);
+            }
+        }
+
+        // 3. Update WIP Stock for tracking
+        try {
+            const item = await Item.findById(job.itemId);
+            const totalRejected = job.steps.reduce((sum, s) => sum + (s.quantities?.rejected || 0), 0);
+
+            await WIPStock.findOneAndUpdate(
+                { jobNo: job.jobNumber },
+                {
+                    partNo: item?.code || 'N/A',
+                    partName: item?.name || 'Unknown',
+                    qty: Number(receivedQty),
+                    initialQty: job.quantity,
+                    processedQty: Number(receivedQty),
+                    rejectedQty: totalRejected,
+                    currentStage: `${step.stepName} (Received)`,
+                    uom: item?.unit || 'Unit'
+                },
+                { upsert: true, new: true }
+            );
+        } catch (wipErr) {
+            console.error('[Outsource WIP] Failed to update:', wipErr);
+        }
 
         await job.save();
         res.json({ message: 'Outward work completed', job });

@@ -6,6 +6,7 @@ const Order = require('../models/Order');
 const Item = require('../models/Item');
 const authenticateToken = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permissions');
+const Activity = require('../models/Activity');
 
 // DEBUG ROUTE - Remove after fixing
 router.get('/debug-assignment/:employeeId', async (req, res) => {
@@ -285,7 +286,7 @@ router.get('/employee/:employeeId', async (req, res) => {
         const jobs = await JobCard.find({
             'steps.assignedEmployees.employeeId': searchId
         })
-            .populate('itemId', 'name code unit image images finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize')
+            .populate('itemId', 'name code unit finalQualityCheck finalQualityCheckImages finalQualityCheckSampleSize') // Excluded image and images
             .populate('orderId', 'partyName poNumber')
             .populate('steps.assignedEmployees.employeeId', 'name fullName email')
             .sort({ createdAt: -1 });
@@ -395,6 +396,25 @@ router.patch('/:id/steps', checkPermission('editOrders'), async (req, res) => {
         }
 
         await job.save();
+
+        // Log Activity for stage movement
+        try {
+            const currentStage = job.steps.find(s => s.status === 'in-progress' || s.status === 'completed')?.stepName || job.stage;
+            await Activity.create({
+                type: 'Job',
+                action: 'Stage Moved',
+                message: `Job ${job.jobNumber} moved to stage: ${currentStage}`,
+                metadata: {
+                    jobId: job._id,
+                    orderId: job.orderId,
+                    jobNumber: job.jobNumber,
+                    stage: currentStage
+                }
+            });
+        } catch (actErr) {
+            console.error('Activity logging failed:', actErr);
+        }
+
         res.json(job);
     } catch (error) {
         console.error('CRITICAL ERROR in PATCH /api/job-cards/:id/steps:');

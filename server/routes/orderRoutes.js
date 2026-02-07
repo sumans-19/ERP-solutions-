@@ -9,6 +9,7 @@ const WIPStock = require('../models/WIPStock');
 const authenticateToken = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permissions');
 const Counter = require('../models/Counter');
+const Activity = require('../models/Activity');
 
 // Helper to get auto-incrementing Job No
 async function getNextJobNo() {
@@ -251,6 +252,18 @@ router.post('/', checkPermission('createOrders'), async (req, res) => {
 
     const savedOrder = await newOrder.save();
 
+    // Log Activity
+    await Activity.create({
+      type: 'Order',
+      action: 'Created',
+      message: `New Order #${savedOrder.poNumber || 'N/A'} created for ${savedOrder.partyName}`,
+      metadata: {
+        orderId: savedOrder._id,
+        partyName: savedOrder.partyName,
+        poNumber: savedOrder.poNumber
+      }
+    });
+
     res.status(201).json({
       message: 'Order created successfully',
       order: savedOrder
@@ -368,6 +381,19 @@ router.patch('/:id/status', checkPermission('editOrders'), async (req, res) => {
 
     await order.save();
 
+    // Log Activity
+    await Activity.create({
+      type: 'Order',
+      action: 'Status Updated',
+      message: `Order #${order.poNumber || 'N/A'} status updated to ${status}`,
+      metadata: {
+        orderId: order._id,
+        partyName: order.partyName,
+        poNumber: order.poNumber,
+        status: status
+      }
+    });
+
     res.json({
       message: 'Order status updated successfully',
       order
@@ -389,6 +415,20 @@ router.patch('/:id/stage', checkPermission('editOrders'), async (req, res) => {
     if (stage === 'OnHold') order.holdReason = reason;
 
     await order.save();
+
+    // Log Activity
+    await Activity.create({
+      type: 'Order',
+      action: 'Stage Changed',
+      message: `Order #${order.poNumber || 'N/A'} moved to ${stage}`,
+      metadata: {
+        orderId: order._id,
+        partyName: order.partyName,
+        poNumber: order.poNumber,
+        stage: stage
+      }
+    });
+
     res.json({ message: `Order moved to ${stage}`, order });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -762,6 +802,22 @@ router.post('/:id/items/:itemId/plan-production', checkPermission('editOrders'),
     }
 
     await order.save();
+
+    // Log Activity
+    await Activity.create({
+      type: 'Job',
+      action: 'Allocated',
+      message: `Production allocated for ${item.itemName} (Job: ${savedJob.jobNumber})`,
+      metadata: {
+        orderId: order._id,
+        jobId: savedJob._id,
+        partyName: order.partyName,
+        jobNumber: savedJob.jobNumber,
+        itemName: item.itemName,
+        poNumber: order.poNumber
+      }
+    });
+
     res.json({
       message: 'Production planned and Job Card generated successfully',
       order,

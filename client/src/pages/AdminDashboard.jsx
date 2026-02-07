@@ -9,7 +9,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import OrderStageGate from './Orders/OrderStageGate';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
 
 // --- New Component Design ---
 
@@ -157,13 +157,23 @@ const AdminDashboard = ({ setActiveSection }) => {
 
             const recentActivity = jobs
                 .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-                .slice(0, 5)
-                .map(j => ({
-                    id: j._id,
-                    desc: `${j.itemId?.name || 'Item'} - ${j.stage}`,
-                    time: j.updatedAt,
-                    status: j.status
-                }));
+                .slice(0, 12)
+                .map(j => {
+                    const lastStep = j.steps?.filter(s => s.status === 'completed').pop();
+                    const pass = lastStep?.quantities?.processed || 0;
+                    const rej = j.steps?.reduce((acc, s) => acc + (s.quantities?.rejected || 0), 0) || 0;
+                    return {
+                        id: j._id,
+                        jobNumber: j.jobNumber,
+                        itemName: j.itemId?.name || 'Item',
+                        stage: j.stage,
+                        time: j.updatedAt,
+                        status: j.status,
+                        pass: pass,
+                        rej: rej,
+                        fqc: j.fqcStatus
+                    };
+                });
 
             // --- 5. Business Intelligence ---
 
@@ -231,7 +241,7 @@ const AdminDashboard = ({ setActiveSection }) => {
 
     return (
         <div className="h-full overflow-y-auto bg-slate-50 p-6 custom-scrollbar">
-            <div className="max-w-7xl mx-auto space-y-6">
+            <div className="w-full space-y-6">
 
                 {/* Header */}
                 <div className="flex justify-between items-end border-b border-slate-200 pb-4">
@@ -247,6 +257,79 @@ const AdminDashboard = ({ setActiveSection }) => {
                         <button onClick={fetchDashboardData} className="p-1.5 bg-white border border-slate-200 text-slate-500 rounded hover:bg-slate-50 hover:text-blue-600 transition-colors shadow-sm">
                             <Activity size={16} />
                         </button>
+                    </div>
+                </div>
+
+                {/* --- FULL-WIDTH LIVE FEED GRID --- */}
+                <div className="bg-white border border-slate-200 rounded-xl py-5 shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between px-6 mb-5">
+                        <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                            <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em]">Live Production Stream</h3>
+                        </div>
+                        <div className="flex items-center gap-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                            <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Pass</div>
+                            <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Rej</div>
+                            <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div> QC Status</div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 px-6 pb-2">
+                        {data.recentActivity.map((act, i) => (
+                            <motion.div
+                                key={i}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: i * 0.05 }}
+                                className="bg-white border border-slate-100 rounded-xl p-3.5 hover:border-blue-400 hover:shadow-lg transition-all cursor-default group relative shadow-sm hover:-translate-y-1"
+                            >
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="min-w-0 flex-1 pr-2">
+                                        <h4 className="font-black text-slate-900 text-[11px] truncate uppercase tracking-tight leading-tight mb-0.5">{act.itemName}</h4>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-mono">#{act.jobNumber}</p>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full border uppercase tracking-tighter ${act.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                            act.status === 'InProgress' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                                'bg-slate-50 text-slate-500 border-slate-200'
+                                            }`}>
+                                            {act.status}
+                                        </span>
+                                        <p className="text-[8px] text-slate-400 font-bold">{new Date(act.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-50/80 rounded-lg p-2.5 flex items-center justify-between border border-slate-100 group-hover:bg-blue-50/50 group-hover:border-blue-100 transition-colors">
+                                    <div className="flex-1">
+                                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Current Stage</p>
+                                        <p className="text-[10px] font-black text-slate-700 uppercase truncate">{act.stage}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3 pl-3 border-l border-slate-200">
+                                        <div className="text-center">
+                                            <p className="text-[11px] font-black text-emerald-600 leading-none">{act.pass}</p>
+                                            <p className="text-[6px] font-black text-slate-400 uppercase tracking-tighter mt-0.5">Pass</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[11px] font-black text-red-600 leading-none">{act.rej}</p>
+                                            <p className="text-[6px] font-black text-slate-400 uppercase tracking-tighter mt-0.5">Rej</p>
+                                        </div>
+                                        {act.fqc && (
+                                            <div className="text-center">
+                                                <p className={`text-[11px] font-black leading-none ${act.fqc === 'Passed' ? 'text-blue-600' : 'text-amber-600'}`}>
+                                                    {act.fqc[0]}
+                                                </p>
+                                                <p className="text-[6px] font-black text-slate-400 uppercase tracking-tighter mt-0.5">QC</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))}
+                        {data.recentActivity.length === 0 && (
+                            <div className="col-span-full text-center py-6 text-slate-400 font-bold text-[10px] uppercase tracking-widest italic border border-dashed border-slate-200 rounded-xl">
+                                No production activity detected in the last cycle
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -544,89 +627,85 @@ const AdminDashboard = ({ setActiveSection }) => {
                     </div>
                 </div>
 
-                {/* Secondary Content: Timeline & Recent Activity */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Secondary Content: Timeline & Announcements */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                    {/* Timeline */}
-                    <div className="lg:col-span-2 bg-white rounded-md border border-slate-200 shadow-sm flex flex-col">
+                    {/* Timeline - Full Width in this context */}
+                    <div className="lg:col-span-full bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
                         <div className="px-5 py-3 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
                             <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2 uppercase tracking-wide">
                                 <Calendar size={16} className="text-slate-400" /> Production Timeline
                             </h3>
                             <span className="text-[10px] font-bold bg-white border border-slate-200 text-slate-500 px-2 py-0.5 rounded">NEXT 10 DAYS</span>
                         </div>
-                        <div className="p-4 space-y-2">
+                        <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {data.timeline.length > 0 ? (
                                 data.timeline.map((order) => (
-                                    <div key={order._id} className="flex items-center gap-4 p-2.5 rounded border border-slate-100 hover:border-blue-300 hover:bg-white transition-all group bg-slate-50/30">
-                                        <div className="w-10 h-10 rounded bg-white border border-slate-200 flex flex-col items-center justify-center flex-shrink-0 group-hover:border-blue-200 transition-colors">
-                                            <span className="text-[10px] font-bold uppercase text-slate-400 group-hover:text-blue-500 leading-none mb-0.5">{new Date(order.estimatedDeliveryDate).toLocaleDateString('en-US', { month: 'short' })}</span>
-                                            <span className="text-sm font-bold text-slate-700 group-hover:text-blue-700 leading-none">{new Date(order.estimatedDeliveryDate).getDate()}</span>
+                                    <div key={order._id} className="flex items-center gap-4 p-3 rounded-lg border border-slate-100 hover:border-blue-300 hover:bg-blue-50/30 transition-all group bg-white shadow-sm hover:shadow-md cursor-default">
+                                        <div className="w-11 h-11 rounded-lg bg-slate-50 border border-slate-200 flex flex-col items-center justify-center flex-shrink-0 group-hover:border-blue-200 transition-colors shadow-sm bg-white">
+                                            <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-blue-500 leading-none mb-0.5">{new Date(order.estimatedDeliveryDate).toLocaleDateString('en-US', { month: 'short' })}</span>
+                                            <span className="text-sm font-black text-slate-700 group-hover:text-blue-700 leading-none">{new Date(order.estimatedDeliveryDate).getDate()}</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <h4 className="font-bold text-slate-800 text-sm truncate">{order.partyName}</h4>
-                                            <p className="text-[10px] text-slate-500 font-mono">PO: {order.poNumber}</p>
+                                            <h4 className="font-bold text-slate-800 text-[11px] truncate uppercase tracking-tight leading-tight">{order.partyName}</h4>
+                                            <p className="text-[9px] text-slate-500 font-mono font-bold tracking-widest uppercase mt-0.5">PO: {order.poNumber || 'N/A'}</p>
                                         </div>
-                                        <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${order.priority === 'High' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                        <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${order.priority === 'High' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                                             {order.priority}
                                         </div>
                                     </div>
                                 ))
                             ) : (
-                                <div className="text-center py-8 text-slate-400 text-sm">No upcoming deliveries scheduled.</div>
+                                <div className="col-span-full text-center py-8 text-slate-400 text-sm font-bold uppercase tracking-widest italic">No upcoming deliveries scheduled.</div>
                             )}
                         </div>
                     </div>
 
-                    <div className="space-y-4">
-                        {/* Global Bulletins Widget */}
-                        <div className="bg-slate-800 rounded-md shadow-sm text-white p-4 relative overflow-hidden border border-slate-700">
-                            <h3 className="font-bold flex items-center gap-2 mb-3 relative z-10 text-xs uppercase tracking-widest text-slate-400">
-                                <Activity size={14} /> Bulletins
-                            </h3>
-                            <div className="space-y-2 relative z-10">
+                    {/* Bulletins - Full Width Row */}
+                    <div className="lg:col-span-full">
+                        <div className="bg-slate-900 rounded-2xl shadow-xl text-white p-6 relative overflow-hidden border border-slate-800">
+                            <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl -mr-40 -mt-40"></div>
+                            <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32"></div>
+
+                            <div className="flex items-center justify-between mb-5 relative z-10">
+                                <h3 className="font-bold flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-slate-400">
+                                    <Activity size={14} className="text-blue-500" /> Administrative Broadcast Platform
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Active Link</span>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
                                 {data.bulletins.slice(0, 3).map((bull, i) => (
-                                    <div key={bull._id || i} className="bg-slate-700/50 p-2.5 rounded border border-slate-600 hover:bg-slate-700 transition-colors">
-                                        <div className="flex justify-between items-start">
-                                            <h4 className="font-bold text-xs text-slate-200">{bull.title}</h4>
-                                            {bull.priority === 'High' && <span className="bg-red-500/20 text-red-400 border border-red-500/50 text-[9px] px-1.5 rounded font-bold">URGENT</span>}
+                                    <motion.div
+                                        key={bull._id || i}
+                                        whileHover={{ scale: 1.02 }}
+                                        className="bg-slate-800/40 backdrop-blur-md p-5 rounded-2xl border border-slate-700/50 hover:border-blue-500/50 transition-all group shadow-lg"
+                                    >
+                                        <div className="flex justify-between items-start mb-3">
+                                            <h4 className="font-black text-[12px] text-white uppercase tracking-tight group-hover:text-blue-400 transition-colors leading-tight">{bull.title}</h4>
+                                            {bull.priority === 'High' && <span className="bg-red-600 text-white text-[8px] px-2 py-0.5 rounded-full font-black tracking-widest shadow-lg shadow-red-900/20">URGENT</span>}
                                         </div>
-                                        <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{bull.content}</p>
-                                    </div>
+                                        <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-3 font-medium">{bull.content}</p>
+                                    </motion.div>
                                 ))}
                                 {data.bulletins.length === 0 && (
-                                    <div className="text-center py-4 text-slate-500 text-xs italic">
-                                        No active announcements.
+                                    <div className="col-span-full text-center py-10 text-slate-500 text-[11px] font-black uppercase tracking-[0.2em] italic border border-dashed border-slate-800 rounded-2xl">
+                                        End of transmission - No active bulletins
                                     </div>
                                 )}
                             </div>
-                            <button onClick={() => setActiveSection('admin-communication')} className="w-full mt-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px] font-bold transition-colors uppercase tracking-wide border border-slate-600">
-                                Communication Hub
-                            </button>
-                        </div>
 
-                        {/* Recent Activity */}
-                        <div className="bg-white rounded-md border border-slate-200 shadow-sm flex flex-col">
-                            <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/50">
-                                <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm uppercase tracking-wide">
-                                    <Activity size={16} className="text-slate-400" /> Live Feed
-                                </h3>
-                            </div>
-                            <div className="p-4">
-                                <div className="space-y-4 relative ml-1.5">
-                                    <div className="absolute left-0 top-2 bottom-2 w-px bg-slate-200"></div>
-                                    {data.recentActivity.map((act, i) => (
-                                        <div key={i} className="relative pl-5">
-                                            <div className="absolute left-[-2.5px] top-1.5 w-1.5 h-1.5 rounded-full bg-white border border-blue-500"></div>
-                                            <p className="text-xs font-medium text-slate-700 line-clamp-2">{act.desc}</p>
-                                            <div className="flex justify-between items-center mt-0.5">
-                                                <p className="text-[10px] text-slate-400 font-mono">{new Date(act.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                                                <span className="text-[9px] uppercase font-bold text-blue-600 bg-blue-50 px-1 rounded">{act.status}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {data.recentActivity.length === 0 && <p className="text-center text-slate-400 text-xs pl-4">No recent activity.</p>}
+                            <div className="mt-6 flex justify-between items-center relative z-10 border-t border-slate-800 pt-5">
+                                <div className="flex flex-col">
+                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Global Broadcast Node: OMS-01</p>
+                                    <p className="text-[8px] font-medium text-slate-600 uppercase tracking-tighter mt-0.5">Last sync: {new Date().toLocaleTimeString()}</p>
                                 </div>
+                                <button onClick={() => setActiveSection('admin-communication')} className="px-6 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 rounded-xl text-[10px] font-black transition-all uppercase tracking-[0.1em] shadow-xl shadow-blue-900/40 border border-blue-400/20">
+                                    Communication Center
+                                </button>
                             </div>
                         </div>
                     </div>

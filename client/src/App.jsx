@@ -43,6 +43,7 @@ import EmployeeTasksView from './pages/EmployeeView/EmployeeTasks';
 import EmployeeJobs from './pages/EmployeeView/EmployeeJobs';
 import EmployeeChat from './pages/EmployeeView/EmployeeChat';
 import EmployeeBulletins from './pages/EmployeeView/EmployeeBulletins';
+import EmployeeCalendar from './pages/EmployeeView/EmployeeCalendar';
 
 // Task View Imports
 import TodoListPage from './pages/Tasks/TodoListPage';
@@ -79,7 +80,7 @@ const Login = ({ setAuth, setUser }) => {
     setError('');
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
       console.log('API URL:', apiUrl);
       const response = await axios.post(`${apiUrl}/api/login`, {
         email,
@@ -304,7 +305,8 @@ const DashboardLayout = ({ onLogout, user }) => {
       case 'employee-global-jobs':
       case 'employee-chat':
       case 'employee-bulletins':
-        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development') ? (
+      case 'employee-calendar':
+        return (user?.role === 'admin' || user?.role === 'dev' || user?.role === 'development' || user?.role === 'worker') ? (
           <EmployeeViewProvider currentUser={user}>
             <EmployeeViewLayout activeTab={activeSection === 'employee-view' ? 'employee-dashboard' : activeSection} setActiveTab={setActiveSection}>
               {(() => {
@@ -322,6 +324,8 @@ const DashboardLayout = ({ onLogout, user }) => {
                     return <EmployeeChat user={user} />;
                   case 'employee-bulletins':
                     return <EmployeeBulletins />;
+                  case 'employee-calendar':
+                    return <EmployeeCalendar />;
                   default:
                     return <EmployeeDashboard user={user} />;
                 }
@@ -482,7 +486,7 @@ function App() {
       axios.defaults.headers.common['x-user-id'] = user._id;
 
       // Sync permissions on reload
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
       axios.get(`${apiUrl}/api/role-permissions/${user.role}`)
         .then(res => localStorage.setItem('role_permissions', JSON.stringify(res.data)))
         .catch(err => console.warn("Permission sync failed"));

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, ClipboardCheck, Briefcase, MessageSquare, Bell, ChevronDown, User, Globe } from 'lucide-react';
+import { Home, ClipboardCheck, Briefcase, MessageSquare, Bell, ChevronDown, User, Globe, Calendar } from 'lucide-react';
 import { useEmployeeView } from '../contexts/EmployeeViewContext';
 
 const EmployeeViewLayout = ({ activeTab, setActiveTab, children }) => {
@@ -9,6 +9,7 @@ const EmployeeViewLayout = ({ activeTab, setActiveTab, children }) => {
     const tabs = [
         { id: 'employee-dashboard', label: 'Dashboard', icon: Home },
         { id: 'employee-jobs', label: 'My Jobs', icon: Briefcase },
+        { id: 'employee-calendar', label: 'Calendar', icon: Calendar },
         { id: 'employee-global-jobs', label: 'Jobs', icon: Globe },
         { id: 'employee-tasks', label: 'Tasks', icon: ClipboardCheck },
         { id: 'employee-chat', label: 'Chat', icon: MessageSquare },

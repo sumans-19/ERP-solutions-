@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
 
 // Personnel API
 export const getEmployees = async () => (await axios.get('/api/employees')).data;
@@ -530,7 +530,7 @@ export const submitFQCResults = async (jobId, data, overrideUserId = null) => {
   return (await axios.post(`/api/production-execution/jobs/${jobId}/fqc`, data, config)).data;
 };
 
-export const getCalendarEvents = async (start, end) => (await axios.get('/api/calendar/events', { params: { start, end } })).data;
+export const getCalendarEvents = async (start, end, employeeId = null) => (await axios.get('/api/calendar/events', { params: { start, end, employeeId } })).data;
 
 export const getAllJobs = async () => (await axios.get('/api/job-cards')).data;
 
