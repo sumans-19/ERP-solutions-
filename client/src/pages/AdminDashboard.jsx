@@ -9,7 +9,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import OrderStageGate from './Orders/OrderStageGate';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://10.98.94.149:5001';
 
 // --- New Component Design ---
 
@@ -24,7 +24,7 @@ const DashboardMetric = ({ title, value, icon: Icon, color, onClick, isExpanded,
             <div>
                 <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">{title}</p>
                 <div className="flex items-baseline gap-2">
-                    <h3 className="text-2xl font-bold text-slate-800">{value}</h3>
+                    <h3 className="font-rounded text-2xl font-bold text-slate-800">{value}</h3>
                     {subtext && <span className="text-[10px] font-medium text-slate-400">{subtext}</span>}
                 </div>
             </div>

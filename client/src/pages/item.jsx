@@ -199,7 +199,7 @@ export default function ItemPage() {
       // userRole is accessible from component scope
 
       if (userRole === 'employee') {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://10.98.94.149:5001';
 
         // For employees, fetch only assigned items from their orders - using axios for consistency
         const token = localStorage.getItem('token');

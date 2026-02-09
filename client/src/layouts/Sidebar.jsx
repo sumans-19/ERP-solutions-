@@ -12,7 +12,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
   const [roleConfig, setRoleConfig] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://10.98.94.149:5001';
 
   useEffect(() => {
     if (user?.role) {
@@ -214,7 +214,7 @@ const Sidebar = ({ activeSection, setActiveSection, isMobileOpen, setIsMobileOpe
             E
           </div>
           <div className="flex flex-col">
-            <span className="font-bold text-sm tracking-wide text-slate-100 uppercase leading-none">Elints OMS</span>
+            <span className="font-rounded text-sm tracking-wide text-slate-100 uppercase leading-none">Elints OMS</span>
             <span className="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Enterprise</span>
           </div>
         </div>

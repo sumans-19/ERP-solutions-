@@ -13,7 +13,7 @@ const OrderTreeView = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
+    const API_URL = import.meta.env.VITE_API_URL || 'http://10.98.94.149:5001';
 
     useEffect(() => {
         fetchTreeData();

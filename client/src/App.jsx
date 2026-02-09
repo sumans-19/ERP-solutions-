@@ -80,7 +80,7 @@ const Login = ({ setAuth, setUser }) => {
     setError('');
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://10.98.94.149:5001';
       console.log('API URL:', apiUrl);
       const response = await axios.post(`${apiUrl}/api/login`, {
         email,
@@ -486,7 +486,7 @@ function App() {
       axios.defaults.headers.common['x-user-id'] = user._id;
 
       // Sync permissions on reload
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://10.98.94.149:5001';
       axios.get(`${apiUrl}/api/role-permissions/${user.role}`)
         .then(res => localStorage.setItem('role_permissions', JSON.stringify(res.data)))
         .catch(err => console.warn("Permission sync failed"));

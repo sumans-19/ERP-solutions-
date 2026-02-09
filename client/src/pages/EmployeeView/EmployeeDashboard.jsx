@@ -11,7 +11,7 @@ import { useEmployeeView } from '../../contexts/EmployeeViewContext';
 import { motion } from 'framer-motion';
 // ... items ...
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://10.98.94.149:5001';
 
 const PieChart = ({ percentage, color = '#2563EB', size = 120 }) => {
     const strokeWidth = 8;
@@ -66,7 +66,7 @@ const StatCard = ({ label, value, icon: Icon, colorClass = "text-blue-600", dela
                 {label}
             </span>
         </div>
-        <p className="text-3xl font-bold text-slate-900">
+        <p className="font-rounded text-3xl font-bold text-slate-900 uppercase">
             {value}
         </p>
     </motion.div>

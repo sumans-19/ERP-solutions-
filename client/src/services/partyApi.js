@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://192.168.1.10:5001/api';
+const API_URL = 'http://10.98.94.149:5001/api';
 
 export const getParties = async () => {
     const response = await axios.get(`${API_URL}/parties`);

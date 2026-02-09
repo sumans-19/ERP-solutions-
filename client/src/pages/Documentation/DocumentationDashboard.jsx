@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import '../../services/api'; // Ensure global axios baseline is set (baseURL, interceptors)
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.10:5001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://10.98.94.149:5001';
 import {
     LayoutDashboard, Search, Package, CheckCircle2,
     ArrowRightCircle, Trash2, AlertCircle, RefreshCcw,

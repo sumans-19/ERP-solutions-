@@ -14,8 +14,24 @@
 }
 
 @layer base {
+  :root {
+    --font-helvetica: "Helvetica", Arial, sans-serif;
+    --font-helvetica-compressed: "Helvetica Compressed", sans-serif;
+    --font-helvetica-rounded: "Helvetica Rounded Bold", sans-serif;
+  }
+
   body {
     @apply bg-slate-50 text-slate-800;
-    font-family: Helvetica, Arial, sans-serif;
+    font-family: var(--font-helvetica);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-helvetica-compressed);
+    @apply tracking-tighter uppercase font-black;
+  }
+
+  /* Special representation elements */
+  .font-rounded {
+    font-family: var(--font-helvetica-rounded);
   }
 }

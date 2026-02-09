@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://192.168.1.10:5001/api/step-assignments';
+const API_URL = 'http://10.98.94.149:5001/api/step-assignments';
 
 const stepAssignmentApi = {
   // Get all step assignments
